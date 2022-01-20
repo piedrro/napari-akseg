@@ -6,604 +6,29 @@ see: https://napari.org/docs/dev/plugins/hook_specifications.html
 
 Replace code below according to your needs.
 """
+import sys
+
 from napari_plugin_engine import napari_hook_implementation
-from qtpy.QtWidgets import (QComboBox, QHBoxLayout, QLabel, QPushButton, QComboBox,QTabWidget,QCheckBox, QProgressBar,
-                            QVBoxLayout, QWidget, QFileDialog, QSlider, QStackedWidget, QDialog, QLineEdit, QTextEdit,
+from qtpy.QtWidgets import (QHBoxLayout, QLabel, QPushButton, QComboBox,QCheckBox, QProgressBar,
+                            QVBoxLayout, QWidget, QFileDialog, QSlider, QTextEdit,
                             QTabWidget)
-from PyQt5.QtCore import Qt
 from PyQt5 import uic
-from magicgui import magic_factory
-from magicgui import magicgui
-from magicgui.events import Event, Signal
-from magicgui.widgets import FunctionGui, Container, LineEdit, SpinBox, Container, FileEdit, Label,PushButton
-import datetime
 import napari
-from napari import Viewer
 from napari.qt.threading import thread_worker
 from functools import partial
-from typing import List, Union, Any
-import functools
-from functools import partial
 from cellpose import models
-from enum import Enum
-import os
-import time
 import numpy as np
 import datetime
-import pathlib
-from skimage import data, img_as_ubyte, filters
-from napari import Viewer
-from napari.layers import Image, Shapes
-from magicgui import magicgui
-from pathlib import Path
-import matplotlib.pyplot as plt
-import pickle
-from skimage import exposure
 import cv2
 import tifffile
 import os
-from glob2 import glob
 import pandas as pd
-import json
 import warnings
-import mat4py
-import regex as re
-from skimage.filters import (threshold_isodata, threshold_li, threshold_otsu,
-                             threshold_triangle, threshold_yen)
-from skimage.measure import label
 import traceback
-from matplotlib.colors import ColorConverter
-import sys
 
-
-def read_nim_directory(self, file_path):
-    files = pd.DataFrame(columns=["path",
-                                  "file_name",
-                                  "pos_dir",
-                                  "channel_dir",
-                                  "posXY",
-                                  "posZ",
-                                  "laser",
-                                  "timestamp"])
-
-    parent_dir = os.path.abspath(os.path.join(file_path, "../../.."))
-
-    paths = glob(parent_dir + "*\**\*.tif", recursive=True)
-
-    for path in paths:
-
-        with tifffile.TiffFile(path) as tif:
-
-            metadata = tif.pages[0].tags["ImageDescription"].value
-            metadata = json.loads(metadata)
-
-        laseractive = metadata["LaserActive"]
-        laserwavelength_nm = metadata["LaserWavelength_nm"]
-        timestamp = metadata["timestamp_us"]
-
-        if True in laseractive:
-            laser_index = laseractive.index(True)
-            laser = str(laserwavelength_nm[laser_index])
-        else:
-            laser = "BF"
-
-        file_name = path.split("\\")[-1].replace("_channels_t0", "").replace("__", "_")
-        pos_dir = path.split("\\")[-2]
-        channel_dir = path.split("\\")[-3]
-        posXY = int(file_name.split("posXY")[-1].split("_")[0])
-        posZ = int(file_name.split("posZ")[-1].split("_")[0].replace(".tif", ""))
-
-        if 'colour' in file_name:
-            colour_int = file_name.split("colour")[-1].replace(".tif", "")
-
-        files.loc[len(files)] = [path, file_name, pos_dir, channel_dir, posXY, posZ, laser, timestamp]
-
-    files = files.sort_values(by=['timestamp'], ascending=True)
-    files = files.reset_index(drop=True)
-
-    lasers = []
-    acquisitions = []
-    acquisition = 1
-
-    for i in range(len(files)):
-
-        posXY = files.iloc[i]["posXY"]
-        laser = files.iloc[i]["laser"]
-
-        if i != 0 and posXY == 0 and laser in lasers:
-            # lasers = []
-            acquisition += 1
-            lasers = []
-
-        lasers.append(laser)
-        acquisitions.append(acquisition)
-
-    acquisitions = pd.DataFrame(acquisitions, columns=['acquisitions'])
-    files = files.join(acquisitions)
-    files = files.sort_values(by=['acquisitions', 'posXY', 'posZ'], ascending=True)
-    files = files.reset_index(drop=True)
-
-    if self.import_limit.currentText() == "1":
-        posXY = files[files["path"] == os.path.abspath(file_path)]["posXY"].values[0]
-        posZ = files[files["path"] == os.path.abspath(file_path)]["posZ"].values[0]
-        acquistion = files[files["path"] == os.path.abspath(file_path)]['acquisitions'].values[0]
-        files = files[(files["posXY"] == posXY) & (files["posZ"] == posZ) & (files['acquisitions'] == acquistion)]
-
-    measurements = files.groupby(by=['acquisitions', 'posXY', 'posZ'])
-
-    channel_num = str(len(files["laser"].unique()))
-
-    print("Found " + str(len(measurements)) + " measurments in NIM directory with " + channel_num + " channels.")
-
-    return files, paths
-
-
-def read_tif(path):
-    with tifffile.TiffFile(path) as tif:
-        metadata = tif.pages[0].tags["ImageDescription"].value
-        metadata = json.loads(metadata)
-
-    image = tifffile.imread(path)
-
-    metadata["image_name"] = os.path.basename(path)
-    metadata["image_path"] = path
-    metadata["mask_name"] = None
-    metadata["mask_path"] = None
-    metadata["label_name"] = None,
-    metadata["label_path"] = None,
-    metadata["crop"] = [0, image.shape[0], 0, image.shape[1]]
-
-    return image, metadata
-
-
-def read_nim_images(self, files, import_limit=10, laser_mode="All", multichannel_mode="0", fov_mode="0"):
-    if laser_mode != "All":
-        files = files[files["laser"] == str(laser_mode)]
-
-    measurements = files.groupby(by=['acquisitions', 'posXY', 'posZ'])
-
-    if import_limit == "None":
-        import_limit = len(measurements)
-
-    nim_images = {}
-
-    for i in range(int(import_limit)):
-
-        progress = int(((i + 1) / int(import_limit)) * 100)
-        self.import_progressbar.setValue(progress)
-
-        print("loading image " + str(i + 1) + " of " + str(import_limit))
-
-        measurement = measurements.get_group(list(measurements.groups)[i])
-
-        channels = measurement.groupby(by=['laser'])
-
-        for j in range(len(channels)):
-
-            dat = channels.get_group(list(channels.groups)[j])
-
-            path = dat["path"].item()
-            laser = dat["laser"].item()
-
-            img, meta = read_tif(path)
-
-            img = process_image(img, multichannel_mode, fov_mode)
-
-            meta["crop"] = [0, img.shape[0], 0, img.shape[1]]
-            meta["nim_laser_mode"] = laser_mode
-            meta["nim_multichannel_mode"] = multichannel_mode
-            meta["fov_mode"] = fov_mode
-
-            if laser not in nim_images:
-                nim_images[laser] = dict(images=[img], masks=[], classes=[], metadata={i: meta})
-            else:
-                nim_images[laser]["images"].append(img)
-                nim_images[laser]["metadata"][i] = meta
-
-    return nim_images
-
-
-def get_brightest_fov(image):
-    imageL = image[0, :, :image.shape[2] // 2]
-    imageR = image[0, :, image.shape[2] // 2:]
-
-    if np.mean(imageL) > np.mean(imageR):
-
-        image = image[:, :, :image.shape[2] // 2]
-    else:
-        image = image[:, :, :image.shape[2] // 2]
-
-    return image
-
-
-def imadjust(img):
-    v_min, v_max = np.percentile(img, (1, 99))
-    img = exposure.rescale_intensity(img, in_range=(v_min, v_max))
-
-    return img
-
-
-def get_channel(img, multichannel_mode):
-    if len(img.shape) > 2:
-
-        if multichannel_mode == 0:
-
-            img = img[0, :, :]
-
-        elif multichannel_mode == 1:
-
-            img = np.max(img, axis=0)
-
-        elif multichannel_mode == 2:
-
-            img = np.mean(img, axis=0).astype(np.uint16)
-
-    return img
-
-
-def get_fov(img, fov_mode):
-    imgL = img[:, :img.shape[1] // 2]
-    imgR = img[:, img.shape[1] // 2:]
-
-    if fov_mode == 0:
-        if np.mean(imgL) > np.mean(imgR):
-            img = imgL
-        else:
-            img = imgR
-    if fov_mode == 1:
-        img = imgL
-    if fov_mode == 2:
-        img = imgR
-
-    return img
-
-
-def process_image(image, multichannel_mode, fov_mode):
-    image = get_channel(image, multichannel_mode)
-
-    image = get_fov(image, fov_mode)
-
-    return image
-
-
-def stack_images(images, metadata=None):
-    if len(images) != 0:
-
-        dims = []
-
-        for img in images:
-            dims.append([img.shape[0], img.shape[1]])
-
-        dims = np.array(dims)
-
-        stack_dim = max(dims[:, 0]), max(dims[:, 1])
-
-        image_stack = []
-
-        for i in range(len(images)):
-            img = images[i]
-
-            img_temp = np.zeros(stack_dim, dtype=img.dtype)
-            # # img_temp[:] = np.nan
-
-            y_centre = (img_temp.shape[0]) // 2
-            x_centre = (img_temp.shape[1]) // 2
-
-            if (img.shape[0] % 2) == 0:
-                y1 = y_centre - img.shape[0] // 2
-                y2 = y1 + img.shape[0]
-            else:
-                y1 = int(y_centre - img.shape[0] / 2 + 0.5)
-                y2 = y1 + img.shape[0]
-
-            if (img.shape[1] % 2) == 0:
-                x1 = x_centre - img.shape[1] // 2
-                x2 = x1 + img.shape[1]
-            else:
-                x1 = int(x_centre - img.shape[1] / 2 + 0.5)
-                x2 = x1 + img.shape[1]
-
-            img_temp[y1:y2, x1:x2] = img
-
-            image_stack.append(img_temp)
-
-            if metadata:
-                metadata[i]["crop"] = [y1, y2, x1, x2]
-
-        image_stack = np.stack(image_stack, axis=0)
-
-    else:
-        image_stack = images
-        metadata = metadata
-
-    return image_stack, metadata
-
-
-def import_images(self, file_path):
-    file_path = os.path.abspath(file_path[0])
-    file_name = file_path.split("\\")[-1]
-
-    parent_dir = file_path.replace(file_name, "")
-    file_paths = glob(parent_dir + "*.tif", recursive=True)
-
-    if self.import_limit.currentText() == "1":
-
-        files = [file_path]
-    else:
-        files = file_paths
-
-    images = []
-    metadata = {}
-    imported_data = {}
-
-    import_limit = self.import_limit.currentText()
-
-    if import_limit == "None":
-        import_limit = len(files)
-
-    for i in range(int(import_limit)):
-
-        progress = int(((i + 1) / int(import_limit)) * 100)
-        self.import_progressbar.setValue(progress)
-
-        file_path = files[i]
-        file_name = file_path.split("\\")[-1]
-
-        image = tifffile.imread(file_path)
-
-        meta = dict(image_name=file_name,
-                    image_path=file_path,
-                    mask_name=None,
-                    mask_path=None,
-                    label_name=None,
-                    label_path=None,
-                    dims=[image.shape[0], image.shape[1]],
-                    crop=[0, image.shape[1], 0, image.shape[0]])
-
-        images.append(image)
-        metadata[i] = meta
-
-        if imported_data == {}:
-            imported_data["Image"] = dict(images=[image], masks=[], classes=[], metadata={i: meta})
-        else:
-            imported_data["Image"]["images"].append(image)
-            imported_data["Image"]["metadata"][i] = meta
-
-    image_stack, metadata = stack_images(images, metadata)
-
-    return imported_data, file_paths
-
-
-def import_cellpose(self, file_path):
-    file_path = os.path.abspath(file_path[0])
-    file_name = file_path.split("\\")[-1]
-
-    parent_dir = file_path.replace(file_name, "")
-    file_paths = glob(parent_dir + "*.npy", recursive=True)
-
-    if self.import_limit.currentText() == "1":
-
-        files = [file_path]
-    else:
-        files = file_paths
-
-    imported_data = {}
-
-    import_limit = self.import_limit.currentText()
-
-    if import_limit == "None":
-        import_limit = len(files)
-
-    for i in range(int(import_limit)):
-
-        progress = int(((i + 1) / int(import_limit)) * 100)
-        self.import_progressbar.setValue(progress)
-
-        file_path = os.path.abspath(files[i])
-        file_name = file_path.split("\\")[-1]
-
-        dat = np.load(file_path, allow_pickle=True).item()
-
-        mask = dat["masks"]
-        img = dat["img"]
-
-        mask = mask.astype(np.uint16)
-
-        meta = dict(image_name=file_name,
-                    image_path=file_path,
-                    mask_name=file_name,
-                    mask_path=file_path,
-                    label_name=None,
-                    label_path=None,
-                    dims=[img.shape[0], img.shape[1]],
-                    crop=[0, img.shape[1], 0, img.shape[0]])
-
-        if imported_data == {}:
-            imported_data["Image"] = dict(images=[img], masks=[mask], classes=[], metadata={i: meta})
-        else:
-            imported_data["Image"]["images"].append(img)
-            imported_data["Image"]["masks"].append(mask)
-            imported_data["Image"]["metadata"][i] = meta
-
-    return imported_data, file_paths
-
-
-def import_oufti(self, file_path):
-    file_path = os.path.abspath(file_path[0])
-    file_name = file_path.split("\\")[-1]
-
-    parent_dir = file_path.replace(file_name, "")
-    mat_paths = glob(parent_dir + "*.mat", recursive=True)
-    image_paths = glob(parent_dir + "*.tif", recursive=True)
-
-    mat_files = [path.split("\\")[-1] for path in mat_paths]
-    image_files = [path.split("\\")[-1] for path in image_paths]
-
-    matching_image_paths = []
-    matching_mat_paths = []
-
-    images = []
-    masks = []
-    metadata = {}
-
-    import_limit = self.import_limit.currentText()
-
-    for i in range(len(image_files)):
-
-        image_file = image_files[i].replace(".tif", "")
-
-        index = [i for i, x in enumerate(mat_files) if image_file in x]
-
-        if index != []:
-            image_path = image_paths[i]
-            mat_path = mat_paths[index[0]]
-
-            matching_mat_paths.append(mat_path)
-            matching_image_paths.append(image_path)
-
-    if self.import_limit.currentText() == "1":
-
-        if file_path in matching_image_paths:
-
-            index = matching_image_paths.index(file_path)
-            image_files = [matching_image_paths[index]]
-            mat_files = [matching_mat_paths[index]]
-
-        elif file_path in matching_mat_paths:
-
-            index = matching_mat_paths.index(file_path)
-            image_files = [matching_image_paths[index]]
-            mat_files = [matching_mat_paths[index]]
-
-        else:
-            print("Matching image/mesh files could not be found")
-            self.viewer.text_overlay.visible = True
-            self.viewer.text_overlay.text = "Matching image/mesh files could not be found"
-
-    else:
-
-        image_files = matching_image_paths
-        mat_files = matching_mat_paths
-
-    if import_limit == "None":
-        import_limit = len(image_files)
-
-    imported_data = {}
-
-    for i in range(int(import_limit)):
-
-        try:
-            progress = int(((i + 1) / int(import_limit)) * 100)
-            self.import_progressbar.setValue(progress)
-
-            mat_path = mat_files[i]
-            image_path = image_files[i]
-
-            image_name = image_path.split("\\")[-1]
-            mat_name = mat_path.split("\\")[-1]
-
-            image, mask = import_mat_data(image_path, mat_path)
-
-            meta = dict(image_name=image_name,
-                        image_path=image_path,
-                        mask_name=mat_name,
-                        mask_path=mat_path,
-                        label_name=None,
-                        label_path=None,
-                        dims=[image.shape[0], image.shape[1]],
-                        crop=[0, image.shape[1], 0, image.shape[0]])
-
-            if imported_data == {}:
-                imported_data["Image"] = dict(images=[image], masks=[mask], classes=[], metadata={i: meta})
-            else:
-                imported_data["Image"]["images"].append(image)
-                imported_data["Image"]["masks"].append(mask)
-                imported_data["Image"]["metadata"][i] = meta
-
-        except:
-            pass
-
-    return imported_data, matching_image_paths
-
-
-def import_mat_data(image_path, mat_path):
-    image = tifffile.imread(image_path)
-
-    mat_data = mat4py.loadmat(mat_path)
-
-    mat_data = mat_data["cellList"]
-
-    contours = []
-
-    for dat in mat_data:
-
-        if type(dat) == dict:
-            cnt = dat["model"]
-            cnt = np.array(cnt).reshape((-1, 1, 2)).astype(np.int32)
-            contours.append(cnt)
-
-    mask = np.zeros(image.shape, dtype=np.uint16)
-
-    for i in range(len(contours)):
-        cnt = contours[i]
-
-        cv2.drawContours(mask, [cnt], -1, i + 1, -1)
-
-    return image, mask
-
-
-def unstack_images(stack, axis=0):
-    images = [np.squeeze(e, axis) for e in np.split(stack, stack.shape[axis], axis=axis)]
-
-    return images
-
-
-def append_image_stacks(current_metadata, new_metadata,
-                        current_image_stack, new_image_stack):
-    current_image_stack = unstack_images(current_image_stack)
-
-    new_image_stack = unstack_images(new_image_stack)
-
-    appended_image_stack = current_image_stack + new_image_stack
-
-    appended_metadata = current_metadata
-
-    for key, value in new_metadata.items():
-        new_key = max(appended_metadata.keys()) + 1
-
-        appended_metadata[new_key] = value
-
-    appended_image_stack, appended_metadata = stack_images(appended_image_stack, appended_metadata)
-
-    return appended_image_stack, appended_metadata
-
-
-def append_metadata(current_metadata, new_metadata):
-    appended_metadata = current_metadata
-
-    for key, value in new_metadata.items():
-        new_key = max(appended_metadata.keys()) + 1
-
-        appended_metadata[new_key] = value
-
-        return appended_metadata
-
-
-def read_ak_metadata():
-    excel_path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AK-SEG\AK-SEG Metadata.xlsx"
-
-    ak_meta = pd.read_excel(excel_path)
-
-    user_initials = list(ak_meta["User Initials"].dropna())
-    microscope = list(ak_meta["Microscope"].dropna())
-    modality = list(ak_meta["Image Modality"].dropna())
-
-    ak_meta = dict(user_initials=user_initials,
-                   microscope=microscope,
-                   modality=modality)
-
-    return ak_meta
-
+from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
+                                 import_images,stack_images,unstack_images,append_image_stacks,import_oufti)
+from napari_akseg.akseg_ui import Ui_tab_widget
 
 class AKSEG(QWidget):
     """Widget allows selection of two labels layers and returns a new layer
@@ -616,10 +41,16 @@ class AKSEG(QWidget):
 
         super().__init__()
 
+        application_path = os.path.dirname(sys.executable)
         self.viewer = viewer
         self.setLayout(QVBoxLayout())
 
-        self.akseg_ui = uic.loadUi(r"C:\napari-akseg\src\napari_akseg\akseg_ui.ui")
+        # ui_path = os.path.abspath(r"C:\napari-akseg\src\napari_akseg\akseg_ui.ui")
+        # self.akseg_ui = uic.loadUi(ui_path)
+
+        self.form = Ui_tab_widget()
+        self.akseg_ui = QTabWidget()
+        self.form.setupUi(self.akseg_ui)
 
         #add widget_gui layout to main layout
         self.layout().addWidget(self.akseg_ui)
@@ -754,7 +185,7 @@ class AKSEG(QWidget):
 
         # viewer event that call updateFileName when the slider is modified
         self.contours = []
-        # self.viewer.dims.events.current_step.connect(self._sliderEvent)
+        self.viewer.dims.events.current_step.connect(self._sliderEvent)
 
         # self.segImage = self.viewer.add_image(np.zeros((1,100,100),dtype=np.uint16),name="Image")
         self.class_colours = {1: (255 / 255, 255 / 255, 255 / 255, 1),
@@ -764,9 +195,9 @@ class AKSEG(QWidget):
                               5: (255 / 255, 170 / 255, 0 / 255, 1),
                               6: (255 / 255, 0 / 255, 0 / 255, 1), }
         self.classLayer = self.viewer.add_labels(np.zeros((1, 100, 100), dtype=np.uint16), opacity=0.5, name="Classes",
-                                                 color=self.class_colours)
+                                                 color=self.class_colours,metadata = {0:{"image_name":""}})
         self.segLayer = self.viewer.add_labels(np.zeros((1, 100, 100), dtype=np.uint16), opacity=1,
-                                               name="Segmentations")
+                                               name="Segmentations",metadata = {0:{"image_name":""}})
         self.segLayer.contour = 1
 
         # keyboard events, only triggered when viewer is not empty (an image is loaded/active)
@@ -1836,16 +1267,21 @@ class AKSEG(QWidget):
 
     def _updateFileName(self):
 
-        current_fov = self.viewer.dims.current_step[0]
-        active_layer = self.viewer.layers.selection.active
+        try:
 
-        metadata = self.viewer.layers[str(active_layer)].metadata[current_fov]
+            current_fov = self.viewer.dims.current_step[0]
+            active_layer = self.viewer.layers.selection.active
 
-        file_name = metadata["image_name"]
+            metadata = self.viewer.layers[str(active_layer)].metadata[current_fov]
 
-        self.viewer.text_overlay.visible = True
+            file_name = metadata["image_name"]
 
-        self.viewer.text_overlay.text = file_name
+            self.viewer.text_overlay.visible = True
+
+            self.viewer.text_overlay.text = file_name
+
+        except:
+            pass
 
     def _open_image_directory(self):
 
@@ -2020,33 +1456,21 @@ class AKSEG(QWidget):
             if layer_name not in ["Segmentations", "Classes"]:
                 self.viewer.layers.remove(self.viewer.layers[layer_name])
 
-
-
-class ExampleQWidget(QWidget):
-    # your QWidget.__init__ can optionally request the napari viewer instance
-    # in one of two ways:
-    # 1. use a parameter called `napari_viewer`, as done here
-    # 2. use a type annotation of 'napari.viewer.Viewer' for any parameter
-    def __init__(self, napari_viewer):
-        super().__init__()
-        self.viewer = napari_viewer
-
-        btn = QPushButton("Click me!")
-        btn.clicked.connect(self._on_click)
-
-        self.setLayout(QHBoxLayout())
-        self.layout().addWidget(btn)
-
-    def _on_click(self):
-        print("napari has", len(self.viewer.layers), "layers")
-
-
-@magic_factory
-def example_magic_widget(img_layer: "napari.layers.Image"):
-    print(f"you have selected {img_layer}")
-
-
 @napari_hook_implementation
 def napari_experimental_provide_dock_widget():
     # you can return either a single widget, or a sequence of widgets
-    return [ExampleQWidget, example_magic_widget, AKSEG]
+    return [AKSEG]
+
+
+# from napari_akseg.akseg_ui import Ui_tab_widget
+
+# ui_path = os.path.abspath(r"C:\napari-akseg\src\napari_akseg\akseg_ui.ui")
+# akseg_ui: object = uic.loadUi(ui_path)
+#
+# print(akseg_ui)
+
+
+
+# viewer = napari.Viewer()
+# my_widget = AKSEG(viewer)
+# viewer.window.add_dock_widget(my_widget

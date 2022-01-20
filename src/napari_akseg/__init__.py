@@ -7,5 +7,5 @@ except ImportError:
 
 
 
-from ._dock_widget import napari_experimental_provide_dock_widget, ExampleQWidget, example_magic_widget
+from ._dock_widget import napari_experimental_provide_dock_widget, AKSEG
 
