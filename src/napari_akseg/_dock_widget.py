@@ -12,7 +12,7 @@ from napari_plugin_engine import napari_hook_implementation
 from qtpy.QtWidgets import (QHBoxLayout, QLabel, QPushButton, QComboBox,QCheckBox, QProgressBar,
                             QVBoxLayout, QWidget, QFileDialog, QSlider, QTextEdit,
                             QTabWidget)
-from PyQt5 import uic
+from glob2 import glob
 import napari
 from napari.qt.threading import thread_worker
 from functools import partial
@@ -25,9 +25,14 @@ import os
 import pandas as pd
 import warnings
 import traceback
+import json
 
 from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
-                                 import_images,stack_images,unstack_images,append_image_stacks,import_oufti)
+                                 import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
+                                 import_dataset, import_AKSEG)
+
+from napari_akseg._utils_json import import_coco_json, export_coco_json
+
 from napari_akseg.akseg_ui import Ui_tab_widget
 
 class AKSEG(QWidget):
@@ -69,6 +74,9 @@ class AKSEG(QWidget):
         self.image_open_dir = self.findChild(QPushButton, "image_open_dir")
         self.image_open_cellpose = self.findChild(QPushButton, "image_open_cellpose")
         self.image_open_oufti = self.findChild(QPushButton, "image_open_oufti")
+        self.image_open_cellpose = self.findChild(QPushButton, "image_open_cellpose")
+        self.image_open_dataset = self.findChild(QPushButton, "image_open_dataset")
+        self.image_open_akseg = self.findChild(QPushButton, "image_open_akseg")
         self.import_progressbar = self.findChild(QProgressBar, "import_progressbar")
 
         # cellpose controls + variabes from Qt Desinger References
@@ -128,9 +136,7 @@ class AKSEG(QWidget):
 
         # upload tab controls from Qt Desinger References
         self.upload_segchannel = self.findChild(QComboBox, "upload_segchannel")
-        self.upload_segupload = self.findChild(QCheckBox, "upload_segupload")
         self.upload_segcurated = self.findChild(QCheckBox, "upload_segcurated")
-        self.upload_classupload = self.findChild(QCheckBox, "upload_classupload")
         self.upload_classcurated = self.findChild(QCheckBox, "upload_classcurated")
         self.upload_initial = self.findChild(QComboBox, "upload_initial")
         self.upload_content = self.findChild(QComboBox, "upload_content")
@@ -148,6 +154,8 @@ class AKSEG(QWidget):
         self.image_open_dir.clicked.connect(self._open_image_directory)
         self.image_open_cellpose.clicked.connect(self._open_cellpose_directory)
         self.image_open_oufti.clicked.connect(self._open_oufti_directory)
+        self.image_open_dataset.clicked.connect(self._openDataset)
+        self.image_open_akseg.clicked.connect(self._openAKSEG)
 
         # cellpose events
         self.cellpose_load_model.clicked.connect(self._openModelFile)
@@ -194,7 +202,7 @@ class AKSEG(QWidget):
                               4: (170 / 255, 0 / 255, 255 / 255, 1),
                               5: (255 / 255, 170 / 255, 0 / 255, 1),
                               6: (255 / 255, 0 / 255, 0 / 255, 1), }
-        self.classLayer = self.viewer.add_labels(np.zeros((1, 100, 100), dtype=np.uint16), opacity=0.5, name="Classes",
+        self.classLayer = self.viewer.add_labels(np.zeros((1, 100, 100), dtype=np.uint16), opacity=0.25, name="Classes",
                                                  color=self.class_colours,metadata = {0:{"image_name":""}})
         self.segLayer = self.viewer.add_labels(np.zeros((1, 100, 100), dtype=np.uint16), opacity=1,
                                                name="Segmentations",metadata = {0:{"image_name":""}})
@@ -218,6 +226,55 @@ class AKSEG(QWidget):
 
         # mouse events
         self.segLayer.mouse_drag_callbacks.append(self._segmentationEvents)
+
+    def _openDataset(self):
+
+        path = QFileDialog.getExistingDirectory(self, "Select Directory",
+                                                r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images")
+
+        if path:
+
+            imported_data, file_paths = import_dataset(self,path)
+
+            self.path_list = file_paths
+
+            self._process_import(imported_data)
+
+
+    def _openAKSEG(self):
+
+        path = QFileDialog.getExistingDirectory(self, "Select AKSEG Directory",
+                                                r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images")
+        if path:
+            if path:
+
+                imported_data, file_paths = import_AKSEG(self, path)
+
+                try:
+                    meta = imported_data["Image"]["metadata"][0]
+
+                    user_initial = meta["user_initial"]
+                    content = meta["image_content"]
+                    microscope = meta["microscope"]
+                    modality = meta["modality"]
+                    source = meta["light_source"]
+                    stains = meta["stains"]
+                    protocol = meta["protocol"]
+
+                    self.upload_initial.setCurrentText(user_initial)
+                    self.upload_content.setCurrentText(content)
+                    self.upload_microscope.setCurrentText(microscope)
+                    self.upload_modality.setCurrentText(modality)
+                    self.upload_illumination.setCurrentText(source)
+                    self.upload_stain.setCurrentText(stains)
+                    self.upload_protocol.setCurrentText(protocol)
+
+                except:
+                    pass
+
+                self.path_list = file_paths
+
+                self._process_import(imported_data)
 
     def _imageControls(self, key, viewer=None):
 
@@ -285,7 +342,7 @@ class AKSEG(QWidget):
     def _uploadAKGROUP(self, mode):
 
         try:
-            akgroup_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKCellSeg\Images"
+            akgroup_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images"
 
             if os.path.exists(akgroup_dir) == False:
 
@@ -309,10 +366,12 @@ class AKSEG(QWidget):
                 if os.path.exists(user_metadata_path):
 
                     user_metadata = pd.read_csv(user_metadata_path, sep=",").iloc[:, 1:]
+                    metadata_file_names = user_metadata["file_name"].tolist()
 
                 else:
-
+                    metadata_file_names = []
                     user_metadata = pd.DataFrame(columns=["date_uploaded",
+                                                          "file_name",
                                                           "user_initial",
                                                           "content",
                                                           "microscope",
@@ -370,101 +429,106 @@ class AKSEG(QWidget):
                                 class_mask = class_stack[i]
                                 meta = meta_stack[i]
 
-                                y1, y2, x1, x2 = meta["crop"]
+                                file_name = os.path.splitext(meta["image_name"])[0]
+                                file_path = os.path.abspath(meta["image_path"])
 
-                                image = image[y1:y2, x1:x2]
+                                #stops user from overwriting AKGROUP files, unless they have opened them from AKGROUP for curation
+                                if file_name in metadata_file_names and akgroup_dir.find(file_path) == -1:
 
-                                meta["user_initial"] = user_initial
-                                meta["image_content"] = content
-                                meta["microscope"] = microscope
-                                meta["modality"] = modality
-                                meta["light_source"] = source
-                                meta["stains"] = stains
-                                meta["protocol"] = protocol
+                                    print(file_name + "file already exists  in AKGROUP Server")
 
-                                meta["segmentations_curated"] = self.upload_segcurated.isChecked()
+                                else:
 
-                                meta["labels_curated"] = self.upload_classcurated.isChecked()
+                                    y1, y2, x1, x2 = meta["crop"]
 
-                                if self.cellpose_segmentation == True:
-                                    meta["cellpose_segmentation"] = self.cellpose_segmentation
-                                    meta["flow_threshold"] = float(self.cellpose_flowthresh_label.text())
-                                    meta["mask_threshold"] = float(self.cellpose_maskthresh_label.text())
-                                    meta["min_size"] = int(self.cellpose_minsize_label.text())
-                                    meta["diameter"] = int(self.cellpose_diameter_label.text())
-                                    meta["cellpose_model"] = self.cellpose_model.currentText()
-                                    meta["custom_model"] = os.path.abspath(self.cellpose_custom_model_path)
+                                    image = image[y1:y2, x1:x2]
+                                    mask = mask[y1:y2, x1:x2]
+                                    class_mask = class_mask[y1:y2, x1:x2]
 
-                                save_dir = akgroup_dir + "\\" + user_initial + "\\"
-                                file_meta = [user_initial, content, microscope, modality, source, stains, protocol]
+                                    meta["user_initial"] = user_initial
+                                    meta["image_content"] = content
+                                    meta["microscope"] = microscope
+                                    meta["modality"] = modality
+                                    meta["light_source"] = source
+                                    meta["stains"] = stains
+                                    meta["protocol"] = protocol
 
-                                for item in file_meta:
+                                    meta["segmentations_curated"] = self.upload_segcurated.isChecked()
 
-                                    if item != "":
-                                        save_dir = save_dir + item + "_"
+                                    meta["labels_curated"] = self.upload_classcurated.isChecked()
 
-                                image_dir = save_dir[:-2] + "\\" + "images" + "\\"
-                                mask_dir = save_dir[:-2] + "\\" + "masks" + "\\"
-                                class_dir = save_dir[:-2] + "\\" + "labels" + "\\"
+                                    if self.cellpose_segmentation == True:
+                                        meta["cellpose_segmentation"] = self.cellpose_segmentation
+                                        meta["flow_threshold"] = float(self.cellpose_flowthresh_label.text())
+                                        meta["mask_threshold"] = float(self.cellpose_maskthresh_label.text())
+                                        meta["min_size"] = int(self.cellpose_minsize_label.text())
+                                        meta["diameter"] = int(self.cellpose_diameter_label.text())
+                                        meta["cellpose_model"] = self.cellpose_model.currentText()
+                                        meta["custom_model"] = os.path.abspath(self.cellpose_custom_model_path)
 
-                                if os.path.exists(image_dir) == False:
-                                    os.makedirs(image_dir)
+                                    save_dir = akgroup_dir + "\\" + user_initial + "\\"
+                                    file_meta = [user_initial, content, microscope, modality]
 
-                                if os.path.exists(mask_dir) == False:
-                                    os.makedirs(mask_dir)
+                                    for item in file_meta:
 
-                                if os.path.exists(class_dir) == False:
-                                    os.makedirs(class_dir)
+                                        if item != "":
+                                            save_dir = save_dir + item + "_"
 
-                                file_name = os.path.splitext(meta["image_name"])[0] + ".tif"
-                                image_path = image_dir + "\\" + file_name
-                                mask_path = mask_dir + "\\" + file_name
-                                class_path = class_dir + "\\" + file_name
+                                    image_dir = save_dir[:-1] + "\\" + "images" + "\\"
+                                    mask_dir = save_dir[:-1] + "\\" + "masks" + "\\"
+                                    class_dir = save_dir[:-1] + "\\" + "labels" + "\\"
+                                    json_dir = save_dir[:-1] + "\\" + "json" + "\\"
 
-                                tifffile.imwrite(image_path, image, metadata=meta)
+                                    if os.path.exists(image_dir) == False:
+                                        os.makedirs(image_dir)
 
-                                if self.upload_segupload.isChecked() == True:
+                                    if os.path.exists(mask_dir) == False:
+                                        os.makedirs(mask_dir)
 
+                                    if os.path.exists(json_dir) == False:
+                                        os.makedirs(json_dir)
+
+                                    if os.path.exists(class_dir) == False:
+                                        os.makedirs(class_dir)
+
+                                    file_name = os.path.splitext(meta["image_name"])[0] + ".tif"
+                                    image_path = image_dir + "\\" + file_name
+                                    mask_path = mask_dir + "\\" + file_name
+                                    json_path = json_dir + "\\" + file_name.replace(".tif",".txt")
+                                    class_path = class_dir + "\\" + file_name
+
+                                    tifffile.imwrite(image_path, image, metadata=meta)
                                     tifffile.imwrite(mask_path, mask, metadata=meta)
-
-                                else:
-
-                                    mask_path = None
-
-                                if self.upload_classupload.isChecked() == True:
-
                                     tifffile.imwrite(class_path, class_mask, metadata=meta)
+                                    export_coco_json(file_name, image, mask, class_mask, json_path)
 
-                                else:
+                                    file_metadata = [date_uploaded,
+                                                     file_name,
+                                                     user_initial,
+                                                     content,
+                                                     microscope,
+                                                     modality,
+                                                     source,
+                                                     stains,
+                                                     protocol,
+                                                     mask_curated,
+                                                     label_curated,
+                                                     meta["image_path"],
+                                                     image_path,
+                                                     meta["mask_path"],
+                                                     mask_path,
+                                                     meta["label_path"],
+                                                     class_path]
 
-                                    class_path = None
+                                    user_metadata.loc[len(user_metadata)] = file_metadata
 
-                                file_metadata = [date_uploaded,
-                                                 user_initial,
-                                                 content,
-                                                 microscope,
-                                                 modality,
-                                                 source,
-                                                 stains,
-                                                 protocol,
-                                                 mask_curated,
-                                                 label_curated,
-                                                 meta["image_path"],
-                                                 image_path,
-                                                 meta["mask_path"],
-                                                 mask_path,
-                                                 meta["label_path"],
-                                                 class_path]
+                                meta_cols = user_metadata.columns[1:]
+                                user_metadata.drop_duplicates(subset=meta_cols, keep="last", inplace=True)
 
-                                user_metadata.loc[len(user_metadata)] = file_metadata
+                                user_metadata.to_csv(user_metadata_path, sep=",")
 
-                            meta_cols = user_metadata.columns[1:]
-                            user_metadata.drop_duplicates(subset=meta_cols, keep="last", inplace=True)
-
-                            user_metadata.to_csv(user_metadata_path, sep=",")
-
-                            # reset progressbar
-                            self.cellpose_progressbar.setValue(0)
+            # reset progressbar
+            self.cellpose_progressbar.setValue(0)
 
 
         except:
@@ -1166,6 +1230,8 @@ class AKSEG(QWidget):
         self.viewer.layers.select_previous()
         self.cellpose_progressbar.setValue(0)
         self.cellpose_segmentation = True
+        self.viewer.reset_view()
+        self._assignSingleClass()
 
     def _update_cellpose_progress(self, progress):
 
@@ -1222,7 +1288,7 @@ class AKSEG(QWidget):
     def _openModelFile(self):
 
         path = QFileDialog.getOpenFileName(self, "Open File",
-                                           r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKCellSeg\Models",
+                                           r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Models",
                                            "Cellpose Models (*)")
 
         if path:
@@ -1421,6 +1487,8 @@ class AKSEG(QWidget):
                 self.classLayer.data = new_class_stack
                 self.segLayer.metadata = new_metadata
 
+
+
         layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
 
         # ensures segmentation and classes is in correct order in the viewer
@@ -1445,6 +1513,30 @@ class AKSEG(QWidget):
         self.import_progressbar.reset()
 
         self.viewer.reset_view()
+
+        self._assignSingleClass()
+
+    def _assignSingleClass(self):
+
+        mask_stack = self.segLayer.data.copy()
+        label_stack = self.classLayer.data.copy()
+
+        for i in range(len(mask_stack)):
+
+            mask = mask_stack[i,:,:]
+            label = label_stack[i,:,:]
+
+            label_ids = np.unique(label)
+
+            if len(label_ids) == 1:
+
+                label[mask!=0] = 1
+
+            label_stack[i,:,:] = label
+
+        self.classLayer.data = label_stack
+
+
 
     def _clear_images(self):
 

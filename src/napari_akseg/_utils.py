@@ -6,13 +6,15 @@ import tifffile
 import os
 from glob2 import glob
 import pandas as pd
-import json
 import mat4py
+import datetime
+import json
+import matplotlib.pyplot as plt
 
-
-
+from napari_akseg._utils_json import import_coco_json, export_coco_json
 
 def read_nim_directory(self, file_path):
+
     files = pd.DataFrame(columns=["path",
                                   "file_name",
                                   "pos_dir",
@@ -95,6 +97,7 @@ def read_nim_directory(self, file_path):
 
 
 def read_tif(path):
+
     with tifffile.TiffFile(path) as tif:
         metadata = tif.pages[0].tags["ImageDescription"].value
         metadata = json.loads(metadata)
@@ -107,7 +110,8 @@ def read_tif(path):
     metadata["mask_path"] = None
     metadata["label_name"] = None,
     metadata["label_path"] = None,
-    metadata["crop"] = [0, image.shape[0], 0, image.shape[1]]
+    metadata["dims"] = [image.shape[0], image.shape[1]]
+    metadata["crop"] = [0, image.shape[1], 0, image.shape[0]]
 
     return image, metadata
 
@@ -274,6 +278,131 @@ def stack_images(images, metadata=None):
 
     return image_stack, metadata
 
+def import_dataset(self, path):
+
+    folders = glob(path + "/*/")
+    folders = [os.path.abspath(x).split("\\")[-1].lower() for x in folders]
+
+    if "images" in folders and "masks" in folders:
+
+        image_paths = glob(path + "/images/*.tif")
+        mask_paths = glob(path + "/masks/*.tif")
+
+        images = []
+        masks = []
+        metadata = {}
+        imported_data = {}
+
+        import_limit = self.import_limit.currentText()
+
+        if import_limit == "None":
+            import_limit = len(image_paths)
+
+        for i in range(int(import_limit)):
+
+            progress = int(((i + 1) / int(import_limit)) * 100)
+            self.import_progressbar.setValue(progress)
+
+            image_path = os.path.abspath(image_paths[i])
+            mask_path = image_path.replace("\\images\\", "\\masks\\")
+
+            image_name = image_path.split("\\")[-1]
+            mask_name = mask_path.split("\\")[-1]
+
+            image, meta = read_tif(image_path)
+
+            if os.path.exists(mask_path):
+
+                mask = tifffile.imread(mask_path)
+
+            else:
+                mask_name = None
+                mask_path = None
+                mask = np.zeros(image.shape, dtype=np.uint16)
+
+            meta["image_name"] = image_name
+            meta["image_path"] = image_path
+            meta["mask_name"] = mask_name
+            meta["mask_path"] = mask_path
+            meta["label_name"] = None
+            meta["label_path"] = None
+
+            images.append(image)
+            metadata[i] = meta
+
+            if imported_data == {}:
+                imported_data["Image"] = dict(images=[image], masks=[mask], classes=[], metadata={i: meta})
+            else:
+                imported_data["Image"]["images"].append(image)
+                imported_data["Image"]["masks"].append(mask)
+                imported_data["Image"]["metadata"][i] = meta
+
+        return imported_data, image_paths
+
+def import_AKSEG(self, path):
+
+    folders = glob(path + "/*/")
+    folders = [os.path.abspath(x).split("\\")[-1].lower() for x in folders]
+
+    if "images" in folders and "json" in folders:
+
+        image_paths = glob(path + "/images/*.tif")
+        json_paths = glob(path + "/json/*.tif")
+
+        images = []
+        masks = []
+        labels = []
+        metadata = {}
+        imported_data = {}
+
+        import_limit = self.import_limit.currentText()
+
+        if import_limit == "None":
+            import_limit = len(image_paths)
+
+        for i in range(int(import_limit)):
+
+            progress = int(((i + 1) / int(import_limit)) * 100)
+            self.import_progressbar.setValue(progress)
+
+            image_path = os.path.abspath(image_paths[i])
+            json_path = image_path.replace("\\images\\", "\\json\\").replace(".tif",".txt")
+
+            image_name = image_path.split("\\")[-1]
+            json_name = json_path.split("\\")[-1]
+
+            image, meta = read_tif(image_path)
+
+            if os.path.exists(json_path):
+
+                mask, label = import_coco_json(json_path)
+
+            else:
+                json_name = None
+                json_path = None
+                label = np.zeros(image.shape, dtype=np.uint16)
+                mask = np.zeros(image.shape, dtype=np.uint16)
+
+            meta["image_name"] = image_name
+            meta["image_path"] = image_path
+            meta["mask_name"] = json_name
+            meta["mask_path"] = json_path
+            meta["label_name"] = json_name
+            meta["label_path"] = json_path
+
+            images.append(image)
+            metadata[i] = meta
+
+            if imported_data == {}:
+                imported_data["Image"] = dict(images=[image], masks=[mask], classes=[label], metadata={i: meta})
+            else:
+                imported_data["Image"]["images"].append(image)
+                imported_data["Image"]["masks"].append(mask)
+                imported_data["Image"]["classes"].append(label)
+                imported_data["Image"]["metadata"][i] = meta
+
+        return imported_data, image_paths
+
 
 def import_images(self, file_path):
     file_path = os.path.abspath(file_path[0])
@@ -305,16 +434,14 @@ def import_images(self, file_path):
         file_path = files[i]
         file_name = file_path.split("\\")[-1]
 
-        image = tifffile.imread(file_path)
+        image, meta = read_tif(file_path)
 
-        meta = dict(image_name=file_name,
-                    image_path=file_path,
-                    mask_name=None,
-                    mask_path=None,
-                    label_name=None,
-                    label_path=None,
-                    dims=[image.shape[0], image.shape[1]],
-                    crop=[0, image.shape[1], 0, image.shape[0]])
+        meta["image_name"] = file_name
+        meta["image_path"] = file_path
+        meta["mask_name"] = None
+        meta["mask_path"] = None
+        meta["label_name"] = None
+        meta["label_path"] = None
 
         images.append(image)
         metadata[i] = meta
@@ -325,12 +452,11 @@ def import_images(self, file_path):
             imported_data["Image"]["images"].append(image)
             imported_data["Image"]["metadata"][i] = meta
 
-    image_stack, metadata = stack_images(images, metadata)
-
     return imported_data, file_paths
 
 
 def import_cellpose(self, file_path):
+
     file_path = os.path.abspath(file_path[0])
     file_name = file_path.split("\\")[-1]
 
@@ -361,23 +487,40 @@ def import_cellpose(self, file_path):
         dat = np.load(file_path, allow_pickle=True).item()
 
         mask = dat["masks"]
-        img = dat["img"]
-
         mask = mask.astype(np.uint16)
 
-        meta = dict(image_name=file_name,
-                    image_path=file_path,
-                    mask_name=file_name,
-                    mask_path=file_path,
-                    label_name=None,
-                    label_path=None,
-                    dims=[img.shape[0], img.shape[1]],
-                    crop=[0, img.shape[1], 0, img.shape[0]])
+        image_path = file_path.replace("_seg.npy",".tif")
+
+        if os.path.exists(image_path):
+
+            image_name = image_path.split("\\")[-1]
+
+            image, meta = read_tif(image_path)
+
+            meta["image_name"] = image_name
+            meta["image_path"] = image_path
+            meta["mask_name"] = file_name
+            meta["mask_path"] = file_path
+            meta["label_name"] = None
+            meta["label_path"] = None
+
+        else:
+
+            image = dat["img"]
+
+            meta = dict(image_name=file_name,
+                        image_path=file_path,
+                        mask_name=file_name,
+                        mask_path=file_path,
+                        label_name=None,
+                        label_path=None,
+                        dims=[img.shape[0], img.shape[1]],
+                        crop=[0, img.shape[1], 0, img.shape[0]])
 
         if imported_data == {}:
-            imported_data["Image"] = dict(images=[img], masks=[mask], classes=[], metadata={i: meta})
+            imported_data["Image"] = dict(images=[image], masks=[mask], classes=[], metadata={i: meta})
         else:
-            imported_data["Image"]["images"].append(img)
+            imported_data["Image"]["images"].append(image)
             imported_data["Image"]["masks"].append(mask)
             imported_data["Image"]["metadata"][i] = meta
 
@@ -546,6 +689,7 @@ def append_metadata(current_metadata, new_metadata):
 
 
 def read_ak_metadata():
+
     excel_path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AK-SEG\AK-SEG Metadata.xlsx"
 
     ak_meta = pd.read_excel(excel_path)
