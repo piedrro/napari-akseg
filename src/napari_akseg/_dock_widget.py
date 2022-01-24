@@ -26,10 +26,10 @@ import pandas as pd
 import warnings
 import traceback
 import json
-
+import matplotlib.pyplot as plt
 from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
-                                 import_dataset, import_AKSEG)
+                                 import_dataset, import_AKSEG, generate_multichannel_stack)
 
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 
@@ -248,19 +248,23 @@ class AKSEG(QWidget):
         if path:
             if path:
 
-                imported_data, file_paths = import_AKSEG(self, path)
+                imported_data, file_paths, akmeta = import_AKSEG(self, path)
+
+                self.path_list = file_paths
+
+                self._process_import(imported_data)
 
                 try:
-                    meta = imported_data["Image"]["metadata"][0]
+                    user_initial = akmeta["user_initial"]
+                    content = akmeta["image_content"]
+                    microscope = akmeta["microscope"]
+                    modality = akmeta["modality"]
+                    source = akmeta["light_source"]
+                    stains = akmeta["stains"]
+                    protocol = akmeta["protocol"]
+                    segChannel = akmeta["segmentation_channel"]
 
-                    user_initial = meta["user_initial"]
-                    content = meta["image_content"]
-                    microscope = meta["microscope"]
-                    modality = meta["modality"]
-                    source = meta["light_source"]
-                    stains = meta["stains"]
-                    protocol = meta["protocol"]
-
+                    self.upload_segchannel.setCurrentText(segChannel)
                     self.upload_initial.setCurrentText(user_initial)
                     self.upload_content.setCurrentText(content)
                     self.upload_microscope.setCurrentText(microscope)
@@ -270,11 +274,8 @@ class AKSEG(QWidget):
                     self.upload_protocol.setCurrentText(protocol)
 
                 except:
-                    pass
+                    print(traceback.format_exc())
 
-                self.path_list = file_paths
-
-                self._process_import(imported_data)
 
     def _imageControls(self, key, viewer=None):
 
@@ -367,11 +368,13 @@ class AKSEG(QWidget):
 
                     user_metadata = pd.read_csv(user_metadata_path, sep=",").iloc[:, 1:]
                     metadata_file_names = user_metadata["file_name"].tolist()
-
+                    metadata_akseg_hash = user_metadata["akseg_hash"].tolist()
                 else:
                     metadata_file_names = []
+                    metadata_akseg_hash = []
                     user_metadata = pd.DataFrame(columns=["date_uploaded",
                                                           "file_name",
+                                                          "akseg_hash",
                                                           "user_initial",
                                                           "content",
                                                           "microscope",
@@ -395,6 +398,8 @@ class AKSEG(QWidget):
                 else:
 
                     segChannel = self.upload_segchannel.currentText()
+                    layer_names = [layer.name for layer in self.viewer.layers if
+                                   layer.name not in ["Segmentations", "Classes"]]
 
                     if segChannel == "":
 
@@ -405,16 +410,19 @@ class AKSEG(QWidget):
                         image_layer = self.viewer.layers[segChannel]
 
                         image_stack = image_layer.data
+                        multi_stack, meta_stack = generate_multichannel_stack(self)
                         mask_stack = self.segLayer.data
                         class_stack = self.classLayer.data
-                        meta_stack = image_layer.metadata
+                        # meta_stack = image_layer.metadata
 
                         if len(image_stack) >= 1:
 
                             if mode == "active":
+
                                 current_step = self.viewer.dims.current_step[0]
 
-                                image_stack = np.expand_dims(image_stack[current_step], axis=0)
+                                # image_stack = np.expand_dims(image_stack[current_step], axis=0)
+                                image_stack = multi_stack[current_step]
                                 mask_stack = np.expand_dims(mask_stack[current_step], axis=0)
                                 class_stack = np.expand_dims(class_stack[current_step], axis=0)
                                 meta_stack = np.expand_dims(meta_stack[current_step], axis=0)
@@ -424,24 +432,41 @@ class AKSEG(QWidget):
                                 progress = int(((i + 1) / len(image_stack)) * 100)
                                 self.upload_progressbar.setValue(progress)
 
-                                image = image_stack[i]
+                                # image = image_stack[i]
+                                image = multi_stack[i]
+
                                 mask = mask_stack[i]
                                 class_mask = class_stack[i]
-                                meta = meta_stack[i]
+                                meta = dict(layer_meta = meta_stack[i])
+                                seg_meta = meta["layer_meta"][segChannel]
 
-                                file_name = os.path.splitext(meta["image_name"])[0]
-                                file_path = os.path.abspath(meta["image_path"])
+                                file_name = seg_meta["image_name"]
+                                file_path = os.path.abspath(seg_meta["image_path"])
+                                akseg_hash = seg_meta["akseg_hash"]
+                                import_mode = seg_meta["import_mode"]
+                                meta["file_name"] = seg_meta["image_name"]
+                                meta["file_path"] = seg_meta["image_path"]
 
                                 #stops user from overwriting AKGROUP files, unless they have opened them from AKGROUP for curation
-                                if file_name in metadata_file_names and akgroup_dir.find(file_path) == -1:
+                                if akseg_hash in metadata_akseg_hash and import_mode != "AKSEG":
 
-                                    print(file_name + "file already exists  in AKGROUP Server")
+                                    print("file already exists  in AKGROUP Server:   " + file_name)
 
                                 else:
 
-                                    y1, y2, x1, x2 = meta["crop"]
+                                    if import_mode != "AKSEG":
+                                        print("Uploading file to AKGROUP Server:   " + file_name)
+                                    else:
+                                        print("Editing file on AKGROUP Server:   " + file_name)
 
-                                    image = image[y1:y2, x1:x2]
+
+                                    y1, y2, x1, x2 = seg_meta["crop"]
+
+                                    if len(image.shape) > 2 :
+                                        image = image[:, y1:y2, x1:x2]
+                                    else:
+                                        image = image[y1:y2, x1:x2]
+
                                     mask = mask[y1:y2, x1:x2]
                                     class_mask = class_mask[y1:y2, x1:x2]
 
@@ -452,6 +477,8 @@ class AKSEG(QWidget):
                                     meta["light_source"] = source
                                     meta["stains"] = stains
                                     meta["protocol"] = protocol
+                                    meta["channels"] = layer_names
+                                    meta["segmentation_channel"] = segChannel
 
                                     meta["segmentations_curated"] = self.upload_segcurated.isChecked()
 
@@ -490,8 +517,8 @@ class AKSEG(QWidget):
 
                                     if os.path.exists(class_dir) == False:
                                         os.makedirs(class_dir)
-
-                                    file_name = os.path.splitext(meta["image_name"])[0] + ".tif"
+        #
+                                    file_name = os.path.splitext(seg_meta["image_name"])[0] + ".tif"
                                     image_path = image_dir + "\\" + file_name
                                     mask_path = mask_dir + "\\" + file_name
                                     json_path = json_dir + "\\" + file_name.replace(".tif",".txt")
@@ -504,6 +531,7 @@ class AKSEG(QWidget):
 
                                     file_metadata = [date_uploaded,
                                                      file_name,
+                                                     akseg_hash,
                                                      user_initial,
                                                      content,
                                                      microscope,
@@ -513,23 +541,21 @@ class AKSEG(QWidget):
                                                      protocol,
                                                      mask_curated,
                                                      label_curated,
-                                                     meta["image_path"],
+                                                     seg_meta["image_path"],
                                                      image_path,
-                                                     meta["mask_path"],
+                                                     seg_meta["mask_path"],
                                                      mask_path,
-                                                     meta["label_path"],
+                                                     seg_meta["label_path"],
                                                      class_path]
 
                                     user_metadata.loc[len(user_metadata)] = file_metadata
 
-                                meta_cols = user_metadata.columns[1:]
-                                user_metadata.drop_duplicates(subset=meta_cols, keep="last", inplace=True)
+                            user_metadata.drop_duplicates(subset=['akseg_hash'], keep="last", inplace=True)
 
-                                user_metadata.to_csv(user_metadata_path, sep=",")
+                            user_metadata.to_csv(user_metadata_path, sep=",")
 
-            # reset progressbar
-            self.cellpose_progressbar.setValue(0)
-
+                            # reset progressbar
+                            self.cellpose_progressbar.setValue(0)
 
         except:
             print(traceback.format_exc())
@@ -1202,6 +1228,7 @@ class AKSEG(QWidget):
     def _segmentAll(self):
 
         chanel = self.cellpose_segchannel.currentText()
+        self.upload_segchannel.setCurrentText(chanel)
 
         images = self.viewer.layers[chanel].data
 

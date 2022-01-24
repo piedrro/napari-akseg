@@ -10,7 +10,7 @@ import mat4py
 import datetime
 import json
 import matplotlib.pyplot as plt
-
+import hashlib
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 
 def read_nim_directory(self, file_path):
@@ -104,14 +104,19 @@ def read_tif(path):
 
     image = tifffile.imread(path)
 
-    metadata["image_name"] = os.path.basename(path)
-    metadata["image_path"] = path
-    metadata["mask_name"] = None
-    metadata["mask_path"] = None
-    metadata["label_name"] = None,
-    metadata["label_path"] = None,
-    metadata["dims"] = [image.shape[0], image.shape[1]]
-    metadata["crop"] = [0, image.shape[1], 0, image.shape[0]]
+    metadata["akseg_hash"] = get_hash(path)
+
+    if "image_name" not in metadata.keys():
+
+        metadata["image_name"] = os.path.basename(path)
+        metadata["image_path"] = path
+        metadata["mask_name"] = None
+        metadata["mask_path"] = None
+        metadata["label_name"] = None,
+        metadata["label_path"] = None,
+
+        metadata["dims"] = [image.shape[0], image.shape[1]]
+        metadata["crop"] = [0, image.shape[1], 0, image.shape[0]]
 
     return image, metadata
 
@@ -153,6 +158,7 @@ def read_nim_images(self, files, import_limit=10, laser_mode="All", multichannel
             meta["nim_laser_mode"] = laser_mode
             meta["nim_multichannel_mode"] = multichannel_mode
             meta["fov_mode"] = fov_mode
+            meta["import_mode"] = "NIM"
 
             if laser not in nim_images:
                 nim_images[laser] = dict(images=[img], masks=[], classes=[], metadata={i: meta})
@@ -227,6 +233,7 @@ def process_image(image, multichannel_mode, fov_mode):
 
 
 def stack_images(images, metadata=None):
+
     if len(images) != 0:
 
         dims = []
@@ -264,12 +271,12 @@ def stack_images(images, metadata=None):
                 x2 = x1 + img.shape[1]
 
             img_temp[y1:y2, x1:x2] = img
-
+    #
             image_stack.append(img_temp)
 
             if metadata:
                 metadata[i]["crop"] = [y1, y2, x1, x2]
-
+    #
         image_stack = np.stack(image_stack, axis=0)
 
     else:
@@ -326,6 +333,7 @@ def import_dataset(self, path):
             meta["mask_path"] = mask_path
             meta["label_name"] = None
             meta["label_path"] = None
+            meta["import_mode"] = "Dataset"
 
             images.append(image)
             metadata[i] = meta
@@ -349,9 +357,6 @@ def import_AKSEG(self, path):
         image_paths = glob(path + "/images/*.tif")
         json_paths = glob(path + "/json/*.tif")
 
-        images = []
-        masks = []
-        labels = []
         metadata = {}
         imported_data = {}
 
@@ -368,40 +373,35 @@ def import_AKSEG(self, path):
             image_path = os.path.abspath(image_paths[i])
             json_path = image_path.replace("\\images\\", "\\json\\").replace(".tif",".txt")
 
-            image_name = image_path.split("\\")[-1]
-            json_name = json_path.split("\\")[-1]
-
-            image, meta = read_tif(image_path)
+            image, meta_stack = read_tif(image_path)
 
             if os.path.exists(json_path):
 
                 mask, label = import_coco_json(json_path)
 
             else:
-                json_name = None
-                json_path = None
-                label = np.zeros(image.shape, dtype=np.uint16)
-                mask = np.zeros(image.shape, dtype=np.uint16)
 
-            meta["image_name"] = image_name
-            meta["image_path"] = image_path
-            meta["mask_name"] = json_name
-            meta["mask_path"] = json_path
-            meta["label_name"] = json_name
-            meta["label_path"] = json_path
+                label = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint16)
+                mask = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint16)
 
-            images.append(image)
-            metadata[i] = meta
+            for j, channel in enumerate(meta_stack["channels"]):
 
-            if imported_data == {}:
-                imported_data["Image"] = dict(images=[image], masks=[mask], classes=[label], metadata={i: meta})
-            else:
-                imported_data["Image"]["images"].append(image)
-                imported_data["Image"]["masks"].append(mask)
-                imported_data["Image"]["classes"].append(label)
-                imported_data["Image"]["metadata"][i] = meta
+                img = image[:, :, j]
+                meta = meta_stack["layer_meta"][channel]
+                meta["import_mode"] = "AKSEG"
 
-        return imported_data, image_paths
+                if channel not in imported_data.keys():
+                    imported_data[channel] = dict(images=[img], masks=[mask], classes=[label], metadata={i: meta})
+                else:
+                    imported_data[channel]["images"].append(img)
+                    imported_data[channel]["masks"].append(mask)
+                    imported_data[channel]["classes"].append(label)
+                    imported_data[channel]["metadata"][i] = meta
+
+        akmeta = meta_stack
+        akmeta.pop("layer_meta")
+
+        return imported_data, image_paths, akmeta
 
 
 def import_images(self, file_path):
@@ -442,6 +442,7 @@ def import_images(self, file_path):
         meta["mask_path"] = None
         meta["label_name"] = None
         meta["label_path"] = None
+        meta["import_mode"] = "image"
 
         images.append(image)
         metadata[i] = meta
@@ -495,7 +496,7 @@ def import_cellpose(self, file_path):
 
             image_name = image_path.split("\\")[-1]
 
-            image, meta = read_tif(image_path)
+            img, meta = read_tif(image_path)
 
             meta["image_name"] = image_name
             meta["image_path"] = image_path
@@ -503,6 +504,7 @@ def import_cellpose(self, file_path):
             meta["mask_path"] = file_path
             meta["label_name"] = None
             meta["label_path"] = None
+            meta["import_mode"] = "cellpose"
 
         else:
 
@@ -514,6 +516,7 @@ def import_cellpose(self, file_path):
                         mask_path=file_path,
                         label_name=None,
                         label_path=None,
+                        import_mode = 'cellpose',
                         dims=[img.shape[0], img.shape[1]],
                         crop=[0, img.shape[1], 0, img.shape[0]])
 
@@ -601,16 +604,15 @@ def import_oufti(self, file_path):
             image_name = image_path.split("\\")[-1]
             mat_name = mat_path.split("\\")[-1]
 
-            image, mask = import_mat_data(image_path, mat_path)
+            image, mask, meta = import_mat_data(image_path, mat_path)
 
-            meta = dict(image_name=image_name,
-                        image_path=image_path,
-                        mask_name=mat_name,
-                        mask_path=mat_path,
-                        label_name=None,
-                        label_path=None,
-                        dims=[image.shape[0], image.shape[1]],
-                        crop=[0, image.shape[1], 0, image.shape[0]])
+            meta["image_name"] = image_name
+            meta["image_path"] = image_path
+            meta["mask_name"] = mat_name
+            meta["mask_path"] = mat_path
+            meta["label_name"] = None
+            meta["label_path"] = None
+            meta["import_mode"] = "oufti"
 
             if imported_data == {}:
                 imported_data["Image"] = dict(images=[image], masks=[mask], classes=[], metadata={i: meta})
@@ -626,7 +628,8 @@ def import_oufti(self, file_path):
 
 
 def import_mat_data(image_path, mat_path):
-    image = tifffile.imread(image_path)
+
+    image, meta = read_tif(image_path)
 
     mat_data = mat4py.loadmat(mat_path)
 
@@ -648,7 +651,7 @@ def import_mat_data(image_path, mat_path):
 
         cv2.drawContours(mask, [cnt], -1, i + 1, -1)
 
-    return image, mask
+    return image, mask, meta
 
 
 def unstack_images(stack, axis=0):
@@ -703,3 +706,44 @@ def read_ak_metadata():
                    modality=modality)
 
     return ak_meta
+
+def generate_multichannel_stack(self):
+
+    layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
+
+    dim_range = int(self.viewer.dims.range[0][1])
+
+    multi_image_stack = []
+    multi_meta_stack = {}
+
+    for i in range(dim_range):
+
+        rgb_images = []
+        rgb_meta = {}
+
+        for layer in layer_names:
+
+            img = self.viewer.layers[layer].data
+            meta = self.viewer.layers[layer].metadata
+
+            rgb_images.append(img[i])
+            rgb_meta[layer] = meta[i]
+
+        rgb_images = np.stack(rgb_images, axis=2)
+
+        multi_image_stack.append(rgb_images)
+        multi_meta_stack[i] = rgb_meta
+
+    multi_image_stack = np.stack(multi_image_stack, axis=0)
+
+    return multi_image_stack, multi_meta_stack
+
+
+
+def get_hash(img_path):
+
+    with open(img_path, "rb") as f:
+        bytes = f.read()  # read entire file as bytes
+
+        return hashlib.sha256(bytes).hexdigest()
+
