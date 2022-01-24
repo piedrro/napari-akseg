@@ -152,6 +152,21 @@ class AKSEG(QWidget):
         self.upload_active = self.findChild(QPushButton, "upload_active")
         self.upload_progressbar = self.findChild(QProgressBar, "upload_progressbar")
 
+        # export tab controls from Qt Desinger References
+        self.export_single = self.findChild(QCheckBox, "export_single")
+        self.export_dividing = self.findChild(QCheckBox, "export_dividing")
+        self.export_divided = self.findChild(QCheckBox, "export_divided")
+        self.export_vertical = self.findChild(QCheckBox, "export_vertical")
+        self.export_broken = self.findChild(QCheckBox, "export_broken")
+        self.export_edge = self.findChild(QCheckBox, "export_edge")
+        self.export_mode = self.findChild(QComboBox, "export_mode")
+        self.export_directory = self.findChild(QTextEdit, "export_directory")
+        self.export_tif = self.findChild(QPushButton, "export_tif")
+        self.export_cellpose = self.findChild(QPushButton, "export_cellpose")
+        self.export_oufti = self.findChild(QPushButton, "export_oufti")
+        self.export_imagej = self.findChild(QPushButton, "export_imagej")
+
+
         # import events
         self.nim_open_dir.clicked.connect(self._open_nim_directory)
         self.image_open_dir.clicked.connect(self._open_image_directory)
