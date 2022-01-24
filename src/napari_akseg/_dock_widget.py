@@ -144,6 +144,9 @@ class AKSEG(QWidget):
         self.upload_modality = self.findChild(QComboBox, "upload_modality")
         self.upload_illumination = self.findChild(QComboBox, "upload_illumination")
         self.upload_stain = self.findChild(QComboBox, "upload_stain")
+        self.upload_antibiotic = self.findChild(QComboBox, "upload_antibiotic")
+        self.upload_treatmenttime = self.findChild(QComboBox, "upload_treatmenttime")
+        self.upload_mount = self.findChild(QComboBox, "upload_mount")
         self.upload_protocol = self.findChild(QComboBox, "upload_protocol")
         self.upload_all = self.findChild(QPushButton, "upload_all")
         self.upload_active = self.findChild(QPushButton, "upload_active")
@@ -226,6 +229,45 @@ class AKSEG(QWidget):
 
         # mouse events
         self.segLayer.mouse_drag_callbacks.append(self._segmentationEvents)
+
+        meta_path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Metadata\AKSEG Metadata.xlsx"
+
+        akmeta = pd.read_excel(meta_path, usecols="B:K", header=2)
+
+        akmeta = dict(user_initial=akmeta["User Initial"].dropna().astype(str).tolist(),
+                      content=akmeta["Image Content"].dropna().astype(str).tolist(),
+                      microscope=akmeta["Microscope"].dropna().astype(str).tolist(),
+                      modality=akmeta["Modality"].dropna().astype(str).tolist(),
+                      source=akmeta["Light Source"].dropna().astype(str).tolist(),
+                      antibiotic=akmeta["Antibiotic"].dropna().astype(str).tolist(),
+                      treatment_time=akmeta["Treatment Time (mins)"].dropna().astype(str).tolist(),
+                      stains=akmeta["Stains"].dropna().astype(str).tolist(),
+                      mount=akmeta["Mounting Method"].dropna().astype(str).tolist(),
+                      protocol=akmeta["Protocol"].dropna().astype(str).tolist())
+
+
+
+        self.upload_initial.clear()
+        self.upload_initial.addItems(["Required for upload"] + akmeta["user_initial"])
+        self.upload_content.clear()
+        self.upload_content.addItems(["Required for upload"] + akmeta["content"])
+        self.upload_microscope.clear()
+        self.upload_microscope.addItems(["Required for upload"] + akmeta["microscope"])
+        self.upload_modality.clear()
+        self.upload_modality.addItems(["Required for upload"] + akmeta["modality"])
+        self.upload_illumination.clear()
+        self.upload_illumination.addItems([""] + akmeta["source"])
+        self.upload_stain.clear()
+        self.upload_stain.addItems([""] + akmeta["stains"])
+        self.upload_antibiotic.clear()
+        self.upload_antibiotic.addItems([""] + akmeta["antibiotic"])
+        self.upload_treatmenttime.clear()
+        self.upload_treatmenttime.addItems([""] + akmeta["treatment_time"])
+        self.upload_mount.clear()
+        self.upload_mount.addItems([""] + akmeta["mount"])
+        self.upload_protocol.clear()
+        self.upload_protocol.addItems([""] + akmeta["protocol"])
+
 
     def _openDataset(self):
 
