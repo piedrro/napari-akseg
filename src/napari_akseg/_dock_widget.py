@@ -29,7 +29,7 @@ import json
 import matplotlib.pyplot as plt
 from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
-                                 import_dataset, import_AKSEG, generate_multichannel_stack)
+                                 import_dataset, import_AKSEG, generate_multichannel_stack,populate_upload_combos)
 
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 
@@ -230,44 +230,7 @@ class AKSEG(QWidget):
         # mouse events
         self.segLayer.mouse_drag_callbacks.append(self._segmentationEvents)
 
-        meta_path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Metadata\AKSEG Metadata.xlsx"
-
-        akmeta = pd.read_excel(meta_path, usecols="B:K", header=2)
-
-        akmeta = dict(user_initial=akmeta["User Initial"].dropna().astype(str).tolist(),
-                      content=akmeta["Image Content"].dropna().astype(str).tolist(),
-                      microscope=akmeta["Microscope"].dropna().astype(str).tolist(),
-                      modality=akmeta["Modality"].dropna().astype(str).tolist(),
-                      source=akmeta["Light Source"].dropna().astype(str).tolist(),
-                      antibiotic=akmeta["Antibiotic"].dropna().astype(str).tolist(),
-                      treatment_time=akmeta["Treatment Time (mins)"].dropna().astype(str).tolist(),
-                      stains=akmeta["Stains"].dropna().astype(str).tolist(),
-                      mount=akmeta["Mounting Method"].dropna().astype(str).tolist(),
-                      protocol=akmeta["Protocol"].dropna().astype(str).tolist())
-
-
-
-        self.upload_initial.clear()
-        self.upload_initial.addItems(["Required for upload"] + akmeta["user_initial"])
-        self.upload_content.clear()
-        self.upload_content.addItems(["Required for upload"] + akmeta["content"])
-        self.upload_microscope.clear()
-        self.upload_microscope.addItems(["Required for upload"] + akmeta["microscope"])
-        self.upload_modality.clear()
-        self.upload_modality.addItems(["Required for upload"] + akmeta["modality"])
-        self.upload_illumination.clear()
-        self.upload_illumination.addItems([""] + akmeta["source"])
-        self.upload_stain.clear()
-        self.upload_stain.addItems([""] + akmeta["stains"])
-        self.upload_antibiotic.clear()
-        self.upload_antibiotic.addItems([""] + akmeta["antibiotic"])
-        self.upload_treatmenttime.clear()
-        self.upload_treatmenttime.addItems([""] + akmeta["treatment_time"])
-        self.upload_mount.clear()
-        self.upload_mount.addItems([""] + akmeta["mount"])
-        self.upload_protocol.clear()
-        self.upload_protocol.addItems([""] + akmeta["protocol"])
-
+        populate_upload_combos(self)
 
     def _openDataset(self):
 
@@ -1300,7 +1263,7 @@ class AKSEG(QWidget):
         self.cellpose_progressbar.setValue(0)
         self.cellpose_segmentation = True
         self.viewer.reset_view()
-        self._assignSingleClass()
+        self._autoClassify()
 
     def _update_cellpose_progress(self, progress):
 
@@ -1583,9 +1546,9 @@ class AKSEG(QWidget):
 
         self.viewer.reset_view()
 
-        self._assignSingleClass()
+        self._autoClassify()
 
-    def _assignSingleClass(self):
+    def _autoClassify(self):
 
         mask_stack = self.segLayer.data.copy()
         label_stack = self.classLayer.data.copy()
@@ -1596,10 +1559,30 @@ class AKSEG(QWidget):
             label = label_stack[i,:,:]
 
             label_ids = np.unique(label)
+            mask_ids = np.unique(mask)
 
             if len(label_ids) == 1:
 
-                label[mask!=0] = 1
+                for mask_id in mask_ids:
+
+                    if mask_id != 0:
+
+                        cnt_mask = np.zeros(label.shape,dtype = np.uint8)
+                        cnt_mask[mask == mask_id] = 255
+
+                        cnt, _ = cv2.findContours(cnt_mask.astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
+
+                        x, y, w, h = cv2.boundingRect(cnt[0])
+                        y1, y2, x1, x2 = y, (y + h), x, (x + w)
+
+                        # appends contour to list if the bounding coordinates are along the edge of the image
+                        if y1 > 0 and y2 < cnt_mask.shape[0] and x1 > 0 and x2 < cnt_mask.shape[1]:
+
+                            label[mask == mask_id] = 1
+
+                        else:
+
+                            label[mask == mask_id] = 6
 
             label_stack[i,:,:] = label
 

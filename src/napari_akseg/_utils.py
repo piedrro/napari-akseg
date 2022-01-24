@@ -1,3 +1,4 @@
+import traceback
 
 import numpy as np
 from skimage import exposure
@@ -521,9 +522,9 @@ def import_cellpose(self, file_path):
                         crop=[0, img.shape[1], 0, img.shape[0]])
 
         if imported_data == {}:
-            imported_data["Image"] = dict(images=[image], masks=[mask], classes=[], metadata={i: meta})
+            imported_data["Image"] = dict(images=[img], masks=[mask], classes=[], metadata={i: meta})
         else:
-            imported_data["Image"]["images"].append(image)
+            imported_data["Image"]["images"].append(img)
             imported_data["Image"]["masks"].append(mask)
             imported_data["Image"]["metadata"][i] = meta
 
@@ -747,3 +748,45 @@ def get_hash(img_path):
 
         return hashlib.sha256(bytes).hexdigest()
 
+
+def populate_upload_combos(self):
+
+    try:
+        meta_path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Metadata\AKSEG Metadata.xlsx"
+
+        akmeta = pd.read_excel(meta_path, usecols="B:K", header=2)
+
+        akmeta = dict(user_initial=akmeta["User Initial"].dropna().astype(str).tolist(),
+                      content=akmeta["Image Content"].dropna().astype(str).tolist(),
+                      microscope=akmeta["Microscope"].dropna().astype(str).tolist(),
+                      modality=akmeta["Modality"].dropna().astype(str).tolist(),
+                      source=akmeta["Light Source"].dropna().astype(str).tolist(),
+                      antibiotic=akmeta["Antibiotic"].dropna().astype(str).tolist(),
+                      treatment_time=akmeta["Treatment Time (mins)"].dropna().astype(str).tolist(),
+                      stains=akmeta["Stains"].dropna().astype(str).tolist(),
+                      mount=akmeta["Mounting Method"].dropna().astype(str).tolist(),
+                      protocol=akmeta["Protocol"].dropna().astype(str).tolist())
+
+        self.upload_initial.clear()
+        self.upload_initial.addItems(["Required for upload"] + akmeta["user_initial"])
+        self.upload_content.clear()
+        self.upload_content.addItems(["Required for upload"] + akmeta["content"])
+        self.upload_microscope.clear()
+        self.upload_microscope.addItems(["Required for upload"] + akmeta["microscope"])
+        self.upload_modality.clear()
+        self.upload_modality.addItems(["Required for upload"] + akmeta["modality"])
+        self.upload_illumination.clear()
+        self.upload_illumination.addItems([""] + akmeta["source"])
+        self.upload_stain.clear()
+        self.upload_stain.addItems([""] + akmeta["stains"])
+        self.upload_antibiotic.clear()
+        self.upload_antibiotic.addItems([""] + akmeta["antibiotic"])
+        self.upload_treatmenttime.clear()
+        self.upload_treatmenttime.addItems([""] + akmeta["treatment_time"])
+        self.upload_mount.clear()
+        self.upload_mount.addItems([""] + akmeta["mount"])
+        self.upload_protocol.clear()
+        self.upload_protocol.addItems([""] + akmeta["protocol"])
+
+    except:
+        print(traceback.format_exc())
