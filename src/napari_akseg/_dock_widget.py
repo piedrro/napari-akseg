@@ -169,7 +169,7 @@ class AKSEG(QWidget):
         self.export_active = self.findChild(QPushButton, "export_active")
         self.export_all = self.findChild(QPushButton, "export_all")
         self.export_progressbar = self.findChild(QProgressBar, "export_progressbar")
-
+        self.export_directory.setText("Data will be exported in same folder(s) that the images/masks were originally imported from. Not Recomeneded for Nanoimager Data")
 
         # import events
         self.nim_open_dir.clicked.connect(self._open_nim_directory)
@@ -212,7 +212,7 @@ class AKSEG(QWidget):
         #export events
         self.export_active.clicked.connect(partial(self._export, "active"))
         self.export_all.clicked.connect(partial(self._export, "all"))
-
+        self.export_location.currentTextChanged.connect(self._getExportDirectory)
 
         # upload tab events
         self.upload_all.clicked.connect(partial(self._uploadAKGROUP, "all"))
@@ -256,31 +256,67 @@ class AKSEG(QWidget):
 
         populate_upload_combos(self)
 
-    def _export(self, mode):
+    def _getExportDirectory(self):
 
-        export_path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Export"
+        if self.export_location.currentText() == "Import Directory":
+
+            self.export_directory.setText("Data will be exported in same folder(s) that the images/masks were originally imported from. Not Recomeneded for Nanoimager Data")
+
+        if self.export_location.currentText() == "Select Directory":
+
+            path = QFileDialog.getExistingDirectory(self, "Select Export Directory",
+                                                    r"\\CMDAQ4.physics.ox.ac.uk\AKGroup")
+
+            if path:
+
+                self.export_directory.setText(path)
+
+
+    def _export(self, mode):
 
         export_channel = self.export_channel.currentText()
 
-        export_image_stack = self.viewer.layers[export_channel].data
-        export_meta_stack = self.viewer.layers[export_channel].metadata
+        image_stack = self.viewer.layers[export_channel].data.copy()
+        mask_stack = self.segLayer.data.copy()
+        meta_stack = self.segLayer.metadata.copy()
+        label_stack = self.classLayer.data.copy()
 
-        export_mask_stack, export_contours = get_export_data(self)
+        if mode == "active":
 
-        for i in range(len(export_image_stack)):
+            current_step = self.viewer.dims.current_step[0]
 
-            progress = int(((i + 1) / len(export_image_stack)) * 100)
+            image_stack = np.expand_dims(image_stack[current_step], axis=0)
+            mask_stack = np.expand_dims(mask_stack[current_step], axis=0)
+            label_stack = np.expand_dims(label_stack[current_step], axis=0)
+            meta_stack = np.expand_dims(meta_stack[current_step], axis=0)
+
+        mask_stack, label_stack, export_contours = get_export_data(self,mask_stack, label_stack, meta_stack)
+
+        for i in range(len(image_stack)):
+
+            progress = int(((i + 1) / len(image_stack)) * 100)
             self.export_progressbar.setValue(progress)
 
-            image = export_image_stack[i, :, :]
-            mask = export_mask_stack[i, :, :]
-            meta = export_meta_stack[i]
+            image = image_stack[i, :, :]
+            mask = mask_stack[i, :, :]
+            label = label_stack[i, :, :]
+            meta = meta_stack[i]
             contours = export_contours[i]
 
             if "shape" in meta.keys():
                 meta.pop("shape")
 
             file_name = meta["image_name"]
+            image_path = meta["image_path"]
+
+            if self.export_location.currentText() == "Import Directory":
+
+                export_path = os.path.abspath(image_path.replace(file_name,""))
+
+            if self.export_location.currentText() == "Select Directory":
+
+                export_path = os.path.abspath(self.export_directory.toPlainText())
+
             y1, y2, x1, x2 = meta["crop"]
 
             if len(image.shape) > 2:
@@ -289,6 +325,7 @@ class AKSEG(QWidget):
                 image = image[y1:y2, x1:x2]
 
             mask = mask[y1:y2, x1:x2]
+            label = label[y1:y2, x1:x2]
 
             file_path = os.path.abspath(export_path + "\\" + file_name)
 
@@ -334,29 +371,13 @@ class AKSEG(QWidget):
                 file_path = os.path.abspath(export_path + "\\" + file_name)
                 export_imagej(image, contours, meta, file_path)
 
+            if self.export_mode.currentText() == "Export JSON":
+
+                file_path = os.path.abspath(export_path + "\\" + file_name)
+                export_coco_json(file_name, image, mask, label, file_path)
+                tifffile.imwrite(file_path, image, metadata=meta)
+
         self.export_progressbar.setValue(0)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
     def _openDataset(self):

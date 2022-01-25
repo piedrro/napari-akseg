@@ -791,7 +791,7 @@ def populate_upload_combos(self):
     except:
         print(traceback.format_exc())
 
-def get_export_data(self):
+def get_export_data(self,mask_stack,label_stack,meta_stack):
 
     export_labels = []
 
@@ -808,10 +808,8 @@ def get_export_data(self):
     if self.export_edge.isChecked():
         export_labels.append(6)
 
-    mask_stack = self.segLayer.data.copy()
-    meta_stack = self.segLayer.metadata.copy()
-    label_stack = self.classLayer.data.copy()
-    export_stack = np.zeros(mask_stack.shape, dtype=np.uint16)
+    export_mask_stack = np.zeros(mask_stack.shape, dtype=np.uint16)
+    export_label_stack = np.zeros(label_stack.shape, dtype=np.uint16)
     export_contours = {}
 
     for i in range(len(mask_stack)):
@@ -823,6 +821,7 @@ def get_export_data(self):
         label = label_stack[i, :, :][y1:y2, x1:x2]
 
         export_mask = np.zeros(mask.shape, dtype=np.uint16)
+        export_label = np.zeros(mask.shape, dtype=np.uint16)
         contours = []
 
         mask_ids = np.unique(mask)
@@ -840,12 +839,14 @@ def get_export_data(self):
                     
                     new_mask_id = np.max(np.unique(export_mask)) + 1
                     export_mask[cnt_mask == 255] = new_mask_id
+                    export_label[cnt_mask == 255] = label_id
 
                     cnt, _ = cv2.findContours(cnt_mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
                     contours.append(cnt[0])
 
-        export_stack[i, :, :][y1:y2, x1:x2] = export_mask
+        export_mask_stack[i, :, :][y1:y2, x1:x2] = export_mask
+        export_label_stack[i, :, :][y1:y2, x1:x2] = export_label
         export_contours[i] = contours
 
-    return export_stack, export_contours
+    return export_mask_stack, export_label_stack, export_contours

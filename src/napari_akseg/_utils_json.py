@@ -3,9 +3,11 @@ import numpy as np
 import cv2
 import datetime
 import json
+import os
 
+def export_coco_json(image_name, image, mask, label, file_path):
 
-def export_coco_json(image_name, image, mask, label, json_path):
+    file_path = os.path.splitext(file_path)[0] + ".txt"
 
     info = {"description": "COCO 2017 Dataset",
             "url": "http://cocodataset.org",
@@ -91,7 +93,7 @@ def export_coco_json(image_name, image, mask, label, json_path):
                   "categories": categories
                   }
 
-    with open(json_path, "w") as f:
+    with open(file_path, "w") as f:
         json.dump(annotation, f)
 
     return annotation
