@@ -1073,3 +1073,80 @@ def autocontrast_values(image, clip_hist_percent=1):
     contrast_limit = [minimum_gray*0.9, maximum_gray*1.1]
 
     return contrast_limit, alpha, beta, gamma
+
+
+def import_masks(self, file_path):
+
+    mask_stack = self.segLayer.data.copy()
+
+    file_path = os.path.abspath(file_path)
+
+    mask_paths = glob(file_path + "*\*", recursive=True)
+    mask_files = [path.split("\\")[-1] for path in mask_paths]
+    mask_search = [path.split("\\")[-1].split(".")[0] for path in mask_paths]
+
+    layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
+
+    matching_masks = []
+
+    for layer in layer_names:
+
+        image_stack = self.viewer.layers[layer].data
+        meta_stack = self.viewer.layers[layer].metadata
+
+        for i in range(len(image_stack)):
+
+            meta = meta_stack[i]
+            image_name = meta["image_name"].split(".")[0]
+            image_path = meta["image_path"]
+            crop = meta["crop"]
+
+            indices = np.where(np.isin(mask_search, [image_name]))
+
+            for index in indices[0]:
+
+                mask_path = mask_paths[index]
+                mask_file = mask_files[index]
+
+                if mask_path != image_path:
+
+                    matching_masks.append([i,mask_path,image_path,crop])
+
+
+    for mask_data in matching_masks:
+
+        i,mask_path,image_path,crop = mask_data
+
+        [y1, y2, x1, x2] = crop
+
+        file_format = mask_path.split(".")[-1]
+
+        if file_format == "tif":
+
+            mask = tifffile.imread(mask_path)
+            mask_stack[i, :, :][y1:y2, x1:x2] = mask
+            self.segLayer.data = mask_stack
+
+        if file_format == "txt":
+
+            mask, labels = import_coco_json(mask_path)
+            mask_stack[i, :, :][y1:y2, x1:x2] = mask
+            self.segLayer.data = mask_stack
+
+        if file_format == "npy":
+
+            dat = np.load(mask_path, allow_pickle=True).item()
+
+            mask = dat["masks"]
+            mask = mask.astype(np.uint16)
+            mask_stack[i, :, :][y1:y2, x1:x2] = mask
+            self.segLayer.data = mask_stack
+
+        if file_format == "mat":
+
+            image, mask, meta = import_mat_data(image_path, mask_path)
+            mask_stack[i, :, :][y1:y2, x1:x2] = mask
+            self.segLayer.data = mask_stack
+
+
+

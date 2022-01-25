@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
                                  import_dataset, import_AKSEG, import_JSON, generate_multichannel_stack,
-                                 populate_upload_combos, get_export_data)
+                                 populate_upload_combos, get_export_data, import_masks)
 
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 from napari_akseg._utils_cellpose import export_cellpose
@@ -77,6 +77,7 @@ class AKSEG(QWidget):
         self.nim_open_dir = self.findChild(QPushButton, "nim_open_dir")
         self.image_open_dir = self.findChild(QPushButton, "image_open_dir")
         self.image_open_cellpose = self.findChild(QPushButton, "image_open_cellpose")
+        self.image_open_masks = self.findChild(QPushButton, "image_open_masks")
         self.image_open_oufti = self.findChild(QPushButton, "image_open_oufti")
         self.image_open_cellpose = self.findChild(QPushButton, "image_open_cellpose")
         self.image_open_json = self.findChild(QPushButton, "image_open_json")
@@ -181,6 +182,7 @@ class AKSEG(QWidget):
         self.image_open_dataset.clicked.connect(self._openDataset)
         self.image_open_akseg.clicked.connect(self._openAKSEG)
         self.image_open_json.clicked.connect(self._openJSON)
+        self.image_open_masks.clicked.connect(self._openMasks)
         self.autocontrast.stateChanged.connect(self._autoContrast)
 
         # cellpose events
@@ -259,6 +261,17 @@ class AKSEG(QWidget):
         self.segLayer.mouse_drag_callbacks.append(self._segmentationEvents)
 
         populate_upload_combos(self)
+
+
+    def _openMasks(self):
+
+        path = QFileDialog.getExistingDirectory(self, "Select Export Directory",
+                                                r"C:\Users\turnerp\Documents\Code\Convert Hafez Brightfields\converted\Curated")
+        if path:
+
+            import_masks(self, path)
+
+
 
 
 
