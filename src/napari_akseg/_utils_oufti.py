@@ -1,7 +1,7 @@
 import scipy.io
 import numpy as np
 import cv2
-
+import os
 
 def find_contours(img):
 
@@ -187,7 +187,9 @@ def get_mesh(cnt, model, cnt_ends):
 
     return mesh
 
-def export_oufti(mask, mat_file):
+def export_oufti(mask, file_path):
+
+    file_path = os.path.splitext(file_path)[0] + ".mat"
 
     mask_ids = np.unique(mask)
 
@@ -262,4 +264,4 @@ def export_oufti(mask, mat_file):
                'shiftframes': [],
                'weights': []}
 
-    scipy.io.savemat(mat_file, outdict)
+    scipy.io.savemat(file_path, outdict)

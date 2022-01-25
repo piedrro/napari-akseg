@@ -29,10 +29,13 @@ import json
 import matplotlib.pyplot as plt
 from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
-                                 import_dataset, import_AKSEG, generate_multichannel_stack,populate_upload_combos)
+                                 import_dataset, import_AKSEG, generate_multichannel_stack,populate_upload_combos,
+                                 get_export_data)
 
 from napari_akseg._utils_json import import_coco_json, export_coco_json
-
+from napari_akseg._utils_cellpose import export_cellpose
+from napari_akseg._utils_oufti import  export_oufti
+from napari_akseg._utils_imagej import export_imagej
 from napari_akseg.akseg_ui import Ui_tab_widget
 
 class AKSEG(QWidget):
@@ -153,18 +156,19 @@ class AKSEG(QWidget):
         self.upload_progressbar = self.findChild(QProgressBar, "upload_progressbar")
 
         # export tab controls from Qt Desinger References
+        self.export_channel = self.findChild(QComboBox, "export_channel")
+        self.export_mode = self.findChild(QComboBox, "export_mode")
+        self.export_location = self.findChild(QComboBox, "export_location")
+        self.export_directory = self.findChild(QTextEdit, "export_directory")
         self.export_single = self.findChild(QCheckBox, "export_single")
         self.export_dividing = self.findChild(QCheckBox, "export_dividing")
         self.export_divided = self.findChild(QCheckBox, "export_divided")
         self.export_vertical = self.findChild(QCheckBox, "export_vertical")
         self.export_broken = self.findChild(QCheckBox, "export_broken")
         self.export_edge = self.findChild(QCheckBox, "export_edge")
-        self.export_mode = self.findChild(QComboBox, "export_mode")
-        self.export_directory = self.findChild(QTextEdit, "export_directory")
-        self.export_tif = self.findChild(QPushButton, "export_tif")
-        self.export_cellpose = self.findChild(QPushButton, "export_cellpose")
-        self.export_oufti = self.findChild(QPushButton, "export_oufti")
-        self.export_imagej = self.findChild(QPushButton, "export_imagej")
+        self.export_active = self.findChild(QPushButton, "export_active")
+        self.export_all = self.findChild(QPushButton, "export_all")
+        self.export_progressbar = self.findChild(QProgressBar, "export_progressbar")
 
 
         # import events
@@ -204,6 +208,11 @@ class AKSEG(QWidget):
         self.classify_edge.clicked.connect(partial(self._modifyMode, "edge"))
         self.modify_viewmasks.stateChanged.connect(partial(self._viewerControls, "viewmasks"))
         self.modify_viewlabels.stateChanged.connect(partial(self._viewerControls, "viewlabels"))
+
+        #export events
+        self.export_active.clicked.connect(partial(self._export, "active"))
+        self.export_all.clicked.connect(partial(self._export, "all"))
+
 
         # upload tab events
         self.upload_all.clicked.connect(partial(self._uploadAKGROUP, "all"))
@@ -246,6 +255,109 @@ class AKSEG(QWidget):
         self.segLayer.mouse_drag_callbacks.append(self._segmentationEvents)
 
         populate_upload_combos(self)
+
+    def _export(self, mode):
+
+        export_path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Export"
+
+        export_channel = self.export_channel.currentText()
+
+        export_image_stack = self.viewer.layers[export_channel].data
+        export_meta_stack = self.viewer.layers[export_channel].metadata
+
+        export_mask_stack, export_contours = get_export_data(self)
+
+        for i in range(len(export_image_stack)):
+
+            progress = int(((i + 1) / len(export_image_stack)) * 100)
+            self.export_progressbar.setValue(progress)
+
+            image = export_image_stack[i, :, :]
+            mask = export_mask_stack[i, :, :]
+            meta = export_meta_stack[i]
+            contours = export_contours[i]
+
+            if "shape" in meta.keys():
+                meta.pop("shape")
+
+            file_name = meta["image_name"]
+            y1, y2, x1, x2 = meta["crop"]
+
+            if len(image.shape) > 2:
+                image = image[:, y1:y2, x1:x2]
+            else:
+                image = image[y1:y2, x1:x2]
+
+            mask = mask[y1:y2, x1:x2]
+
+            file_path = os.path.abspath(export_path + "\\" + file_name)
+
+            if self.export_mode.currentText() == "Export .tif Images":
+
+                tifffile.imwrite(file_path, image, metadata = meta)
+
+            if self.export_mode.currentText() == "Export .tif Masks":
+
+                tifffile.imwrite(file_path, mask, metadata = meta)
+
+            if self.export_mode.currentText() == "Export .tif Images and Masks":
+
+                image_path = os.path.abspath(export_path + "\\images")
+                mask_path = os.path.abspath(export_path + "\\masks")
+
+                if not os.path.exists(image_path):
+                    os.makedirs(image_path)
+
+                if not os.path.exists(mask_path):
+                    os.makedirs(mask_path)
+
+                image_path = os.path.abspath(image_path + "\\" + file_name)
+                mask_path = os.path.abspath(mask_path + "\\" + file_name)
+
+                tifffile.imwrite(image_path, image, metadata=meta)
+                tifffile.imwrite(mask_path, mask, metadata=meta)
+
+            if self.export_mode.currentText() == "Export Cellpose":
+
+                file_path = os.path.abspath(export_path + "\\" + file_name)
+                export_cellpose(file_path, image, mask)
+                tifffile.imwrite(file_path, image, metadata=meta)
+
+            if self.export_mode.currentText() == "Export Oufti":
+
+                file_path = os.path.abspath(export_path + "\\" + file_name)
+                export_oufti(mask, file_path)
+                tifffile.imwrite(file_path, image, metadata=meta)
+
+            if self.export_mode.currentText() == "Export ImageJ":
+
+                file_path = os.path.abspath(export_path + "\\" + file_name)
+                export_imagej(image, contours, meta, file_path)
+
+        self.export_progressbar.setValue(0)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     def _openDataset(self):
 
@@ -1369,6 +1481,9 @@ class AKSEG(QWidget):
 
         self.upload_segchannel.clear()
         self.upload_segchannel.addItems(layer_names)
+
+        self.export_channel.clear()
+        self.export_channel.addItems(layer_names)
 
         if "532" in layer_names:
             index532 = layer_names.index("532")

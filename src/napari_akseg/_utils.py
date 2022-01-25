@@ -790,3 +790,62 @@ def populate_upload_combos(self):
 
     except:
         print(traceback.format_exc())
+
+def get_export_data(self):
+
+    export_labels = []
+
+    if self.export_single.isChecked():
+        export_labels.append(1)
+    if self.export_dividing.isChecked():
+        export_labels.append(2)
+    if self.export_divided.isChecked():
+        export_labels.append(3)
+    if self.export_vertical.isChecked():
+        export_labels.append(4)
+    if self.export_broken.isChecked():
+        export_labels.append(5)
+    if self.export_edge.isChecked():
+        export_labels.append(6)
+
+    mask_stack = self.segLayer.data.copy()
+    meta_stack = self.segLayer.metadata.copy()
+    label_stack = self.classLayer.data.copy()
+    export_stack = np.zeros(mask_stack.shape, dtype=np.uint16)
+    export_contours = {}
+
+    for i in range(len(mask_stack)):
+        
+        meta = meta_stack[i]
+        y1, y2, x1, x2 = meta["crop"]
+
+        mask = mask_stack[i, :, :][y1:y2, x1:x2]
+        label = label_stack[i, :, :][y1:y2, x1:x2]
+
+        export_mask = np.zeros(mask.shape, dtype=np.uint16)
+        contours = []
+
+        mask_ids = np.unique(mask)
+
+        for mask_id in mask_ids:
+
+            if mask_id != 0:
+
+                cnt_mask = np.zeros(mask.shape, dtype=np.uint8)
+
+                cnt_mask[mask == mask_id] = 255
+                label_id = np.unique(label[cnt_mask == 255])[0]
+
+                if label_id in export_labels:
+                    
+                    new_mask_id = np.max(np.unique(export_mask)) + 1
+                    export_mask[cnt_mask == 255] = new_mask_id
+
+                    cnt, _ = cv2.findContours(cnt_mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+                    contours.append(cnt[0])
+
+        export_stack[i, :, :][y1:y2, x1:x2] = export_mask
+        export_contours[i] = contours
+
+    return export_stack, export_contours
