@@ -29,8 +29,8 @@ import json
 import matplotlib.pyplot as plt
 from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
-                                 import_dataset, import_AKSEG, generate_multichannel_stack,populate_upload_combos,
-                                 get_export_data)
+                                 import_dataset, import_AKSEG, import_JSON, generate_multichannel_stack,
+                                 populate_upload_combos, get_export_data)
 
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 from napari_akseg._utils_cellpose import export_cellpose
@@ -70,6 +70,7 @@ class AKSEG(QWidget):
         self.path_list = []
         self.import_limit = self.findChild(QComboBox, "import_limit")
         self.clear_previous = self.findChild(QCheckBox, "import_clear_previous")
+        self.autocontrast = self.findChild(QCheckBox, "import_auto_contrast")
         self.multichannel_mode = self.findChild(QComboBox, "nim_multichannel_mode")
         self.laser_mode = self.findChild(QComboBox, "nim_laser_mode")
         self.fov_mode = self.findChild(QComboBox, "nim_fov_mode")
@@ -78,6 +79,7 @@ class AKSEG(QWidget):
         self.image_open_cellpose = self.findChild(QPushButton, "image_open_cellpose")
         self.image_open_oufti = self.findChild(QPushButton, "image_open_oufti")
         self.image_open_cellpose = self.findChild(QPushButton, "image_open_cellpose")
+        self.image_open_json = self.findChild(QPushButton, "image_open_json")
         self.image_open_dataset = self.findChild(QPushButton, "image_open_dataset")
         self.image_open_akseg = self.findChild(QPushButton, "image_open_akseg")
         self.import_progressbar = self.findChild(QProgressBar, "import_progressbar")
@@ -178,6 +180,8 @@ class AKSEG(QWidget):
         self.image_open_oufti.clicked.connect(self._open_oufti_directory)
         self.image_open_dataset.clicked.connect(self._openDataset)
         self.image_open_akseg.clicked.connect(self._openAKSEG)
+        self.image_open_json.clicked.connect(self._openJSON)
+        self.autocontrast.stateChanged.connect(self._autoContrast)
 
         # cellpose events
         self.cellpose_load_model.clicked.connect(self._openModelFile)
@@ -255,6 +259,21 @@ class AKSEG(QWidget):
         self.segLayer.mouse_drag_callbacks.append(self._segmentationEvents)
 
         populate_upload_combos(self)
+
+
+
+    def _openJSON(self):
+
+        file_path = QFileDialog.getOpenFileName(self, "Open File",
+                                                r"C:\Users\turnerp\OneDrive - Nexus365\datasetRGB\Predictions",
+                                                "JSON Files (*.txt)")
+        if file_path:
+
+            imported_data, file_paths = import_JSON(self, file_path)
+
+            self.path_list = file_paths
+
+            self._process_import(imported_data)
 
     def _getExportDirectory(self):
 
@@ -1513,6 +1532,28 @@ class AKSEG(QWidget):
     def _sliderEvent(self, current_step):
 
         self._updateFileName()
+        self._autoContrast()
+
+
+    def _autoContrast(self):
+
+        try:
+            if self.autocontrast.isChecked():
+
+                current_fov = self.viewer.dims.current_step[0]
+                active_layer = self.viewer.layers.selection.active
+
+                metadata = self.viewer.layers[str(active_layer)].metadata[current_fov]
+
+                contrast_limit = metadata["contrast_limit"]
+                gamma = metadata["contrast_gamma"]
+
+                self.viewer.layers[str(active_layer)].contrast_limits = contrast_limit
+                self.viewer.layers[str(active_layer)].gamma = gamma
+
+        except:
+            pass
+
 
     def _updateFileName(self):
 
@@ -1573,6 +1614,7 @@ class AKSEG(QWidget):
                                                 "Cellpose Files (*.npy)")
 
         if file_path:
+
             imported_data, file_paths = import_cellpose(self, file_path)
 
             self.path_list = file_paths
@@ -1696,7 +1738,7 @@ class AKSEG(QWidget):
         self.import_progressbar.reset()
 
         self.viewer.reset_view()
-
+        self._autoContrast()
         self._autoClassify()
 
     def _autoClassify(self):

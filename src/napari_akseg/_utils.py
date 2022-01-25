@@ -105,8 +105,6 @@ def read_tif(path):
 
     image = tifffile.imread(path)
 
-    metadata["akseg_hash"] = get_hash(path)
-
     if "image_name" not in metadata.keys():
 
         metadata["image_name"] = os.path.basename(path)
@@ -115,7 +113,6 @@ def read_tif(path):
         metadata["mask_path"] = None
         metadata["label_name"] = None,
         metadata["label_path"] = None,
-
         metadata["dims"] = [image.shape[0], image.shape[1]]
         metadata["crop"] = [0, image.shape[1], 0, image.shape[0]]
 
@@ -155,11 +152,18 @@ def read_nim_images(self, files, import_limit=10, laser_mode="All", multichannel
 
             img = process_image(img, multichannel_mode, fov_mode)
 
+            contrast_limit, alpha, beta, gamma = autocontrast_values(img, clip_hist_percent=1)
+
+            meta["akseg_hash"] = get_hash(path)
             meta["crop"] = [0, img.shape[0], 0, img.shape[1]]
             meta["nim_laser_mode"] = laser_mode
             meta["nim_multichannel_mode"] = multichannel_mode
             meta["fov_mode"] = fov_mode
             meta["import_mode"] = "NIM"
+            meta["contrast_limit"] = contrast_limit
+            meta["contrast_alpha"] = alpha
+            meta["contrast_beta"] = beta
+            meta["contrast_gamma"] = gamma
 
             if laser not in nim_images:
                 nim_images[laser] = dict(images=[img], masks=[], classes=[], metadata={i: meta})
@@ -328,6 +332,9 @@ def import_dataset(self, path):
                 mask_path = None
                 mask = np.zeros(image.shape, dtype=np.uint16)
 
+            contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
+
+            metadata["akseg_hash"] = get_hash(path)
             meta["image_name"] = image_name
             meta["image_path"] = image_path
             meta["mask_name"] = mask_name
@@ -335,6 +342,10 @@ def import_dataset(self, path):
             meta["label_name"] = None
             meta["label_path"] = None
             meta["import_mode"] = "Dataset"
+            meta["contrast_limit"] = contrast_limit
+            meta["contrast_alpha"] = alpha
+            meta["contrast_beta"] = beta
+            meta["contrast_gamma"] = gamma
 
             images.append(image)
             metadata[i] = meta
@@ -387,9 +398,16 @@ def import_AKSEG(self, path):
 
             for j, channel in enumerate(meta_stack["channels"]):
 
+                contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
+
+                metadata["akseg_hash"] = get_hash(path)
                 img = image[:, :, j]
                 meta = meta_stack["layer_meta"][channel]
                 meta["import_mode"] = "AKSEG"
+                meta["contrast_limit"] = contrast_limit
+                meta["contrast_alpha"] = alpha
+                meta["contrast_beta"] = beta
+                meta["contrast_gamma"] = gamma
 
                 if channel not in imported_data.keys():
                     imported_data[channel] = dict(images=[img], masks=[mask], classes=[label], metadata={i: meta})
@@ -406,6 +424,7 @@ def import_AKSEG(self, path):
 
 
 def import_images(self, file_path):
+
     file_path = os.path.abspath(file_path[0])
     file_name = file_path.split("\\")[-1]
 
@@ -437,6 +456,9 @@ def import_images(self, file_path):
 
         image, meta = read_tif(file_path)
 
+        contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
+
+        meta["akseg_hash"] = get_hash(file_path)
         meta["image_name"] = file_name
         meta["image_path"] = file_path
         meta["mask_name"] = None
@@ -444,6 +466,10 @@ def import_images(self, file_path):
         meta["label_name"] = None
         meta["label_path"] = None
         meta["import_mode"] = "image"
+        meta["contrast_limit"] = contrast_limit
+        meta["contrast_alpha"] = alpha
+        meta["contrast_beta"] = beta
+        meta["contrast_gamma"] = gamma
 
         images.append(image)
         metadata[i] = meta
@@ -499,6 +525,9 @@ def import_cellpose(self, file_path):
 
             img, meta = read_tif(image_path)
 
+            contrast_limit, alpha, beta, gamma = autocontrast_values(img, clip_hist_percent=1)
+
+            meta["akseg_hash"] = get_hash(image_path)
             meta["image_name"] = image_name
             meta["image_path"] = image_path
             meta["mask_name"] = file_name
@@ -506,10 +535,16 @@ def import_cellpose(self, file_path):
             meta["label_name"] = None
             meta["label_path"] = None
             meta["import_mode"] = "cellpose"
+            meta["contrast_limit"] = contrast_limit
+            meta["contrast_alpha"] = alpha
+            meta["contrast_beta"] = beta
+            meta["contrast_gamma"] = gamma
 
         else:
 
             image = dat["img"]
+
+            contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
 
             meta = dict(image_name=file_name,
                         image_path=file_path,
@@ -517,9 +552,14 @@ def import_cellpose(self, file_path):
                         mask_path=file_path,
                         label_name=None,
                         label_path=None,
+                        contrast_limit = contrast_limit,
+                        contrast_alpha = alpha,
+                        contrast_beta = beta,
+                        contrast_gamma = gamma,
+                        akseg_hash = get_hash(file_path),
                         import_mode = 'cellpose',
-                        dims=[img.shape[0], img.shape[1]],
-                        crop=[0, img.shape[1], 0, img.shape[0]])
+                        dims=[image.shape[0], image.shape[1]],
+                        crop=[0, image.shape[1], 0, image.shape[0]])
 
         if imported_data == {}:
             imported_data["Image"] = dict(images=[img], masks=[mask], classes=[], metadata={i: meta})
@@ -532,6 +572,7 @@ def import_cellpose(self, file_path):
 
 
 def import_oufti(self, file_path):
+
     file_path = os.path.abspath(file_path[0])
     file_name = file_path.split("\\")[-1]
 
@@ -607,6 +648,9 @@ def import_oufti(self, file_path):
 
             image, mask, meta = import_mat_data(image_path, mat_path)
 
+            contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
+
+            meta["akseg_hash"] = get_hash(image_path)
             meta["image_name"] = image_name
             meta["image_path"] = image_path
             meta["mask_name"] = mat_name
@@ -614,6 +658,10 @@ def import_oufti(self, file_path):
             meta["label_name"] = None
             meta["label_path"] = None
             meta["import_mode"] = "oufti"
+            meta["contrast_limit"] = contrast_limit
+            meta["contrast_alpha"] = alpha
+            meta["contrast_beta"] = beta
+            meta["contrast_gamma"] = gamma
 
             if imported_data == {}:
                 imported_data["Image"] = dict(images=[image], masks=[mask], classes=[], metadata={i: meta})
@@ -850,3 +898,178 @@ def get_export_data(self,mask_stack,label_stack,meta_stack):
         export_contours[i] = contours
 
     return export_mask_stack, export_label_stack, export_contours
+
+
+def import_JSON(self, file_path):
+
+    file_path = os.path.abspath(file_path[0])
+    file_name = file_path.split("\\")[-1]
+
+    parent_dir = file_path.replace(file_name, "")
+    json_paths = glob(parent_dir + "*.txt", recursive=True)
+    image_paths = glob(parent_dir + "*.tif", recursive=True)
+
+    json_files = [path.split("\\")[-1] for path in json_paths]
+    image_files = [path.split("\\")[-1] for path in image_paths]
+
+    matching_image_paths = []
+    matching_json_paths = []
+
+    images = []
+    masks = []
+    metadata = {}
+
+    import_limit = self.import_limit.currentText()
+
+    for i in range(len(image_files)):
+
+        image_file = image_files[i].replace(".tif", "")
+
+        index = [i for i, x in enumerate(json_files) if image_file in x]
+
+        if index != []:
+            image_path = image_paths[i]
+            json_path = json_paths[index[0]]
+
+            matching_json_paths.append(json_path)
+            matching_image_paths.append(image_path)
+            
+    if self.import_limit.currentText() == "1":
+
+        if file_path in matching_image_paths:
+
+            index = matching_image_paths.index(file_path)
+            image_files = [matching_image_paths[index]]
+            json_files = [matching_json_paths[index]]
+
+        elif file_path in matching_json_paths:
+
+            index = matching_json_paths.index(file_path)
+            image_files = [matching_image_paths[index]]
+            json_files = [matching_json_paths[index]]
+
+        else:
+            print("Matching image/mesh files could not be found")
+            self.viewer.text_overlay.visible = True
+            self.viewer.text_overlay.text = "Matching image/mesh files could not be found"
+
+    else:
+
+        image_files = matching_image_paths
+        json_files = matching_json_paths
+
+    if import_limit == "None":
+        import_limit = len(image_files)
+
+    imported_data = {}
+
+    for i in range(int(import_limit)):
+
+        try:
+            progress = int(((i + 1) / int(import_limit)) * 100)
+            self.import_progressbar.setValue(progress)
+
+            json_path = json_files[i]
+            image_path = image_files[i]
+
+            image_name = image_path.split("\\")[-1]
+            json_name = json_path.split("\\")[-1]
+
+            image, meta = read_tif(image_path)
+
+            mask, labels = import_coco_json(json_path)
+
+            contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
+
+            meta["akseg_hash"] = get_hash(image_path)
+            meta["image_name"] = image_name
+            meta["image_path"] = image_path
+            meta["mask_name"] = json_name
+            meta["mask_path"] = json_path
+            meta["label_name"] = json_name
+            meta["label_path"] = json_path
+            meta["import_mode"] = "JSON"
+            meta["contrast_limit"] = contrast_limit
+            meta["contrast_alpha"] = alpha
+            meta["contrast_beta"] = beta
+            meta["contrast_gamma"] = gamma
+
+            if imported_data == {}:
+                imported_data["Image"] = dict(images=[image], masks=[mask], classes=[labels], metadata={i: meta})
+            else:
+                imported_data["Image"]["images"].append(image)
+                imported_data["Image"]["masks"].append(mask)
+                imported_data["Image"]["classes"].append(labels)
+                imported_data["Image"]["metadata"][i] = meta
+
+        except:
+            pass
+
+    return imported_data, matching_image_paths
+
+
+def get_histogram(image, bins):
+    """calculates and returns histogram"""
+
+    # array with size of bins, set to zeros
+    histogram = np.zeros(bins)
+
+    # loop through pixels and sum up counts of pixels
+    for pixel in image:
+        histogram[pixel] += 1
+
+    return histogram
+
+
+def cumsum(a):
+    """cumulative sum function"""
+
+    a = iter(a)
+    b = [next(a)]
+    for i in a:
+        b.append(b[-1] + i)
+    return np.array(b)
+
+
+def autocontrast_values(image, clip_hist_percent=1):
+
+    # calculate histogram
+    img = np.asarray(image)
+
+    flat = img.flatten()
+    hist = get_histogram(flat, (2 ** 16) - 1)
+    hist_size = len(hist)
+
+    # calculate cumulative distribution from the histogram
+    accumulator = cumsum(hist)
+
+    # Locate points to clip
+    maximum = accumulator[-1]
+    clip_hist_percent *= (maximum / 100.0)
+    clip_hist_percent /= 2.0
+
+    # Locate left cut
+    minimum_gray = 0
+    while accumulator[minimum_gray] < clip_hist_percent:
+        minimum_gray += 1
+
+    # Locate right cut
+    maximum_gray = hist_size - 1
+    while accumulator[maximum_gray] >= (maximum - clip_hist_percent):
+        maximum_gray -= 1
+
+    # Calculate alpha and beta values
+    alpha = 255 / (maximum_gray - minimum_gray)
+    beta = -minimum_gray * alpha
+
+    img = cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
+
+    # calculate gamma value
+    mid = 0.5
+    mean = np.mean(img).astype(np.uint8)
+    gamma = np.log(mid * 255) / np.log(mean)
+    gamma = gamma*1.2
+
+    contrast_limit = [minimum_gray*0.9, maximum_gray*1.1]
+
+    return contrast_limit, alpha, beta, gamma
