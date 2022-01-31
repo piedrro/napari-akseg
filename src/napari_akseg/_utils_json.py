@@ -27,7 +27,8 @@ def export_coco_json(image_name, image, mask, label, file_path):
                  "id": 1,
                  "name": "Attribution-NonCommercial-NoDerivatives 4.0 International"}]
 
-    height, width = image.shape[0], image.shape[1]
+    height, width = image.shape[-2], image.shape[-1]
+    print("height " + str(height) + " width " + str(width))
 
     images = [{"license": 1,
                "file_name": image_name,

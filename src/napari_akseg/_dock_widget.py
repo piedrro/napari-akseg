@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
                                  import_dataset, import_AKSEG, import_JSON, generate_multichannel_stack,
-                                 populate_upload_combos, get_export_data, import_masks)
+                                 populate_upload_combos, get_export_data, import_masks, get_usermeta)
 
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 from napari_akseg._utils_cellpose import export_cellpose
@@ -151,9 +151,13 @@ class AKSEG(QWidget):
         self.upload_illumination = self.findChild(QComboBox, "upload_illumination")
         self.upload_stain = self.findChild(QComboBox, "upload_stain")
         self.upload_antibiotic = self.findChild(QComboBox, "upload_antibiotic")
+        self.upload_abxconcentration = self.findChild(QComboBox, "upload_abxconcentration")
         self.upload_treatmenttime = self.findChild(QComboBox, "upload_treatmenttime")
         self.upload_mount = self.findChild(QComboBox, "upload_mount")
         self.upload_protocol = self.findChild(QComboBox, "upload_protocol")
+        self.upload_usermeta1 = self.findChild(QComboBox, "upload_usermeta1")
+        self.upload_usermeta2 = self.findChild(QComboBox, "upload_usermeta2")
+        self.upload_usermeta3 = self.findChild(QComboBox, "upload_usermeta3")
         self.upload_all = self.findChild(QPushButton, "upload_all")
         self.upload_active = self.findChild(QPushButton, "upload_active")
         self.upload_progressbar = self.findChild(QProgressBar, "upload_progressbar")
@@ -223,6 +227,7 @@ class AKSEG(QWidget):
         # upload tab events
         self.upload_all.clicked.connect(partial(self._uploadAKGROUP, "all"))
         self.upload_active.clicked.connect(partial(self._uploadAKGROUP, "active"))
+        self.upload_initial.currentTextChanged.connect(self._populateUSERMETA)
 
         # viewer event that call updateFileName when the slider is modified
         self.contours = []
@@ -263,6 +268,27 @@ class AKSEG(QWidget):
         populate_upload_combos(self)
 
 
+    def _populateUSERMETA(self):
+
+        usermeta = get_usermeta(self)
+
+        user_initial = self.upload_initial.currentText()
+
+        self.upload_usermeta1.clear()
+        self.upload_usermeta2.clear()
+        self.upload_usermeta3.clear()
+
+        if user_initial in usermeta.keys():
+
+            meta1 = usermeta[user_initial]["meta1"]
+            meta2 = usermeta[user_initial]["meta2"]
+            meta3 = usermeta[user_initial]["meta3"]
+
+            self.upload_usermeta1.addItems([""] + meta1)
+            self.upload_usermeta2.addItems([""] + meta2)
+            self.upload_usermeta3.addItems([""] + meta3)
+
+
     def _openMasks(self):
 
         path = QFileDialog.getExistingDirectory(self, "Select Export Directory",
@@ -270,9 +296,6 @@ class AKSEG(QWidget):
         if path:
 
             import_masks(self, path)
-
-
-
 
 
     def _openJSON(self):
@@ -430,37 +453,50 @@ class AKSEG(QWidget):
 
         path = QFileDialog.getExistingDirectory(self, "Select AKSEG Directory",
                                                 r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images")
+
         if path:
-            if path:
 
-                imported_data, file_paths, akmeta = import_AKSEG(self, path)
+            imported_data, file_paths, akmeta = import_AKSEG(self, path)
 
-                self.path_list = file_paths
+            self.path_list = file_paths
 
-                self._process_import(imported_data)
+            self._process_import(imported_data,rearrange = False)
 
-                try:
-                    user_initial = akmeta["user_initial"]
-                    content = akmeta["image_content"]
-                    microscope = akmeta["microscope"]
-                    modality = akmeta["modality"]
-                    source = akmeta["light_source"]
-                    stains = akmeta["stains"]
-                    protocol = akmeta["protocol"]
-                    segChannel = akmeta["segmentation_channel"]
+            try:
+                user_initial = akmeta["user_initial"]
+                content = akmeta["image_content"]
+                microscope = akmeta["microscope"]
+                modality = akmeta["modality"]
+                source = akmeta["light_source"]
+                stains = akmeta["stains"]
+                antibiotic = akmeta["antibiotic"]
+                treatmenttime = akmeta["treatementtime"]
+                abxconcentration = akmeta["abxconcentration"]
+                mount = akmeta["mount"]
+                protocol = akmeta["protocol"]
+                usermeta1 = akmeta["usermeta1"]
+                usermeta2 = akmeta["usermeta2"]
+                usermeta3 = akmeta["usermeta3"]
+                segChannel = akmeta["segmentation_channel"]
 
-                    self.upload_segchannel.setCurrentText(segChannel)
-                    self.upload_initial.setCurrentText(user_initial)
-                    self.upload_content.setCurrentText(content)
-                    self.upload_microscope.setCurrentText(microscope)
-                    self.upload_modality.setCurrentText(modality)
-                    self.upload_illumination.setCurrentText(source)
-                    self.upload_stain.setCurrentText(stains)
-                    self.upload_protocol.setCurrentText(protocol)
+                self.upload_segchannel.setCurrentText(segChannel)
+                self.upload_initial.setCurrentText(user_initial)
+                self.upload_content.setCurrentText(content)
+                self.upload_microscope.setCurrentText(microscope)
+                self.upload_modality.setCurrentText(modality)
+                self.upload_illumination.setCurrentText(source)
+                self.upload_stain.setCurrentText(stains)
+                self.upload_treatmenttime.setCurrentText(treatmenttime)
+                self.upload_mount.setCurrentText(mount)
+                self.upload_antibiotic.setCurrentText(antibiotic)
+                self.upload_abxconcentration.setCurrentText(abxconcentration)
+                self.upload_protocol.setCurrentText(protocol)
+                self.upload_usermeta1.setCurrentText(usermeta1)
+                self.upload_usermeta2.setCurrentText(usermeta2)
+                self.upload_usermeta3.setCurrentText(usermeta3)
 
-                except:
-                    print(traceback.format_exc())
-
+            except:
+                print(traceback.format_exc())
 
     def _imageControls(self, key, viewer=None):
 
@@ -542,7 +578,14 @@ class AKSEG(QWidget):
                 modality = self.upload_modality.currentText()
                 source = self.upload_illumination.currentText()
                 stains = self.upload_stain.currentText()
+                antibiotic = self.upload_antibiotic.currentText()
+                abxconcentration = self.upload_abxconcentration.currentText()
+                treatmenttime = self.upload_treatmenttime.currentText()
+                mount = self.upload_mount.currentText()
                 protocol = self.upload_protocol.currentText()
+                usermeta1 = self.upload_usermeta1.currentText()
+                usermeta2 = self.upload_usermeta2.currentText()
+                usermeta3 = self.upload_usermeta3.currentText()
                 mask_curated = self.upload_segcurated.isChecked()
                 label_curated = self.upload_classcurated.isChecked()
                 date_uploaded = datetime.datetime.now()
@@ -566,9 +609,18 @@ class AKSEG(QWidget):
                                                           "modality",
                                                           "source",
                                                           "stains",
+                                                          "antibiotic",
+                                                          "treatment time (mins)",
+                                                          "antibiotic concentration",
+                                                          "mounting method",
                                                           "protocol",
+                                                          "user_meta1",
+                                                          "user_meta2",
+                                                          "user_meta3",
                                                           "mask_curated",
                                                           "label_curated",
+                                                          "folder",
+                                                          "parent_folder",
                                                           "image_load_path",
                                                           "image_save_path",
                                                           "mask_load_path",
@@ -595,7 +647,7 @@ class AKSEG(QWidget):
                         image_layer = self.viewer.layers[segChannel]
 
                         image_stack = image_layer.data
-                        multi_stack, meta_stack = generate_multichannel_stack(self)
+                        multi_stack, meta_stack, layer_names = generate_multichannel_stack(self)
                         mask_stack = self.segLayer.data
                         class_stack = self.classLayer.data
                         # meta_stack = image_layer.metadata
@@ -629,6 +681,8 @@ class AKSEG(QWidget):
                                 file_path = os.path.abspath(seg_meta["image_path"])
                                 akseg_hash = seg_meta["akseg_hash"]
                                 import_mode = seg_meta["import_mode"]
+                                folder = seg_meta["folder"][0]
+                                parent_folder = seg_meta["parent_folder"][0]
                                 meta["file_name"] = seg_meta["image_name"]
                                 meta["file_path"] = seg_meta["image_path"]
 
@@ -643,7 +697,6 @@ class AKSEG(QWidget):
                                         print("Uploading file to AKGROUP Server:   " + file_name)
                                     else:
                                         print("Editing file on AKGROUP Server:   " + file_name)
-
 
                                     y1, y2, x1, x2 = seg_meta["crop"]
 
@@ -661,7 +714,14 @@ class AKSEG(QWidget):
                                     meta["modality"] = modality
                                     meta["light_source"] = source
                                     meta["stains"] = stains
+                                    meta["antibiotic"] = antibiotic
+                                    meta["treatementtime"] = treatmenttime
+                                    meta["abxconcentration"] = abxconcentration
+                                    meta["mount"] = mount
                                     meta["protocol"] = protocol
+                                    meta["usermeta1"] = usermeta1
+                                    meta["usermeta2"] = usermeta2
+                                    meta["usermeta3"] = usermeta3
                                     meta["channels"] = layer_names
                                     meta["segmentation_channel"] = segChannel
 
@@ -678,18 +738,12 @@ class AKSEG(QWidget):
                                         meta["cellpose_model"] = self.cellpose_model.currentText()
                                         meta["custom_model"] = os.path.abspath(self.cellpose_custom_model_path)
 
-                                    save_dir = akgroup_dir + "\\" + user_initial + "\\"
-                                    file_meta = [user_initial, content, microscope, modality]
+                                    save_dir = akgroup_dir + "\\" + user_initial + "\\" + folder + "\\"
 
-                                    for item in file_meta:
-
-                                        if item != "":
-                                            save_dir = save_dir + item + "_"
-
-                                    image_dir = save_dir[:-1] + "\\" + "images" + "\\"
-                                    mask_dir = save_dir[:-1] + "\\" + "masks" + "\\"
-                                    class_dir = save_dir[:-1] + "\\" + "labels" + "\\"
-                                    json_dir = save_dir[:-1] + "\\" + "json" + "\\"
+                                    image_dir = save_dir + "\\" + "images" + "\\"
+                                    mask_dir = save_dir + "\\" + "masks" + "\\"
+                                    class_dir = save_dir + "\\" + "labels" + "\\"
+                                    json_dir = save_dir + "\\" + "json" + "\\"
 
                                     if os.path.exists(image_dir) == False:
                                         os.makedirs(image_dir)
@@ -723,9 +777,18 @@ class AKSEG(QWidget):
                                                      modality,
                                                      source,
                                                      stains,
+                                                     antibiotic,
+                                                     treatmenttime,
+                                                     abxconcentration,
+                                                     mount,
                                                      protocol,
                                                      mask_curated,
                                                      label_curated,
+                                                     usermeta1,
+                                                     usermeta2,
+                                                     usermeta3,
+                                                     folder,
+                                                     parent_folder,
                                                      seg_meta["image_path"],
                                                      image_path,
                                                      seg_meta["mask_path"],
@@ -733,9 +796,13 @@ class AKSEG(QWidget):
                                                      seg_meta["label_path"],
                                                      class_path]
 
-                                    user_metadata.loc[len(user_metadata)] = file_metadata
+                                    if akseg_hash in metadata_akseg_hash:
+                                        index = user_metadata.index[user_metadata["akseg_hash"] == akseg_hash]
+                                        user_metadata.loc[index] = file_metadata
+                                    else:
+                                        user_metadata.loc[len(user_metadata)] = file_metadata
 
-                            user_metadata.drop_duplicates(subset=['akseg_hash'], keep="last", inplace=True)
+                            user_metadata.drop_duplicates(subset=['akseg_hash'], keep="first", inplace=True)
 
                             user_metadata.to_csv(user_metadata_path, sep=",")
 
@@ -1601,12 +1668,9 @@ class AKSEG(QWidget):
 
     def _open_nim_directory(self):
 
-        file_path = QFileDialog.getOpenFileName(self, "Open File",
-                                                r"D:\Aleks\Phenotype detection complete repeats new convention\Repeat_0_18_08_20\20200818_AMR_CIP+ETOH_DAPI+NR\NR1\pos_0",
-                                                "NanoImager Files (*)")
-
+        file_path = QFileDialog.getExistingDirectory(self, "Select Export Directory",
+                                                r"D:\Aleks\Phenotype detection complete repeats new convention")
         if file_path:
-            file_path = file_path[0]
 
             files, file_paths = read_nim_directory(self, file_path)
 
@@ -1647,7 +1711,7 @@ class AKSEG(QWidget):
 
             self._process_import(imported_data)
 
-    def _process_import(self, imported_data):
+    def _process_import(self, imported_data, rearrange = True):
 
         layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
 
@@ -1734,7 +1798,7 @@ class AKSEG(QWidget):
             layer_index = self.viewer.layers.index(layer)
             self.viewer.layers.move(layer_index, 0)
 
-        if "532" in layer_names:
+        if "532" in layer_names and rearrange == True:
             layer_name = "532"
             num_layers = len(self.viewer.layers)
             layer_ref = self.viewer.layers[layer_name]

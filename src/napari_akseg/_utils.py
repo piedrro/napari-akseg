@@ -14,10 +14,15 @@ import matplotlib.pyplot as plt
 import hashlib
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 
-def read_nim_directory(self, file_path):
+def read_nim_directory(self, path):
+
+    folder = os.path.abspath(path).split("\\")[-1]
+    parent_folder = os.path.abspath(path).split("\\")[-2]
 
     files = pd.DataFrame(columns=["path",
                                   "file_name",
+                                  "folder",
+                                  "parent_folder",
                                   "pos_dir",
                                   "channel_dir",
                                   "posXY",
@@ -25,9 +30,7 @@ def read_nim_directory(self, file_path):
                                   "laser",
                                   "timestamp"])
 
-    parent_dir = os.path.abspath(os.path.join(file_path, "../../.."))
-
-    paths = glob(parent_dir + "*\**\*.tif", recursive=True)
+    paths = glob(path + "*/**/*.tif", recursive=True)
 
     for path in paths:
 
@@ -55,7 +58,7 @@ def read_nim_directory(self, file_path):
         if 'colour' in file_name:
             colour_int = file_name.split("colour")[-1].replace(".tif", "")
 
-        files.loc[len(files)] = [path, file_name, pos_dir, channel_dir, posXY, posZ, laser, timestamp]
+        files.loc[len(files)] = [path, file_name, folder, parent_folder, pos_dir, channel_dir, posXY, posZ, laser, timestamp]
 
     files = files.sort_values(by=['timestamp'], ascending=True)
     files = files.reset_index(drop=True)
@@ -82,11 +85,11 @@ def read_nim_directory(self, file_path):
     files = files.sort_values(by=['acquisitions', 'posXY', 'posZ'], ascending=True)
     files = files.reset_index(drop=True)
 
-    if self.import_limit.currentText() == "1":
-        posXY = files[files["path"] == os.path.abspath(file_path)]["posXY"].values[0]
-        posZ = files[files["path"] == os.path.abspath(file_path)]["posZ"].values[0]
-        acquistion = files[files["path"] == os.path.abspath(file_path)]['acquisitions'].values[0]
-        files = files[(files["posXY"] == posXY) & (files["posZ"] == posZ) & (files['acquisitions'] == acquistion)]
+    # if self.import_limit.currentText() == "1":
+    #     posXY = files[files["path"] == os.path.abspath(file_path)]["posXY"].values[0]
+    #     posZ = files[files["path"] == os.path.abspath(file_path)]["posZ"].values[0]
+    #     acquistion = files[files["path"] == os.path.abspath(file_path)]['acquisitions'].values[0]
+    #     files = files[(files["posXY"] == posXY) & (files["posZ"] == posZ) & (files['acquisitions'] == acquistion)]
 
     measurements = files.groupby(by=['acquisitions', 'posXY', 'posZ'])
 
@@ -100,10 +103,16 @@ def read_nim_directory(self, file_path):
 def read_tif(path):
 
     with tifffile.TiffFile(path) as tif:
-        metadata = tif.pages[0].tags["ImageDescription"].value
-        metadata = json.loads(metadata)
+        try:
+            metadata = tif.pages[0].tags["ImageDescription"].value
+            metadata = json.loads(metadata)
+        except:
+            metadata = {}
 
     image = tifffile.imread(path)
+
+    folder = os.path.abspath(path).split("\\")[-2]
+    parent_folder = os.path.abspath(path).split("\\")[-3]
 
     if "image_name" not in metadata.keys():
 
@@ -113,13 +122,17 @@ def read_tif(path):
         metadata["mask_path"] = None
         metadata["label_name"] = None,
         metadata["label_path"] = None,
-        metadata["dims"] = [image.shape[0], image.shape[1]]
-        metadata["crop"] = [0, image.shape[1], 0, image.shape[0]]
+        metadata["folder"] = folder,
+        metadata["parent_folder"] = parent_folder,
+
+        metadata["dims"] = [image.shape[-1], image.shape[-2]]
+        metadata["crop"] = [0, image.shape[-2], 0, image.shape[-1]]
 
     return image, metadata
 
 
 def read_nim_images(self, files, import_limit=10, laser_mode="All", multichannel_mode="0", fov_mode="0"):
+
     if laser_mode != "All":
         files = files[files["laser"] == str(laser_mode)]
 
@@ -147,6 +160,8 @@ def read_nim_images(self, files, import_limit=10, laser_mode="All", multichannel
 
             path = dat["path"].item()
             laser = dat["laser"].item()
+            folder = dat["folder"].item()
+            parent_folder = dat["parent_folder"].item()
 
             img, meta = read_tif(path)
 
@@ -154,8 +169,9 @@ def read_nim_images(self, files, import_limit=10, laser_mode="All", multichannel
 
             contrast_limit, alpha, beta, gamma = autocontrast_values(img, clip_hist_percent=1)
 
+            meta["folder"] = folder,
+            meta["parent_folder"] = parent_folder,
             meta["akseg_hash"] = get_hash(path)
-            meta["crop"] = [0, img.shape[0], 0, img.shape[1]]
             meta["nim_laser_mode"] = laser_mode
             meta["nim_multichannel_mode"] = multichannel_mode
             meta["fov_mode"] = fov_mode
@@ -164,6 +180,8 @@ def read_nim_images(self, files, import_limit=10, laser_mode="All", multichannel
             meta["contrast_alpha"] = alpha
             meta["contrast_beta"] = beta
             meta["contrast_gamma"] = gamma
+            meta["dims"] = [img.shape[-1], img.shape[-2]]
+            meta["crop"] = [0, img.shape[-2], 0, img.shape[-1]]
 
             if laser not in nim_images:
                 nim_images[laser] = dict(images=[img], masks=[], classes=[], metadata={i: meta})
@@ -244,6 +262,7 @@ def stack_images(images, metadata=None):
         dims = []
 
         for img in images:
+
             dims.append([img.shape[0], img.shape[1]])
 
         dims = np.array(dims)
@@ -253,6 +272,7 @@ def stack_images(images, metadata=None):
         image_stack = []
 
         for i in range(len(images)):
+
             img = images[i]
 
             img_temp = np.zeros(stack_dim, dtype=img.dtype)
@@ -281,7 +301,7 @@ def stack_images(images, metadata=None):
 
             if metadata:
                 metadata[i]["crop"] = [y1, y2, x1, x2]
-    #
+
         image_stack = np.stack(image_stack, axis=0)
 
     else:
@@ -371,6 +391,7 @@ def import_AKSEG(self, path):
 
         metadata = {}
         imported_data = {}
+        akmeta = {}
 
         import_limit = self.import_limit.currentText()
 
@@ -400,14 +421,17 @@ def import_AKSEG(self, path):
 
                 contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
 
-                metadata["akseg_hash"] = get_hash(path)
-                img = image[:, :, j]
+                img = image[j,:,:]
+
                 meta = meta_stack["layer_meta"][channel]
+                meta["akseg_hash"] = get_hash(image_path)
                 meta["import_mode"] = "AKSEG"
                 meta["contrast_limit"] = contrast_limit
                 meta["contrast_alpha"] = alpha
                 meta["contrast_beta"] = beta
                 meta["contrast_gamma"] = gamma
+                meta["dims"] = [img.shape[0], img.shape[1]]
+                meta["crop"] = [0, img.shape[1], 0, img.shape[0]]
 
                 if channel not in imported_data.keys():
                     imported_data[channel] = dict(images=[img], masks=[mask], classes=[label], metadata={i: meta})
@@ -546,12 +570,17 @@ def import_cellpose(self, file_path):
 
             contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
 
+            folder = os.path.abspath(file_path).split("\\")[-2]
+            parent_folder = os.path.abspath(file_path).split("\\")[-3]
+
             meta = dict(image_name=file_name,
                         image_path=file_path,
                         mask_name=file_name,
                         mask_path=file_path,
                         label_name=None,
                         label_path=None,
+                        folder=folder,
+                        parent_folder = parent_folder,
                         contrast_limit = contrast_limit,
                         contrast_alpha = alpha,
                         contrast_beta = beta,
@@ -760,6 +789,13 @@ def generate_multichannel_stack(self):
 
     layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
 
+    layer_names.reverse()
+
+    #put segmentation channel as first channel in stack
+    segChannel = self.upload_segchannel.currentText()
+    layer_names.remove(segChannel)
+    layer_names.insert(0, segChannel)
+
     dim_range = int(self.viewer.dims.range[0][1])
 
     multi_image_stack = []
@@ -770,7 +806,9 @@ def generate_multichannel_stack(self):
         rgb_images = []
         rgb_meta = {}
 
-        for layer in layer_names:
+        for j in range(len(layer_names)):
+
+            layer = str(layer_names[j])
 
             img = self.viewer.layers[layer].data
             meta = self.viewer.layers[layer].metadata
@@ -778,14 +816,14 @@ def generate_multichannel_stack(self):
             rgb_images.append(img[i])
             rgb_meta[layer] = meta[i]
 
-        rgb_images = np.stack(rgb_images, axis=2)
+        rgb_images = np.stack(rgb_images, axis=0)
 
         multi_image_stack.append(rgb_images)
         multi_meta_stack[i] = rgb_meta
 
     multi_image_stack = np.stack(multi_image_stack, axis=0)
 
-    return multi_image_stack, multi_meta_stack
+    return multi_image_stack, multi_meta_stack, layer_names
 
 
 
@@ -797,12 +835,39 @@ def get_hash(img_path):
         return hashlib.sha256(bytes).hexdigest()
 
 
+def get_usermeta(self):
+
+    try:
+        path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Metadata\AKSEG Metadata.xlsx"
+
+        usermeta = pd.read_excel(path, sheet_name=1, usecols="B:E", header=2)
+
+        users = usermeta["User Initial"].unique()
+
+        usermeta_dict = {}
+
+        for user in users:
+            meta1 = usermeta[usermeta["User Initial"] == user]["User Meta #1"].dropna().tolist()
+            meta2 = usermeta[usermeta["User Initial"] == user]["User Meta #2"].dropna().tolist()
+            meta3 = usermeta[usermeta["User Initial"] == user]["User Meta #3"].dropna().tolist()
+
+            usermeta_dict[user] = dict(meta1=meta1,
+                                       meta2=meta2,
+                                       meta3=meta3)
+
+        return usermeta_dict
+
+    except:
+        pass
+
+
 def populate_upload_combos(self):
 
     try:
+
         meta_path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Metadata\AKSEG Metadata.xlsx"
 
-        akmeta = pd.read_excel(meta_path, usecols="B:K", header=2)
+        akmeta = pd.read_excel(meta_path, usecols="B:L", header=2)
 
         akmeta = dict(user_initial=akmeta["User Initial"].dropna().astype(str).tolist(),
                       content=akmeta["Image Content"].dropna().astype(str).tolist(),
@@ -810,6 +875,7 @@ def populate_upload_combos(self):
                       modality=akmeta["Modality"].dropna().astype(str).tolist(),
                       source=akmeta["Light Source"].dropna().astype(str).tolist(),
                       antibiotic=akmeta["Antibiotic"].dropna().astype(str).tolist(),
+                      abxconcentration=akmeta["Antibiotic Concentration"].dropna().astype(str).tolist(),
                       treatment_time=akmeta["Treatment Time (mins)"].dropna().astype(str).tolist(),
                       stains=akmeta["Stains"].dropna().astype(str).tolist(),
                       mount=akmeta["Mounting Method"].dropna().astype(str).tolist(),
@@ -829,6 +895,8 @@ def populate_upload_combos(self):
         self.upload_stain.addItems([""] + akmeta["stains"])
         self.upload_antibiotic.clear()
         self.upload_antibiotic.addItems([""] + akmeta["antibiotic"])
+        self.upload_abxconcentration.clear()
+        self.upload_abxconcentration.addItems([""] + akmeta["abxconcentration"])
         self.upload_treatmenttime.clear()
         self.upload_treatmenttime.addItems([""] + akmeta["treatment_time"])
         self.upload_mount.clear()
@@ -1015,8 +1083,12 @@ def get_histogram(image, bins):
     histogram = np.zeros(bins)
 
     # loop through pixels and sum up counts of pixels
+
     for pixel in image:
-        histogram[pixel] += 1
+        try:
+            histogram[pixel] += 1
+        except:
+            pass
 
     return histogram
 
@@ -1083,7 +1155,7 @@ def import_masks(self, file_path):
 
     mask_paths = glob(file_path + "*\*", recursive=True)
     mask_files = [path.split("\\")[-1] for path in mask_paths]
-    mask_search = [path.split("\\")[-1].split(".")[0] for path in mask_paths]
+    mask_search = [file.split(".")[0] for file in mask_files]
 
     layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
 
@@ -1101,9 +1173,9 @@ def import_masks(self, file_path):
             image_path = meta["image_path"]
             crop = meta["crop"]
 
-            indices = np.where(np.isin(mask_search, [image_name]))
+            indices = [i for i, x in enumerate(mask_search) if image_name in x]
 
-            for index in indices[0]:
+            for index in indices:
 
                 mask_path = mask_paths[index]
                 mask_file = mask_files[index]
@@ -1147,6 +1219,4 @@ def import_masks(self, file_path):
             image, mask, meta = import_mat_data(image_path, mask_path)
             mask_stack[i, :, :][y1:y2, x1:x2] = mask
             self.segLayer.data = mask_stack
-
-
 
