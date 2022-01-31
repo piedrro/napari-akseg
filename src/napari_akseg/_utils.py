@@ -143,6 +143,9 @@ def read_nim_images(self, files, import_limit=10, laser_mode="All", multichannel
 
     nim_images = {}
 
+    channels = files['laser'].unique()
+    channel_shape = 0
+
     for i in range(int(import_limit)):
 
         progress = int(((i + 1) / int(import_limit)) * 100)
@@ -193,6 +196,7 @@ def read_nim_images(self, files, import_limit=10, laser_mode="All", multichannel
 
 
 def get_brightest_fov(image):
+
     imageL = image[0, :, :image.shape[2] // 2]
     imageR = image[0, :, image.shape[2] // 2:]
 
@@ -419,12 +423,11 @@ def import_AKSEG(self, path):
 
             for j, channel in enumerate(meta_stack["channels"]):
 
-                contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
-
                 img = image[j,:,:]
 
+                contrast_limit, alpha, beta, gamma = autocontrast_values(img, clip_hist_percent=1)
+
                 meta = meta_stack["layer_meta"][channel]
-                meta["akseg_hash"] = get_hash(image_path)
                 meta["import_mode"] = "AKSEG"
                 meta["contrast_limit"] = contrast_limit
                 meta["contrast_alpha"] = alpha
@@ -1140,9 +1143,9 @@ def autocontrast_values(image, clip_hist_percent=1):
     mid = 0.5
     mean = np.mean(img).astype(np.uint8)
     gamma = np.log(mid * 255) / np.log(mean)
-    gamma = gamma*1.2
+    gamma = gamma
 
-    contrast_limit = [minimum_gray*0.9, maximum_gray*1.1]
+    contrast_limit = [minimum_gray, maximum_gray]
 
     return contrast_limit, alpha, beta, gamma
 

@@ -594,7 +594,7 @@ class AKSEG(QWidget):
 
                 if os.path.exists(user_metadata_path):
 
-                    user_metadata = pd.read_csv(user_metadata_path, sep=",").iloc[:, 1:]
+                    user_metadata = pd.read_csv(user_metadata_path, sep=",")
                     metadata_file_names = user_metadata["file_name"].tolist()
                     metadata_akseg_hash = user_metadata["akseg_hash"].tolist()
                 else:
@@ -797,14 +797,16 @@ class AKSEG(QWidget):
                                                      class_path]
 
                                     if akseg_hash in metadata_akseg_hash:
-                                        index = user_metadata.index[user_metadata["akseg_hash"] == akseg_hash]
-                                        user_metadata.loc[index] = file_metadata
+
+                                        user_metadata.loc[user_metadata["akseg_hash"] == akseg_hash,
+                                                          user_metadata.columns] = np.array(file_metadata, dtype=object)
+
                                     else:
                                         user_metadata.loc[len(user_metadata)] = file_metadata
 
                             user_metadata.drop_duplicates(subset=['akseg_hash'], keep="first", inplace=True)
 
-                            user_metadata.to_csv(user_metadata_path, sep=",")
+                            user_metadata.to_csv(user_metadata_path, sep=",", index = False)
 
                             # reset progressbar
                             self.cellpose_progressbar.setValue(0)
@@ -1188,10 +1190,20 @@ class AKSEG(QWidget):
                 self.segLayer.mode = "paint"
                 self.segLayer.brush_size = 1
 
-                new_colour = self._newSegColour()
                 stored_mask = self.segLayer.data.copy()
                 stored_class = self.classLayer.data.copy()
                 meta = self.segLayer.metadata.copy()
+
+                data_coordinates = self.segLayer.world_to_data(event.position)
+                coord = np.round(data_coordinates).astype(int)
+                new_colour = self.segLayer.get_value(coord)
+
+                self.segLayer.selected_label = new_colour
+                new_colour = self.segLayer.get_value(coord)
+
+                new_class = self.classLayer.get_value(coord)
+                self.class_colour = new_class
+
 
                 dragged = False
                 colours = []
@@ -1216,17 +1228,11 @@ class AKSEG(QWidget):
 
                     colours = np.array(colours)
                     colours = np.unique(colours)
-                    colours = np.delete(colours, np.where(colours == 0))
 
                     if new_colour in colours:
                         colours = np.delete(colours, np.where(colours == new_colour))
 
-                    classes = np.array(classes)
-                    classes = np.delete(classes, np.where(classes == 0))
-
-                    class_colour = classes[0]
-
-                    if len(colours) > 1:
+                    if len(colours) == 1:
 
                         mask_stack = self.segLayer.data
 
@@ -1236,9 +1242,7 @@ class AKSEG(QWidget):
 
                             mask = mask_stack[current_fov, :, :]
 
-                            for i in range(len(colours) - 1):
-                                mask[mask == colours[i]] = colours[-1]
-                            mask[mask == new_colour] = colours[1]
+                            mask[mask == colours[0]] = new_colour
 
                             mask_stack[current_fov, :, :] = mask
 
@@ -1252,7 +1256,7 @@ class AKSEG(QWidget):
                             seg_mask = seg_stack[current_fov, :, :]
                             class_mask = class_stack[current_fov, :, :]
 
-                            class_mask[seg_mask == colours[-1]] = class_colour
+                            class_mask[seg_mask == new_colour] = 2
                             class_stack[current_fov, :, :] = class_mask
 
                             self.classLayer.data = class_stack
@@ -1268,9 +1272,7 @@ class AKSEG(QWidget):
 
                             mask = mask_stack
 
-                            for i in range(len(colours) - 1):
-                                mask[mask == colours[i]] = colours[-1]
-                            mask[mask == new_colour] = colours[1]
+                            mask[mask == colours[0]] = new_colour
 
                             self.segLayer.data = mask
 
@@ -1279,7 +1281,7 @@ class AKSEG(QWidget):
                             seg_mask = self.classLayer.data
                             class_mask = self.segLayer.data
 
-                            class_mask[seg_mask == colours[-1]] = class_colour
+                            class_mask[seg_mask == new_colour] = 2
                             class_stack[current_fov, :, :] = class_mask
 
                             self.classLayer.data = class_mask
@@ -1303,6 +1305,7 @@ class AKSEG(QWidget):
 
                 new_colour = self._newSegColour()
                 stored_mask = self.segLayer.data.copy()
+                stored_class = self.classLayer.data
                 meta = self.segLayer.metadata.copy()
 
                 dragged = False
@@ -1333,8 +1336,16 @@ class AKSEG(QWidget):
 
                         if len(stored_mask.shape) > 2:
 
+
                             current_fov = self.viewer.dims.current_step[0]
                             shape_mask = stored_mask[current_fov, :, :].copy()
+
+                            class_mask = stored_class[current_fov, :, :].copy()
+                            class_mask[shape_mask == maskref] = 3
+                            stored_class[current_fov, :, :] = class_mask
+                            self.classLayer.data = stored_class
+
+
                             shape_mask[shape_mask != maskref] = 0
                             shape_mask[shape_mask == maskref] = 255
                             shape_mask = shape_mask.astype(np.uint8)
@@ -1500,17 +1511,14 @@ class AKSEG(QWidget):
         masks_stack = segmentation_data
 
         self.segLayer.data = masks_stack
+        self.segLayer.contour = 1
+        self.segLayer.opacity = 1
 
-        active_layer = str(self.viewer.layers.selection).split(" '")[1].split("' ")[0]
-        label_layer = self.viewer.layers[active_layer]
-        label_layer.contour = 1
-        label_layer.opacity = 1
-
-        self.viewer.layers.select_previous()
         self.cellpose_progressbar.setValue(0)
         self.cellpose_segmentation = True
         self.viewer.reset_view()
         self._autoClassify()
+        self._autoContrast()
 
     def _update_cellpose_progress(self, progress):
 
