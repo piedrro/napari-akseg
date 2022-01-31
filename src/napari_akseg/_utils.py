@@ -790,6 +790,9 @@ def read_ak_metadata():
 
 def generate_multichannel_stack(self):
 
+    mask_curated = self.upload_segcurated.isChecked()
+    label_curated = self.upload_classcurated.isChecked()
+
     layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
 
     layer_names.reverse()

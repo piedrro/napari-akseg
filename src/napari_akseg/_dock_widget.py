@@ -650,7 +650,7 @@ class AKSEG(QWidget):
                         image_layer = self.viewer.layers[segChannel]
 
                         image_stack = image_layer.data
-                        multi_stack, meta_stack, layer_names = generate_multichannel_stack(self)
+                        image_stack, meta_stack, layer_names = generate_multichannel_stack(self)
                         mask_stack = self.segLayer.data
                         class_stack = self.classLayer.data
                         # meta_stack = image_layer.metadata
@@ -661,19 +661,18 @@ class AKSEG(QWidget):
 
                                 current_step = self.viewer.dims.current_step[0]
 
-                                # image_stack = np.expand_dims(image_stack[current_step], axis=0)
-                                image_stack = multi_stack[current_step]
+                                image_stack = np.expand_dims(image_stack[current_step], axis=0)
                                 mask_stack = np.expand_dims(mask_stack[current_step], axis=0)
                                 class_stack = np.expand_dims(class_stack[current_step], axis=0)
                                 meta_stack = np.expand_dims(meta_stack[current_step], axis=0)
+
 
                             for i in range(len(image_stack)):
 
                                 progress = int(((i + 1) / len(image_stack)) * 100)
                                 self.upload_progressbar.setValue(progress)
 
-                                # image = image_stack[i]
-                                image = multi_stack[i]
+                                image = image_stack[i]
 
                                 mask = mask_stack[i]
                                 class_mask = class_stack[i]
