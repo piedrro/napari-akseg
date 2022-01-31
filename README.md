@@ -23,11 +23,11 @@ https://napari.org/plugins/stable/index.html
 
 ## Installation
 
-You can install `napari-akseg` via [pip]:
+You can install `napari-akseg` from AKGROUP via [pip]:
 
+    pushd \\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Install
     pip install napari-akseg
-
-
+    napari
 
 
 ## Contributing

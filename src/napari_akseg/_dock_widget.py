@@ -103,6 +103,8 @@ class AKSEG(QWidget):
         self.cellpose_segment_active = self.findChild(QPushButton, "cellpose_segment_active")
         self.cellpose_segment_all = self.findChild(QPushButton, "cellpose_segment_all")
         self.cellpose_clear_previous = self.findChild(QCheckBox, "cellpose_clear_previous")
+        self.cellpose_usegpu = self.findChild(QCheckBox, "cellpose_usegpu")
+        self.cellpose_resetimage = self.findChild(QCheckBox, "cellpose_resetimage")
         self.cellpose_stop = self.findChild(QPushButton, "cellpose_stop")
         self.cellpose_progressbar = self.findChild(QProgressBar, "cellpose_progressbar")
 
@@ -200,6 +202,7 @@ class AKSEG(QWidget):
         self.cellpose_diameter.valueChanged.connect(lambda: self._updateSliderLabel("cellpose_diameter",
                                                                                     "cellpose_diameter_label"))
         self.cellpose_segment_all.clicked.connect(self._segmentAll)
+        self.cellpose_segment_active.clicked.connect(self._segmentActive)
 
         # modify tab events
         self.modify_panzoom.clicked.connect(partial(self._modifyMode, "panzoom"))
@@ -1488,6 +1491,25 @@ class AKSEG(QWidget):
                     self.classLayer.data = stored_class
                     self.segLayer.mode = "pan_zoom"
 
+    def _segmentActive(self):
+
+        current_fov = self.viewer.dims.current_step[0]
+        chanel = self.cellpose_segchannel.currentText()
+
+        images = self.viewer.layers[chanel].data
+
+        image = [images[current_fov, :, :]]
+
+        cellpose_worker = self._run_cellpose(image)
+        cellpose_worker.yielded.connect(self._update_cellpose_progress)
+        cellpose_worker.returned.connect(self._process_cellpose)
+
+        self.cellpose_stop.clicked.connect(cellpose_worker.quit)
+        cellpose_worker.finished.connect(self._stop_cellpose)
+
+        cellpose_worker.start()
+
+
     def _segmentAll(self):
 
         chanel = self.cellpose_segchannel.currentText()
@@ -1508,17 +1530,29 @@ class AKSEG(QWidget):
 
     def _process_cellpose(self, segmentation_data):
 
-        masks_stack = segmentation_data
+        masks = segmentation_data
 
-        self.segLayer.data = masks_stack
+        print(masks.shape)
+
+        if masks.shape[0] == 1:
+
+            current_fov = self.viewer.dims.current_step[0]
+            self.segLayer.data[current_fov,:,:] = masks
+
+        else:
+            self.segLayer.data = masks
+
         self.segLayer.contour = 1
         self.segLayer.opacity = 1
 
-        self.cellpose_progressbar.setValue(0)
         self.cellpose_segmentation = True
-        self.viewer.reset_view()
-        self._autoClassify()
+        self.cellpose_progressbar.setValue(0)
+        self._autoClassify(reset=True)
         self._autoContrast()
+
+        if self.cellpose_resetimage.isChecked() == True:
+            self.viewer.reset_view()
+
 
     def _update_cellpose_progress(self, progress):
 
@@ -1539,22 +1573,37 @@ class AKSEG(QWidget):
             mask_threshold = float(self.cellpose_maskthresh_label.text())
             min_size = int(self.cellpose_minsize_label.text())
             diameter = int(self.cellpose_diameter_label.text())
+            gpu = self.cellpose_usegpu.isChecked()
 
             cellpose_model = self.cellpose_model.currentText()
             custom_model = self.cellpose_custom_model_path
 
-            model = models.CellposeModel(pretrained_model=custom_model,
-                                         diam_mean=diameter,
-                                         model_type=None,
-                                         gpu=True,
-                                         torch=True,
-                                         net_avg=False,
-                                         omni=False
-                                         )
+            if cellpose_model == "custom":
+
+                model = models.CellposeModel(pretrained_model=custom_model,
+                                             diam_mean=diameter,
+                                             model_type=None,
+                                             gpu=gpu,
+                                             torch=True,
+                                             net_avg=False,
+                                             omni=False
+                                             )
+            else:
+
+                model = models.CellposeModel(diam_mean=diameter,
+                                             model_type=cellpose_model,
+                                             gpu=gpu,
+                                             torch=True,
+                                             net_avg=False,
+                                             omni=False
+                                             )
+
+            print("Loaded Cellpose Model: " + cellpose_model)
 
             masks = []
 
             for i in range(len(images)):
+
                 mask, flow, diam = model.eval(images[i],
                                               diameter=diameter,
                                               channels=[0, 0],
@@ -1826,7 +1875,7 @@ class AKSEG(QWidget):
         self._autoContrast()
         self._autoClassify()
 
-    def _autoClassify(self):
+    def _autoClassify(self, reset = False):
 
         mask_stack = self.segLayer.data.copy()
         label_stack = self.classLayer.data.copy()
@@ -1839,7 +1888,9 @@ class AKSEG(QWidget):
             label_ids = np.unique(label)
             mask_ids = np.unique(mask)
 
-            if len(label_ids) == 1:
+            if len(label_ids) == 1 or reset == True:
+
+                label = np.zeros(label.shape, dtype=np.uint16)
 
                 for mask_id in mask_ids:
 

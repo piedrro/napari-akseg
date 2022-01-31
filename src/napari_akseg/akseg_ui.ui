@@ -204,6 +204,11 @@
         </property>
         <item>
          <property name="text">
+          <string>All</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
           <string>640</string>
          </property>
         </item>
@@ -225,11 +230,6 @@
         <item>
          <property name="text">
           <string>BF</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>All</string>
          </property>
         </item>
        </widget>
@@ -586,7 +586,7 @@ p, li { white-space: pre-wrap; }
          </size>
         </property>
         <property name="text">
-         <string>0.4</string>
+         <string>0.9</string>
         </property>
        </widget>
       </item>
@@ -602,7 +602,7 @@ p, li { white-space: pre-wrap; }
          <number>10</number>
         </property>
         <property name="sliderPosition">
-         <number>40</number>
+         <number>90</number>
         </property>
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
@@ -736,6 +736,26 @@ p, li { white-space: pre-wrap; }
      <widget class="QCheckBox" name="cellpose_clear_previous">
       <property name="text">
        <string>Clear Previous Segmentations</string>
+      </property>
+      <property name="checked">
+       <bool>true</bool>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QCheckBox" name="cellpose_usegpu">
+      <property name="text">
+       <string>Use GPU (if Availiable)</string>
+      </property>
+      <property name="checked">
+       <bool>true</bool>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QCheckBox" name="cellpose_resetimage">
+      <property name="text">
+       <string>Reset Image View After Segmentation</string>
       </property>
       <property name="checked">
        <bool>true</bool>
