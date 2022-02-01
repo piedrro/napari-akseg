@@ -89,7 +89,12 @@
         </item>
         <item>
          <property name="text">
-          <string>Import NanoImager Images</string>
+          <string>Import NanoImager Map</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Import NanoImager Measurement</string>
          </property>
         </item>
         <item>

@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
                                  import_dataset, import_AKSEG, import_JSON, generate_multichannel_stack,
-                                 populate_upload_combos, get_export_data, import_masks, get_usermeta)
+                                 populate_upload_combos, get_export_data, import_masks, get_usermeta, read_nim_folder)
 
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 from napari_akseg._utils_cellpose import export_cellpose
@@ -283,13 +283,27 @@ class AKSEG(QWidget):
             self.path_list = file_paths
             self._process_import(imported_data)
 
-        if import_mode == "Import NanoImager Images":
+        if import_mode == "Import NanoImager Map":
 
-            files, file_paths = read_nim_directory(self, paths)
+            measurements, file_paths, channels = read_nim_directory(self, paths)
 
             self.path_list = file_paths
 
-            imported_data = read_nim_images(self, files,
+            imported_data = read_nim_images(self, measurements, channels,
+                                            self.import_limit.currentText(),
+                                            self.laser_mode.currentText(),
+                                            self.multichannel_mode.currentIndex(),
+                                            self.fov_mode.currentIndex())
+
+            self._process_import(imported_data)
+
+        if import_mode == "Import NanoImager Measurement":
+
+            measurements, file_paths, channels = read_nim_folder(self, paths)
+
+            self.path_list = file_paths
+
+            imported_data = read_nim_images(self, measurements, channels,
                                             self.import_limit.currentText(),
                                             self.laser_mode.currentText(),
                                             self.multichannel_mode.currentIndex(),

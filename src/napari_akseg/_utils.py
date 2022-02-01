@@ -14,9 +14,110 @@ import matplotlib.pyplot as plt
 import hashlib
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 
-def read_nim_directory(self, path):
 
-    files, paths = [], []
+def read_nim_folder(self, path):
+
+    if os.path.isfile(path[0]):
+        path = os.path.abspath(path[0])
+        path = path.replace(path.split("\\")[-1],"")
+    else:
+        path = path[0]
+
+    path = os.path.abspath(path)
+    file_paths = glob(path + "*/*.tif")
+
+    files = pd.DataFrame(columns=["path",
+                                  "file_name",
+                                  "folder",
+                                  "parent_folder",
+                                  "posX",
+                                  "posY",
+                                  "posZ",
+                                  "repeat",
+                                  "laser",
+                                  "timestamp"])
+
+    for i in range(len(file_paths)):
+
+        path = file_paths[i]
+        file_name = path.split("\\")[-1]
+        folder = os.path.abspath(path).split("\\")[-1]
+        parent_folder = os.path.abspath(path).split("\\")[-2]
+
+        with tifffile.TiffFile(path) as tif:
+
+            metadata = tif.pages[0].tags["ImageDescription"].value
+            metadata = json.loads(metadata)
+
+        laseractive = metadata["LaserActive"]
+        laserwavelength_nm = metadata["LaserWavelength_nm"]
+        timestamp = metadata["timestamp_us"]
+
+        if file_name.split(".tif")[0][-2] == "-":
+            repeat = file_name.split(".tif")[0][-1]
+        else:
+            repeat = 0
+
+        posX, posY, posZ = metadata["StagePos_um"]
+
+        if True in laseractive:
+            laser_index = laseractive.index(True)
+            laser = str(laserwavelength_nm[laser_index])
+        else:
+            laser = "BF"
+
+        file_name = path.split("\\")[-1].replace("_channels_t0", "").replace("__", "_")
+
+        files.loc[len(files)] = [path, file_name, folder, parent_folder, posX, posY, posZ, repeat, laser, timestamp]
+
+    files[["posX", "posY", "posZ"]] = files[["posX", "posY", "posZ"]].round(decimals=1)
+
+    files = files.sort_values(by=['posX', 'posY', 'timestamp', 'laser'], ascending=True)
+    files = files.reset_index(drop=True)
+    files["aquisition"] = 0
+
+    positions = files[['posX', 'posY']].drop_duplicates()
+    channels = files["laser"].drop_duplicates().to_list()
+
+    acquisition = 0
+    lasers = []
+
+    for i in range(len(positions)):
+
+        posX = positions["posX"].iloc[i]
+        posY = positions["posY"].iloc[i]
+
+        data = files[(files["posX"] == posX) & (files["posY"] == posY)]
+
+        indicies = data.index.values
+
+        for index in indicies:
+
+            laser = files.at[index, 'laser']
+
+            if laser in lasers:
+
+                acquisition += 1
+                lasers = [laser]
+
+            else:
+                lasers.append(laser)
+
+            files.at[index, 'aquisition'] = acquisition
+
+        acquisition += 1
+
+    measurements = files.groupby(by=['aquisition'])
+    channels = files["laser"].drop_duplicates().to_list()
+
+    channel_num = str(len(files["laser"].unique()))
+
+    print("Found " + str(len(measurements)) + " measurments in NIM Folder with " + channel_num + " channels.")
+
+    return measurements, file_paths, channels
+
+
+def read_nim_directory(self, path):
 
     if os.path.isfile(path[0]):
         path = os.path.abspath(os.path.join(path[0], "../../.."))
@@ -96,10 +197,11 @@ def read_nim_directory(self, path):
     measurements = files.groupby(by=['acquisitions', 'posXY', 'posZ'])
 
     channel_num = str(len(files["laser"].unique()))
+    channels = files["laser"].drop_duplicates().to_list()
 
     print("Found " + str(len(measurements)) + " measurments in NIM directory with " + channel_num + " channels.")
 
-    return files, paths
+    return measurements, paths, channels
 
 
 def read_tif(path):
@@ -133,23 +235,12 @@ def read_tif(path):
     return image, metadata
 
 
-def read_nim_images(self, files, import_limit=10, laser_mode="All", multichannel_mode="0", fov_mode="0"):
-
-    if laser_mode != "All":
-        files = files[files["laser"] == str(laser_mode)]
-
-    measurements = files.groupby(by=['acquisitions', 'posXY', 'posZ'])
+def read_nim_images(self, measurements, channels, import_limit=10, laser_mode="All", multichannel_mode="0", fov_mode="0"):
 
     if import_limit == "None":
         import_limit = len(measurements)
 
-    if import_limit != "None" and len(measurements) > int(import_limit):
-        import_limit = len(measurements)
-
     nim_images = {}
-
-    channels = files['laser'].unique()
-    channel_shape = 0
 
     for i in range(int(import_limit)):
 
@@ -160,42 +251,66 @@ def read_nim_images(self, files, import_limit=10, laser_mode="All", multichannel
 
         measurement = measurements.get_group(list(measurements.groups)[i])
 
-        channels = measurement.groupby(by=['laser'])
+        if laser_mode != "All":
+            measurement = measurement[measurement["laser"] == str(laser_mode)]
 
-        for j in range(len(channels)):
+        measurement_channels = measurement["laser"].tolist()
 
-            dat = channels.get_group(list(channels.groups)[j])
+        for channel in channels:
 
-            path = dat["path"].item()
-            laser = dat["laser"].item()
-            folder = dat["folder"].item()
-            parent_folder = dat["parent_folder"].item()
+            if channel in measurement_channels:
 
-            img, meta = read_tif(path)
+                dat = measurement[measurement["laser"]==channel]
 
-            img = process_image(img, multichannel_mode, fov_mode)
+                path = dat["path"].item()
+                laser = dat["laser"].item()
+                folder = dat["folder"].item()
+                parent_folder = dat["parent_folder"].item()
 
-            contrast_limit, alpha, beta, gamma = autocontrast_values(img, clip_hist_percent=1)
+                img, meta = read_tif(path)
 
-            meta["folder"] = folder,
-            meta["parent_folder"] = parent_folder,
-            meta["akseg_hash"] = get_hash(path)
-            meta["nim_laser_mode"] = laser_mode
-            meta["nim_multichannel_mode"] = multichannel_mode
-            meta["fov_mode"] = fov_mode
-            meta["import_mode"] = "NIM"
-            meta["contrast_limit"] = contrast_limit
-            meta["contrast_alpha"] = alpha
-            meta["contrast_beta"] = beta
-            meta["contrast_gamma"] = gamma
-            meta["dims"] = [img.shape[-1], img.shape[-2]]
-            meta["crop"] = [0, img.shape[-2], 0, img.shape[-1]]
+                img = process_image(img, multichannel_mode, fov_mode)
+
+                contrast_limit, alpha, beta, gamma = autocontrast_values(img, clip_hist_percent=1)
+
+                meta["folder"] = folder,
+                meta["parent_folder"] = parent_folder,
+                meta["akseg_hash"] = get_hash(path)
+                meta["nim_laser_mode"] = laser_mode
+                meta["nim_multichannel_mode"] = multichannel_mode
+                meta["fov_mode"] = fov_mode
+                meta["import_mode"] = "NIM"
+                meta["contrast_limit"] = contrast_limit
+                meta["contrast_alpha"] = alpha
+                meta["contrast_beta"] = beta
+                meta["contrast_gamma"] = gamma
+                meta["dims"] = [img.shape[-1], img.shape[-2]]
+                meta["crop"] = [0, img.shape[-2], 0, img.shape[-1]]
+
+            else:
+
+                img = np.zeros((100,100),dtype=np.uint8)
+                meta = {}
+
+                meta["folder"] = None,
+                meta["parent_folder"] = None,
+                meta["akseg_hash"] = None
+                meta["nim_laser_mode"] = None
+                meta["nim_multichannel_mode"] = None
+                meta["fov_mode"] = None
+                meta["import_mode"] = "NIM"
+                meta["contrast_limit"] = None
+                meta["contrast_alpha"] = None
+                meta["contrast_beta"] = None
+                meta["contrast_gamma"] = None
+                meta["dims"] = [img.shape[-1], img.shape[-2]]
+                meta["crop"] = [0, img.shape[-2], 0, img.shape[-1]]
 
             if laser not in nim_images:
-                nim_images[laser] = dict(images=[img], masks=[], classes=[], metadata={i: meta})
+                nim_images[channel] = dict(images=[img], masks=[], classes=[], metadata={i: meta})
             else:
-                nim_images[laser]["images"].append(img)
-                nim_images[laser]["metadata"][i] = meta
+                nim_images[channel]["images"].append(img)
+                nim_images[channel]["metadata"][i] = meta
 
     return nim_images
 
