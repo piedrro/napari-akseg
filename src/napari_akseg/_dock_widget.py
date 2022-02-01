@@ -257,11 +257,11 @@ class AKSEG(QWidget):
 
         populate_upload_combos(self)
 
+
     def _importDialog(self):
 
         import_mode = self.import_mode.currentText()
         import_filemode = self.import_filemode.currentText()
-        import_limit = self.import_limit.currentText()
 
         if import_filemode == "Import File(s)":
 
@@ -371,8 +371,6 @@ class AKSEG(QWidget):
 
             except:
                 print(traceback.format_exc())
-
-
 
     def _populateUSERMETA(self):
 

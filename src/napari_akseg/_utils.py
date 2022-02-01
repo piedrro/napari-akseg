@@ -143,6 +143,9 @@ def read_nim_images(self, files, import_limit=10, laser_mode="All", multichannel
     if import_limit == "None":
         import_limit = len(measurements)
 
+    if import_limit != "None" and len(measurements) > int(import_limit):
+        import_limit = len(measurements)
+
     nim_images = {}
 
     channels = files['laser'].unique()
@@ -328,8 +331,6 @@ def import_dataset(self, paths):
 
     folders = [os.path.abspath(x).split("\\")[-1].lower() for x in folders]
 
-    print(folders)
-
     if "images" in folders and "masks" in folders:
 
         image_paths = glob(path + "/images/*.tif")
@@ -349,6 +350,8 @@ def import_dataset(self, paths):
 
             progress = int(((i + 1) / len(image_paths)) * 100)
             self.import_progressbar.setValue(progress)
+
+            print("loading image " + str(i + 1) + " of " + str(len(image_paths)))
 
             image_path = os.path.abspath(image_paths[i])
             mask_path = image_path.replace("\\images\\", "\\masks\\")
@@ -421,13 +424,15 @@ def import_AKSEG(self, paths):
 
         import_limit = self.import_limit.currentText()
 
-        if import_limit == "None":
-            import_limit = len(image_paths)
+        if import_limit != "None" and len(image_paths) > int(import_limit):
+            image_paths = image_paths[:int(import_limit)]
 
-        for i in range(int(import_limit)):
+        for i in range(len(image_paths)):
 
-            progress = int(((i + 1) / int(import_limit)) * 100)
+            progress = int(((i + 1) / len(image_paths)) * 100)
             self.import_progressbar.setValue(progress)
+
+            print("loading image " + str(i + 1) + " of " + str(len(image_paths)))
 
             image_path = os.path.abspath(image_paths[i])
             json_path = image_path.replace("\\images\\", "\\json\\").replace(".tif",".txt")
@@ -495,6 +500,8 @@ def import_images(self, file_paths):
         progress = int(((i + 1) / len(file_paths)) * 100)
         self.import_progressbar.setValue(progress)
 
+        print("loading image " + str(i + 1) + " of " + str(len(file_paths)))
+
         file_path = file_paths[i]
         file_name = file_path.split("\\")[-1]
 
@@ -548,6 +555,8 @@ def import_cellpose(self, file_paths):
 
         progress = int(((i + 1) / len(file_paths)) * 100)
         self.import_progressbar.setValue(progress)
+
+        print("loading image " + str(i + 1) + " of " + str(len(file_paths)))
 
         file_path = os.path.abspath(file_paths[i])
         file_name = file_path.split("\\")[-1]
@@ -690,6 +699,8 @@ def import_oufti(self, file_paths):
         try:
             progress = int(((i + 1) / len(mat_files)) * 100)
             self.import_progressbar.setValue(progress)
+
+            print("loading image " + str(i + 1) + " of " + str(len(mat_files)))
 
             mat_path = mat_files[i]
             image_path = image_files[i]
@@ -1067,6 +1078,8 @@ def import_JSON(self, file_paths):
             progress = int(((i + 1) / len(json_files)) * 100)
             self.import_progressbar.setValue(progress)
 
+            print("loading image " + str(i + 1) + " of " + str(len(json_files)))
+
             json_path = json_files[i]
             image_path = image_files[i]
 
@@ -1176,7 +1189,6 @@ def autocontrast_values(image, clip_hist_percent=1):
 
     return contrast_limit, alpha, beta, gamma
 
-
 def import_masks(self, file_path):
 
     mask_stack = self.segLayer.data.copy()
@@ -1196,8 +1208,6 @@ def import_masks(self, file_path):
 
     mask_files = [path.split("\\")[-1] for path in mask_paths]
     mask_search = [file.split(".")[0] for file in mask_files]
-
-    print(len(mask_search))
 
     layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
 
