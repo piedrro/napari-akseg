@@ -68,21 +68,15 @@ class AKSEG(QWidget):
 
         # import controls from Qt Desinger References
         self.path_list = []
+        self.import_mode = self.findChild(QComboBox, "import_mode")
+        self.import_filemode = self.findChild(QComboBox, "import_filemode")
+        self.import_import = self.findChild(QPushButton, "import_import")
         self.import_limit = self.findChild(QComboBox, "import_limit")
         self.clear_previous = self.findChild(QCheckBox, "import_clear_previous")
         self.autocontrast = self.findChild(QCheckBox, "import_auto_contrast")
         self.multichannel_mode = self.findChild(QComboBox, "nim_multichannel_mode")
         self.laser_mode = self.findChild(QComboBox, "nim_laser_mode")
         self.fov_mode = self.findChild(QComboBox, "nim_fov_mode")
-        self.nim_open_dir = self.findChild(QPushButton, "nim_open_dir")
-        self.image_open_dir = self.findChild(QPushButton, "image_open_dir")
-        self.image_open_cellpose = self.findChild(QPushButton, "image_open_cellpose")
-        self.image_open_masks = self.findChild(QPushButton, "image_open_masks")
-        self.image_open_oufti = self.findChild(QPushButton, "image_open_oufti")
-        self.image_open_cellpose = self.findChild(QPushButton, "image_open_cellpose")
-        self.image_open_json = self.findChild(QPushButton, "image_open_json")
-        self.image_open_dataset = self.findChild(QPushButton, "image_open_dataset")
-        self.image_open_akseg = self.findChild(QPushButton, "image_open_akseg")
         self.import_progressbar = self.findChild(QProgressBar, "import_progressbar")
 
         # cellpose controls + variabes from Qt Desinger References
@@ -181,15 +175,8 @@ class AKSEG(QWidget):
         self.export_directory.setText("Data will be exported in same folder(s) that the images/masks were originally imported from. Not Recomeneded for Nanoimager Data")
 
         # import events
-        self.nim_open_dir.clicked.connect(self._open_nim_directory)
-        self.image_open_dir.clicked.connect(self._open_image_directory)
-        self.image_open_cellpose.clicked.connect(self._open_cellpose_directory)
-        self.image_open_oufti.clicked.connect(self._open_oufti_directory)
-        self.image_open_dataset.clicked.connect(self._openDataset)
-        self.image_open_akseg.clicked.connect(self._openAKSEG)
-        self.image_open_json.clicked.connect(self._openJSON)
-        self.image_open_masks.clicked.connect(self._openMasks)
         self.autocontrast.stateChanged.connect(self._autoContrast)
+        self.import_import.clicked.connect(self._importDialog)
 
         # cellpose events
         self.cellpose_load_model.clicked.connect(self._openModelFile)
@@ -270,6 +257,122 @@ class AKSEG(QWidget):
 
         populate_upload_combos(self)
 
+    def _importDialog(self):
+
+        import_mode = self.import_mode.currentText()
+        import_filemode = self.import_filemode.currentText()
+        import_limit = self.import_limit.currentText()
+
+        if import_filemode == "Import File(s)":
+
+            paths, filter = QFileDialog.getOpenFileNames(self, "Open Files",
+                                                    r"\\CMDAQ4.physics.ox.ac.uk\AKGroup",
+                                                    "Files (*)")
+
+        if import_filemode == "Import Directory":
+
+            path = QFileDialog.getExistingDirectory(self, "Select Directory",
+                                                r"\\CMDAQ4.physics.ox.ac.uk\AKGroup")
+
+            paths = [path]
+
+        if import_mode == "Import Images":
+
+            imported_data, file_paths = import_images(self, paths)
+
+            self.path_list = file_paths
+            self._process_import(imported_data)
+
+        if import_mode == "Import NanoImager Images":
+
+            files, file_paths = read_nim_directory(self, paths)
+
+            self.path_list = file_paths
+
+            imported_data = read_nim_images(self, files,
+                                            self.import_limit.currentText(),
+                                            self.laser_mode.currentText(),
+                                            self.multichannel_mode.currentIndex(),
+                                            self.fov_mode.currentIndex())
+
+            self._process_import(imported_data)
+
+        if import_mode == "Import Masks":
+
+            import_masks(self, paths)
+
+        if import_mode == "Import Cellpose .npy file(s)":
+
+            imported_data, file_paths = import_cellpose(self, paths)
+
+            self.path_list = file_paths
+            self._process_import(imported_data)
+
+        if import_mode == "Import Oufti .mat file(s)":
+
+            imported_data, file_paths = import_oufti(self, paths)
+
+            self.path_list = file_paths
+            self._process_import(imported_data)
+
+        if import_mode == "Import JSON .txt file(s)":
+
+            imported_data, file_paths = import_JSON(self, paths)
+
+            self.path_list = file_paths
+            self._process_import(imported_data)
+
+        if import_mode == "Import Images + Masks Dataset":
+
+            imported_data, file_paths = import_dataset(self, paths)
+
+            self.path_list = file_paths
+            self._process_import(imported_data)
+
+        if import_mode == "Import AKSEG Dataset":
+
+            imported_data, file_paths, akmeta = import_AKSEG(self, paths)
+
+            self.path_list = file_paths
+            self._process_import(imported_data)
+
+            try:
+                user_initial = akmeta["user_initial"]
+                content = akmeta["image_content"]
+                microscope = akmeta["microscope"]
+                modality = akmeta["modality"]
+                source = akmeta["light_source"]
+                stains = akmeta["stains"]
+                antibiotic = akmeta["antibiotic"]
+                treatmenttime = akmeta["treatementtime"]
+                abxconcentration = akmeta["abxconcentration"]
+                mount = akmeta["mount"]
+                protocol = akmeta["protocol"]
+                usermeta1 = akmeta["usermeta1"]
+                usermeta2 = akmeta["usermeta2"]
+                usermeta3 = akmeta["usermeta3"]
+                segChannel = akmeta["segmentation_channel"]
+
+                self.upload_segchannel.setCurrentText(segChannel)
+                self.upload_initial.setCurrentText(user_initial)
+                self.upload_content.setCurrentText(content)
+                self.upload_microscope.setCurrentText(microscope)
+                self.upload_modality.setCurrentText(modality)
+                self.upload_illumination.setCurrentText(source)
+                self.upload_stain.setCurrentText(stains)
+                self.upload_treatmenttime.setCurrentText(treatmenttime)
+                self.upload_mount.setCurrentText(mount)
+                self.upload_antibiotic.setCurrentText(antibiotic)
+                self.upload_abxconcentration.setCurrentText(abxconcentration)
+                self.upload_protocol.setCurrentText(protocol)
+                self.upload_usermeta1.setCurrentText(usermeta1)
+                self.upload_usermeta2.setCurrentText(usermeta2)
+                self.upload_usermeta3.setCurrentText(usermeta3)
+
+            except:
+                print(traceback.format_exc())
+
+
 
     def _populateUSERMETA(self):
 
@@ -290,29 +393,6 @@ class AKSEG(QWidget):
             self.upload_usermeta1.addItems([""] + meta1)
             self.upload_usermeta2.addItems([""] + meta2)
             self.upload_usermeta3.addItems([""] + meta3)
-
-
-    def _openMasks(self):
-
-        path = QFileDialog.getExistingDirectory(self, "Select Export Directory",
-                                                r"C:\Users\turnerp\Documents\Code\Convert Hafez Brightfields\converted\Curated")
-        if path:
-
-            import_masks(self, path)
-
-
-    def _openJSON(self):
-
-        file_path = QFileDialog.getOpenFileName(self, "Open File",
-                                                r"C:\Users\turnerp\OneDrive - Nexus365\datasetRGB\Predictions",
-                                                "JSON Files (*.txt)")
-        if file_path:
-
-            imported_data, file_paths = import_JSON(self, file_path)
-
-            self.path_list = file_paths
-
-            self._process_import(imported_data)
 
     def _getExportDirectory(self):
 
@@ -436,70 +516,6 @@ class AKSEG(QWidget):
                 tifffile.imwrite(file_path, image, metadata=meta)
 
         self.export_progressbar.setValue(0)
-
-
-    def _openDataset(self):
-
-        path = QFileDialog.getExistingDirectory(self, "Select Directory",
-                                                r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images")
-
-        if path:
-
-            imported_data, file_paths = import_dataset(self,path)
-
-            self.path_list = file_paths
-
-            self._process_import(imported_data)
-
-
-    def _openAKSEG(self):
-
-        path = QFileDialog.getExistingDirectory(self, "Select AKSEG Directory",
-                                                r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images")
-
-        if path:
-
-            imported_data, file_paths, akmeta = import_AKSEG(self, path)
-
-            self.path_list = file_paths
-
-            self._process_import(imported_data,rearrange = False)
-
-            try:
-                user_initial = akmeta["user_initial"]
-                content = akmeta["image_content"]
-                microscope = akmeta["microscope"]
-                modality = akmeta["modality"]
-                source = akmeta["light_source"]
-                stains = akmeta["stains"]
-                antibiotic = akmeta["antibiotic"]
-                treatmenttime = akmeta["treatementtime"]
-                abxconcentration = akmeta["abxconcentration"]
-                mount = akmeta["mount"]
-                protocol = akmeta["protocol"]
-                usermeta1 = akmeta["usermeta1"]
-                usermeta2 = akmeta["usermeta2"]
-                usermeta3 = akmeta["usermeta3"]
-                segChannel = akmeta["segmentation_channel"]
-
-                self.upload_segchannel.setCurrentText(segChannel)
-                self.upload_initial.setCurrentText(user_initial)
-                self.upload_content.setCurrentText(content)
-                self.upload_microscope.setCurrentText(microscope)
-                self.upload_modality.setCurrentText(modality)
-                self.upload_illumination.setCurrentText(source)
-                self.upload_stain.setCurrentText(stains)
-                self.upload_treatmenttime.setCurrentText(treatmenttime)
-                self.upload_mount.setCurrentText(mount)
-                self.upload_antibiotic.setCurrentText(antibiotic)
-                self.upload_abxconcentration.setCurrentText(abxconcentration)
-                self.upload_protocol.setCurrentText(protocol)
-                self.upload_usermeta1.setCurrentText(usermeta1)
-                self.upload_usermeta2.setCurrentText(usermeta2)
-                self.upload_usermeta3.setCurrentText(usermeta3)
-
-            except:
-                print(traceback.format_exc())
 
     def _imageControls(self, key, viewer=None):
 
@@ -1709,63 +1725,6 @@ class AKSEG(QWidget):
         except:
             pass
 
-    def _open_image_directory(self):
-
-        file_path = QFileDialog.getOpenFileName(self, "Open File",
-                                                r"C:\Users\turnerp\Documents\Code\Convert Hafez Brightfields\converted\Curated",
-                                                "NanoImager Files (*)")
-
-        if file_path:
-            imported_data, file_paths = import_images(self, file_path)
-
-            self.path_list = file_paths
-
-            self._process_import(imported_data)
-
-    def _open_nim_directory(self):
-
-        file_path = QFileDialog.getExistingDirectory(self, "Select Export Directory",
-                                                r"D:\Aleks\Phenotype detection complete repeats new convention")
-        if file_path:
-
-            files, file_paths = read_nim_directory(self, file_path)
-
-            self.path_list = file_paths
-
-            imported_data = read_nim_images(self, files,
-                                            self.import_limit.currentText(),
-                                            self.laser_mode.currentText(),
-                                            self.multichannel_mode.currentIndex(),
-                                            self.fov_mode.currentIndex())
-
-            self._process_import(imported_data)
-
-    def _open_cellpose_directory(self):
-
-        file_path = QFileDialog.getOpenFileName(self, "Open File",
-                                                r"C:\Users\turnerp\OneDrive - Nexus365\datasetRGB\Predictions",
-                                                "Cellpose Files (*.npy)")
-
-        if file_path:
-
-            imported_data, file_paths = import_cellpose(self, file_path)
-
-            self.path_list = file_paths
-
-            self._process_import(imported_data)
-
-    def _open_oufti_directory(self):
-
-        file_path = QFileDialog.getOpenFileName(self, "Open File",
-                                                r"C:\Users\turnerp\Documents\Code\Convert Hafez Brightfields\data",
-                                                "OUFTI Files (*)")
-
-        if file_path:
-            imported_data, file_paths = import_oufti(self, file_path)
-
-            self.path_list = file_paths
-
-            self._process_import(imported_data)
 
     def _process_import(self, imported_data, rearrange = True):
 

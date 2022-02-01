@@ -16,6 +16,14 @@ from napari_akseg._utils_json import import_coco_json, export_coco_json
 
 def read_nim_directory(self, path):
 
+    files, paths = [], []
+
+    if os.path.isfile(path[0]):
+        path = os.path.abspath(os.path.join(path[0], "../../.."))
+    else:
+        path = path[0]
+
+    path = os.path.abspath(path)
     folder = os.path.abspath(path).split("\\")[-1]
     parent_folder = os.path.abspath(path).split("\\")[-2]
 
@@ -84,12 +92,6 @@ def read_nim_directory(self, path):
     files = files.join(acquisitions)
     files = files.sort_values(by=['acquisitions', 'posXY', 'posZ'], ascending=True)
     files = files.reset_index(drop=True)
-
-    # if self.import_limit.currentText() == "1":
-    #     posXY = files[files["path"] == os.path.abspath(file_path)]["posXY"].values[0]
-    #     posZ = files[files["path"] == os.path.abspath(file_path)]["posZ"].values[0]
-    #     acquistion = files[files["path"] == os.path.abspath(file_path)]['acquisitions'].values[0]
-    #     files = files[(files["posXY"] == posXY) & (files["posZ"] == posZ) & (files['acquisitions'] == acquistion)]
 
     measurements = files.groupby(by=['acquisitions', 'posXY', 'posZ'])
 
@@ -314,10 +316,19 @@ def stack_images(images, metadata=None):
 
     return image_stack, metadata
 
-def import_dataset(self, path):
+def import_dataset(self, paths):
 
-    folders = glob(path + "/*/")
+    path = os.path.abspath(paths[0])
+
+    if os.path.isfile(path):
+        path = os.path.abspath(os.path.join(path, "../.."))
+        folders = glob(path + "**/*")
+    else:
+        folders = glob(path + "*/*")
+
     folders = [os.path.abspath(x).split("\\")[-1].lower() for x in folders]
+
+    print(folders)
 
     if "images" in folders and "masks" in folders:
 
@@ -331,12 +342,12 @@ def import_dataset(self, path):
 
         import_limit = self.import_limit.currentText()
 
-        if import_limit == "None":
-            import_limit = len(image_paths)
+        if import_limit != "None" and len(image_paths) > int(import_limit):
+            image_paths = image_paths[:int(import_limit)]
 
-        for i in range(int(import_limit)):
+        for i in range(len(image_paths)):
 
-            progress = int(((i + 1) / int(import_limit)) * 100)
+            progress = int(((i + 1) / len(image_paths)) * 100)
             self.import_progressbar.setValue(progress)
 
             image_path = os.path.abspath(image_paths[i])
@@ -346,10 +357,12 @@ def import_dataset(self, path):
             mask_name = mask_path.split("\\")[-1]
 
             image, meta = read_tif(image_path)
+            assert len(image.shape) < 3, "Can only import single channel images"
 
             if os.path.exists(mask_path):
 
                 mask = tifffile.imread(mask_path)
+                assert len(mask.shape) < 3, "Can only import single channel masks"
 
             else:
                 mask_name = None
@@ -358,7 +371,7 @@ def import_dataset(self, path):
 
             contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
 
-            metadata["akseg_hash"] = get_hash(path)
+            metadata["akseg_hash"] = get_hash(image_path)
             meta["image_name"] = image_name
             meta["image_path"] = image_path
             meta["mask_name"] = mask_name
@@ -381,11 +394,20 @@ def import_dataset(self, path):
                 imported_data["Image"]["masks"].append(mask)
                 imported_data["Image"]["metadata"][i] = meta
 
-        return imported_data, image_paths
+    return imported_data, image_paths
 
-def import_AKSEG(self, path):
+def import_AKSEG(self, paths):
 
-    folders = glob(path + "/*/")
+    imported_data, image_paths, akmeta = [], [], []
+
+    path = os.path.abspath(paths[0])
+
+    if os.path.isfile(path):
+        path = os.path.abspath(os.path.join(path, "../.."))
+        folders = glob(path + "**/*")
+    else:
+        folders = glob(path + "*/*")
+
     folders = [os.path.abspath(x).split("\\")[-1].lower() for x in folders]
 
     if "images" in folders and "json" in folders:
@@ -447,38 +469,33 @@ def import_AKSEG(self, path):
         akmeta = meta_stack
         akmeta.pop("layer_meta")
 
-        return imported_data, image_paths, akmeta
+    return imported_data, image_paths, akmeta
 
 
-def import_images(self, file_path):
+def import_images(self, file_paths):
 
-    file_path = os.path.abspath(file_path[0])
-    file_name = file_path.split("\\")[-1]
+    if os.path.isdir(file_paths[0]):
+        file_paths = glob(file_paths[0] + "**\*", recursive=True)
 
-    parent_dir = file_path.replace(file_name, "")
-    file_paths = glob(parent_dir + "*.tif", recursive=True)
+    image_formats = ["tif", "png", "jpeg"]
 
-    if self.import_limit.currentText() == "1":
+    file_paths = [path for path in file_paths if path.split(".")[-1] in image_formats]
 
-        files = [file_path]
-    else:
-        files = file_paths
+    import_limit = self.import_limit.currentText()
+
+    if import_limit != "None" and len(file_paths) > int(import_limit):
+        file_paths = file_paths[:int(import_limit)]
 
     images = []
     metadata = {}
     imported_data = {}
 
-    import_limit = self.import_limit.currentText()
+    for i in range(len(file_paths)):
 
-    if import_limit == "None":
-        import_limit = len(files)
-
-    for i in range(int(import_limit)):
-
-        progress = int(((i + 1) / int(import_limit)) * 100)
+        progress = int(((i + 1) / len(file_paths)) * 100)
         self.import_progressbar.setValue(progress)
 
-        file_path = files[i]
+        file_path = file_paths[i]
         file_name = file_path.split("\\")[-1]
 
         image, meta = read_tif(file_path)
@@ -507,36 +524,32 @@ def import_images(self, file_path):
             imported_data["Image"]["images"].append(image)
             imported_data["Image"]["metadata"][i] = meta
 
-    return imported_data, file_paths
+    return imported_data, file_path
 
 
-def import_cellpose(self, file_path):
 
-    file_path = os.path.abspath(file_path[0])
-    file_name = file_path.split("\\")[-1]
+def import_cellpose(self, file_paths):
 
-    parent_dir = file_path.replace(file_name, "")
-    file_paths = glob(parent_dir + "*.npy", recursive=True)
+    if os.path.isdir(file_paths[0]):
+        file_paths = glob(file_paths[0] + "**\*", recursive=True)
 
-    if self.import_limit.currentText() == "1":
+    image_formats = ["npy"]
 
-        files = [file_path]
-    else:
-        files = file_paths
-
-    imported_data = {}
+    file_paths = [path for path in file_paths if path.split(".")[-1] in image_formats]
 
     import_limit = self.import_limit.currentText()
 
-    if import_limit == "None":
-        import_limit = len(files)
+    if import_limit != "None" and len(file_paths) > int(import_limit):
+        file_paths = file_paths[:int(import_limit)]
 
-    for i in range(int(import_limit)):
+    imported_data = {}
 
-        progress = int(((i + 1) / int(import_limit)) * 100)
+    for i in range(len(file_paths)):
+
+        progress = int(((i + 1) / len(file_paths)) * 100)
         self.import_progressbar.setValue(progress)
 
-        file_path = os.path.abspath(files[i])
+        file_path = os.path.abspath(file_paths[i])
         file_name = file_path.split("\\")[-1]
 
         dat = np.load(file_path, allow_pickle=True).item()
@@ -603,26 +616,29 @@ def import_cellpose(self, file_path):
     return imported_data, file_paths
 
 
-def import_oufti(self, file_path):
+def import_oufti(self, file_paths):
 
-    file_path = os.path.abspath(file_path[0])
-    file_name = file_path.split("\\")[-1]
+    if os.path.isdir(file_paths[0]):
+        file_paths = glob(file_paths[0] + "**\*", recursive=True)
 
-    parent_dir = file_path.replace(file_name, "")
-    mat_paths = glob(parent_dir + "*.mat", recursive=True)
-    image_paths = glob(parent_dir + "*.tif", recursive=True)
+    image_formats = ["mat"]
+
+    file_paths = [path for path in file_paths if path.split(".")[-1] in image_formats]
+
+    file_path = os.path.abspath(file_paths[0])
+    parent_dir = file_path.replace(file_path.split("\\")[-1], "")
+
+    mat_paths = file_paths
+    image_paths = glob(parent_dir + "**\*", recursive=True)
+
+    image_formats = ["tif"]
+    image_paths = [path for path in image_paths if path.split(".")[-1] in image_formats]
 
     mat_files = [path.split("\\")[-1] for path in mat_paths]
     image_files = [path.split("\\")[-1] for path in image_paths]
 
     matching_image_paths = []
     matching_mat_paths = []
-
-    images = []
-    masks = []
-    metadata = {}
-
-    import_limit = self.import_limit.currentText()
 
     for i in range(len(image_files)):
 
@@ -631,6 +647,7 @@ def import_oufti(self, file_path):
         index = [i for i, x in enumerate(mat_files) if image_file in x]
 
         if index != []:
+
             image_path = image_paths[i]
             mat_path = mat_paths[index[0]]
 
@@ -661,15 +678,17 @@ def import_oufti(self, file_path):
         image_files = matching_image_paths
         mat_files = matching_mat_paths
 
-    if import_limit == "None":
-        import_limit = len(image_files)
+    import_limit = self.import_limit.currentText()
+
+    if import_limit != "None" and len(mat_files) > int(import_limit):
+        mat_files = mat_files[:int(import_limit)]
 
     imported_data = {}
 
-    for i in range(int(import_limit)):
+    for i in range(len(mat_files)):
 
         try:
-            progress = int(((i + 1) / int(import_limit)) * 100)
+            progress = int(((i + 1) / len(mat_files)) * 100)
             self.import_progressbar.setValue(progress)
 
             mat_path = mat_files[i]
@@ -974,13 +993,18 @@ def get_export_data(self,mask_stack,label_stack,meta_stack):
     return export_mask_stack, export_label_stack, export_contours
 
 
-def import_JSON(self, file_path):
+def import_JSON(self, file_paths):
 
-    file_path = os.path.abspath(file_path[0])
-    file_name = file_path.split("\\")[-1]
+    if os.path.isdir(file_paths[0]):
+        file_paths = glob(file_paths[0] + "**\*", recursive=True)
 
-    parent_dir = file_path.replace(file_name, "")
-    json_paths = glob(parent_dir + "*.txt", recursive=True)
+    image_formats = ["txt"]
+
+    json_paths = [path for path in file_paths if path.split(".")[-1] in image_formats]
+
+    file_path = os.path.abspath(file_paths[0])
+    parent_dir = file_path.replace(file_path.split("\\")[-1], "")
+
     image_paths = glob(parent_dir + "*.tif", recursive=True)
 
     json_files = [path.split("\\")[-1] for path in json_paths]
@@ -1007,7 +1031,7 @@ def import_JSON(self, file_path):
 
             matching_json_paths.append(json_path)
             matching_image_paths.append(image_path)
-            
+
     if self.import_limit.currentText() == "1":
 
         if file_path in matching_image_paths:
@@ -1032,15 +1056,15 @@ def import_JSON(self, file_path):
         image_files = matching_image_paths
         json_files = matching_json_paths
 
-    if import_limit == "None":
-        import_limit = len(image_files)
-
     imported_data = {}
 
-    for i in range(int(import_limit)):
+    if import_limit != "None" and len(json_files) > int(import_limit):
+        json_files = json_files[:int(import_limit)]
+
+    for i in range(len(json_files)):
 
         try:
-            progress = int(((i + 1) / int(import_limit)) * 100)
+            progress = int(((i + 1) / len(json_files)) * 100)
             self.import_progressbar.setValue(progress)
 
             json_path = json_files[i]
@@ -1157,11 +1181,23 @@ def import_masks(self, file_path):
 
     mask_stack = self.segLayer.data.copy()
 
-    file_path = os.path.abspath(file_path)
+    if os.path.isdir(file_path[0]):
 
-    mask_paths = glob(file_path + "*\*", recursive=True)
+        file_path = os.path.abspath(file_path[0])
+        import_folder = file_path
+
+    if os.path.isfile(file_path[0]):
+
+        file_path = os.path.abspath(file_path[0])
+        import_folder = file_path.replace(file_path.split("\\")[-1], "")
+
+    import_folder = os.path.abspath(import_folder)
+    mask_paths = glob(import_folder + "**\*", recursive=True)
+
     mask_files = [path.split("\\")[-1] for path in mask_paths]
     mask_search = [file.split(".")[0] for file in mask_files]
+
+    print(len(mask_search))
 
     layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
 

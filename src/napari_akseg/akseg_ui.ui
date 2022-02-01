@@ -73,6 +73,13 @@
     </item>
     <item>
      <layout class="QFormLayout" name="formLayout_8">
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_27">
+        <property name="text">
+         <string>Import Mode</string>
+        </property>
+       </widget>
+      </item>
       <item row="1" column="1">
        <widget class="QComboBox" name="import_mode">
         <item>
@@ -92,22 +99,22 @@
         </item>
         <item>
          <property name="text">
-          <string>Import Cellpose &quot;.npy&quot; file(s)</string>
+          <string>Import Cellpose .npy file(s)</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>Import Oufti &quot;.mat&quot; file(s)</string>
+          <string>Import Oufti .mat file(s)</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>Import JSON .&quot;txt&quot; file(s)</string>
+          <string>Import JSON .txt file(s)</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>Import Images/Masks Dataset</string>
+          <string>Import Images + Masks Dataset</string>
          </property>
         </item>
         <item>
@@ -117,10 +124,10 @@
         </item>
        </widget>
       </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_27">
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_51">
         <property name="text">
-         <string>Import Mode</string>
+         <string>Impoort File Mode</string>
         </property>
        </widget>
       </item>
@@ -138,10 +145,10 @@
         </item>
        </widget>
       </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="label_51">
+      <item row="3" column="0">
+       <widget class="QLabel" name="import_limit_2">
         <property name="text">
-         <string>Impoort File Mode</string>
+         <string>Import File Limit</string>
         </property>
        </widget>
       </item>
@@ -184,13 +191,6 @@
         </item>
        </widget>
       </item>
-      <item row="3" column="0">
-       <widget class="QLabel" name="import_limit_2">
-        <property name="text">
-         <string>Import File Limit</string>
-        </property>
-       </widget>
-      </item>
      </layout>
     </item>
     <item>
@@ -214,13 +214,6 @@
      </widget>
     </item>
     <item>
-     <widget class="QPushButton" name="Import_import">
-      <property name="text">
-       <string>Import</string>
-      </property>
-     </widget>
-    </item>
-    <item>
      <widget class="Line" name="line_9">
       <property name="orientation">
        <enum>Qt::Horizontal</enum>
@@ -236,7 +229,7 @@
        </font>
       </property>
       <property name="text">
-       <string>Import Nanoimager Directory</string>
+       <string>NanoImager Import Settings</string>
       </property>
      </widget>
     </item>
@@ -349,52 +342,6 @@
      </layout>
     </item>
     <item>
-     <widget class="QPushButton" name="nim_open_dir">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="text">
-       <string>Open NanoImager Directory</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="Line" name="line_10">
-      <property name="orientation">
-       <enum>Qt::Horizontal</enum>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QLabel" name="label_32">
-      <property name="font">
-       <font>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string>Import Images From Folder</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QPushButton" name="image_open_dir">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="text">
-       <string>Open Image(s) From Directory</string>
-      </property>
-     </widget>
-    </item>
-    <item>
      <widget class="Line" name="line_7">
       <property name="orientation">
        <enum>Qt::Horizontal</enum>
@@ -402,86 +349,9 @@
      </widget>
     </item>
     <item>
-     <widget class="QLabel" name="label_46">
-      <property name="font">
-       <font>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
+     <widget class="QPushButton" name="import_import">
       <property name="text">
-       <string>Import Masks For Active Images</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QPushButton" name="image_open_masks">
-      <property name="text">
-       <string>Import Mask (&quot;.tif&quot;,&quot;.mat&quot;,&quot;.json&quot;,&quot;.npy&quot;) Directory</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QLabel" name="label_26">
-      <property name="font">
-       <font>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string>Import Image(s) + Mask(s) From Folder</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QPushButton" name="image_open_cellpose">
-      <property name="text">
-       <string>Cellpose: .npy file(s)</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QPushButton" name="image_open_oufti">
-      <property name="text">
-       <string>OUFTI:  &quot;.mat&quot; mesh file(s) AND &quot;.tif&quot; image(s)</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QPushButton" name="image_open_json">
-      <property name="text">
-       <string>JSON: &quot;.txt&quot; JSON file(s) AND &quot;.tif&quot; image(s)</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QLabel" name="label_41">
-      <property name="font">
-       <font>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string>Import Image(s) + Mask(s) Dataset</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QPushButton" name="image_open_dataset">
-      <property name="toolTip">
-       <string>Image and masks must in images and mask subdirectories</string>
-      </property>
-      <property name="text">
-       <string>Import images/masks Dataset</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QPushButton" name="image_open_akseg">
-      <property name="text">
-       <string>Import AKSEG Dataset</string>
+       <string>Import</string>
       </property>
      </widget>
     </item>
