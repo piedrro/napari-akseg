@@ -152,9 +152,9 @@ class AKSEG(QWidget):
         self.import_limit = self.findChild(QComboBox, "import_limit")
         self.clear_previous = self.findChild(QCheckBox, "import_clear_previous")
         self.autocontrast = self.findChild(QCheckBox, "import_auto_contrast")
-        self.multichannel_mode = self.findChild(QComboBox, "nim_multichannel_mode")
+        self.multiframe_mode = self.findChild(QComboBox, "nim_multiframe_mode")
         self.laser_mode = self.findChild(QComboBox, "nim_laser_mode")
-        self.fov_mode = self.findChild(QComboBox, "nim_fov_mode")
+        self.channel_mode = self.findChild(QComboBox, "nim_channel_mode")
         self.import_progressbar = self.findChild(QProgressBar, "import_progressbar")
 
         # cellpose controls + variabes from Qt Desinger References

@@ -239,20 +239,21 @@ def read_nim_images(self, progress_callback, measurements, channels):
 
     import_limit = self.import_limit.currentText()
     laser_mode = self.laser_mode.currentText()
-    multichannel_mode = self.multichannel_mode.currentIndex()
-    fov_mode = self.fov_mode.currentIndex()
+    multiframe_mode = self.multiframe_mode.currentIndex()
+    channel_mode = self.channel_mode.currentIndex()
 
     if import_limit == "None":
         import_limit = len(measurements)
+    else:
+        if int(import_limit) > len(measurements):
+            import_limit = len(measurements)
 
     nim_images = {}
+    img_shape = (100,100)
+    img_type = np.uint16
+    iter = 0
 
     for i in range(int(import_limit)):
-
-        progress = int(((i + 1) / int(import_limit)) * 100)
-        progress_callback.emit(progress)
-
-        print("loading image " + str(i + 1) + " of " + str(import_limit))
 
         measurement = measurements.get_group(list(measurements.groups)[i])
 
@@ -261,7 +262,15 @@ def read_nim_images(self, progress_callback, measurements, channels):
 
         measurement_channels = measurement["laser"].tolist()
 
-        for channel in channels:
+        for j in range(len(channels)):
+
+            channel = channels[j]
+
+            iter += 1
+            progress = int( (iter / (int(import_limit) * len(channels)) ) * 100)
+            progress_callback.emit(progress)
+
+            print("loading image[" + channel + "] " + str(i + 1) + " of " + str(import_limit))
 
             if channel in measurement_channels:
 
@@ -272,9 +281,9 @@ def read_nim_images(self, progress_callback, measurements, channels):
                 folder = dat["folder"].item()
                 parent_folder = dat["parent_folder"].item()
 
-                img, meta = read_tif(path)
+                image, meta = read_tif(path)
 
-                img = process_image(img, multichannel_mode, fov_mode)
+                img = process_image(image, multiframe_mode, channel_mode)
 
                 contrast_limit, alpha, beta, gamma = autocontrast_values(img, clip_hist_percent=1)
 
@@ -282,8 +291,8 @@ def read_nim_images(self, progress_callback, measurements, channels):
                 meta["parent_folder"] = parent_folder,
                 meta["akseg_hash"] = get_hash(path)
                 meta["nim_laser_mode"] = laser_mode
-                meta["nim_multichannel_mode"] = multichannel_mode
-                meta["fov_mode"] = fov_mode
+                meta["nim_multiframe_mode"] = multiframe_mode
+                meta["nim_channel_mode"] = channel_mode
                 meta["import_mode"] = "NIM"
                 meta["contrast_limit"] = contrast_limit
                 meta["contrast_alpha"] = alpha
@@ -292,9 +301,12 @@ def read_nim_images(self, progress_callback, measurements, channels):
                 meta["dims"] = [img.shape[-1], img.shape[-2]]
                 meta["crop"] = [0, img.shape[-2], 0, img.shape[-1]]
 
+                img_shape = img.shape
+                img_type = np.array(img).dtype
+
             else:
 
-                img = np.zeros((100,100),dtype=np.uint8)
+                img = np.zeros(img_shape, dtype=img_type)
                 meta = {}
 
                 meta["folder"] = None,
@@ -311,13 +323,16 @@ def read_nim_images(self, progress_callback, measurements, channels):
                 meta["dims"] = [img.shape[-1], img.shape[-2]]
                 meta["crop"] = [0, img.shape[-2], 0, img.shape[-1]]
 
-            if laser not in nim_images:
+            if channel not in nim_images:
                 nim_images[channel] = dict(images=[img], masks=[], classes=[], metadata={i: meta})
             else:
                 nim_images[channel]["images"].append(img)
                 nim_images[channel]["metadata"][i] = meta
 
-    return nim_images
+    imported_data = dict(imported_images=nim_images)
+
+    return imported_data
+
 
 
 def get_brightest_fov(image):
@@ -341,45 +356,51 @@ def imadjust(img):
     return img
 
 
-def get_channel(img, multichannel_mode):
+def get_channel(img, multiframe_mode):
     if len(img.shape) > 2:
 
-        if multichannel_mode == 0:
+        if multiframe_mode == 0:
 
             img = img[0, :, :]
 
-        elif multichannel_mode == 1:
+        elif multiframe_mode == 1:
 
             img = np.max(img, axis=0)
 
-        elif multichannel_mode == 2:
+        elif multiframe_mode == 2:
 
             img = np.mean(img, axis=0).astype(np.uint16)
 
     return img
 
 
-def get_fov(img, fov_mode):
+def get_fov(img, channel_mode):
+
     imgL = img[:, :img.shape[1] // 2]
     imgR = img[:, img.shape[1] // 2:]
 
-    if fov_mode == 0:
+    if channel_mode == 0:
         if np.mean(imgL) > np.mean(imgR):
             img = imgL
         else:
             img = imgR
-    if fov_mode == 1:
+    if channel_mode == 1:
         img = imgL
-    if fov_mode == 2:
+    if channel_mode == 2:
         img = imgR
 
     return img
 
 
-def process_image(image, multichannel_mode, fov_mode):
-    image = get_channel(image, multichannel_mode)
+def process_image(image, multiframe_mode, channel_mode):
 
-    image = get_fov(image, fov_mode)
+    image = get_channel(image, multiframe_mode)
+
+    image = get_fov(image, channel_mode)
+
+    # if len(image.shape) < 3:
+    #
+    #     image = np.expand_dims(image, axis=0)
 
     return image
 

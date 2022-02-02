@@ -244,25 +244,25 @@
        <enum>QLayout::SetMinimumSize</enum>
       </property>
       <item row="3" column="1">
-       <widget class="QComboBox" name="nim_fov_mode">
+       <widget class="QComboBox" name="nim_channel_mode">
         <item>
          <property name="text">
-          <string>Brightest FOV</string>
+          <string>Brightest Channel</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>Left FOV</string>
+          <string>Left Channel</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>Right FOV</string>
+          <string>Right Channel</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>Both FOVs</string>
+          <string>Both Channels</string>
          </property>
         </item>
        </widget>
@@ -270,7 +270,7 @@
       <item row="3" column="0">
        <widget class="QLabel" name="label_31">
         <property name="text">
-         <string>FOV Mode</string>
+         <string>Channel Mode</string>
         </property>
        </widget>
       </item>
@@ -319,20 +319,20 @@
        </widget>
       </item>
       <item row="1" column="1">
-       <widget class="QComboBox" name="nim_multichannel_mode">
+       <widget class="QComboBox" name="nim_multiframe_mode">
         <item>
          <property name="text">
-          <string>Keep First Channel</string>
+          <string>Keep First Frame</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>Keep Brightest Channel</string>
+          <string>Keep Brightest Frame</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>Average Channels</string>
+          <string>Average Frames</string>
          </property>
         </item>
        </widget>
@@ -340,7 +340,7 @@
       <item row="1" column="0">
        <widget class="QLabel" name="label_30">
         <property name="text">
-         <string>Multi-Channel Mode</string>
+         <string>Multi-Frame Mode</string>
         </property>
        </widget>
       </item>
