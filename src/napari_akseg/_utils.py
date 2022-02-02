@@ -235,7 +235,12 @@ def read_tif(path):
     return image, metadata
 
 
-def read_nim_images(self, measurements, channels, import_limit=10, laser_mode="All", multichannel_mode="0", fov_mode="0"):
+def read_nim_images(self, progress_callback, measurements, channels):
+
+    import_limit = self.import_limit.currentText()
+    laser_mode = self.laser_mode.currentText()
+    multichannel_mode = self.multichannel_mode.currentIndex()
+    fov_mode = self.fov_mode.currentIndex()
 
     if import_limit == "None":
         import_limit = len(measurements)
@@ -245,7 +250,7 @@ def read_nim_images(self, measurements, channels, import_limit=10, laser_mode="A
     for i in range(int(import_limit)):
 
         progress = int(((i + 1) / int(import_limit)) * 100)
-        self.import_progressbar.setValue(progress)
+        progress_callback.emit(progress)
 
         print("loading image " + str(i + 1) + " of " + str(import_limit))
 
@@ -434,7 +439,7 @@ def stack_images(images, metadata=None):
 
     return image_stack, metadata
 
-def import_dataset(self, paths):
+def import_dataset(self, progress_callback, paths):
 
     path = os.path.abspath(paths[0])
 
@@ -454,7 +459,7 @@ def import_dataset(self, paths):
         images = []
         masks = []
         metadata = {}
-        imported_data = {}
+        imported_images = {}
 
         import_limit = self.import_limit.currentText()
 
@@ -464,7 +469,7 @@ def import_dataset(self, paths):
         for i in range(len(image_paths)):
 
             progress = int(((i + 1) / len(image_paths)) * 100)
-            self.import_progressbar.setValue(progress)
+            progress_callback.emit(progress)
 
             print("loading image " + str(i + 1) + " of " + str(len(image_paths)))
 
@@ -505,20 +510,20 @@ def import_dataset(self, paths):
             images.append(image)
             metadata[i] = meta
 
-            if imported_data == {}:
-                imported_data["Image"] = dict(images=[image], masks=[mask], classes=[], metadata={i: meta})
+            if imported_images == {}:
+                imported_images["Image"] = dict(images=[image], masks=[mask], classes=[], metadata={i: meta})
             else:
-                imported_data["Image"]["images"].append(image)
-                imported_data["Image"]["masks"].append(mask)
-                imported_data["Image"]["metadata"][i] = meta
+                imported_images["Image"]["images"].append(image)
+                imported_images["Image"]["masks"].append(mask)
+                imported_images["Image"]["metadata"][i] = meta
 
-    return imported_data, image_paths
+    imported_data = dict(imported_images=imported_images)
 
-def import_AKSEG(self, paths):
+    return imported_data
 
-    imported_data, image_paths, akmeta = [], [], []
+def import_AKSEG(self, progress_callback, file_paths):
 
-    path = os.path.abspath(paths[0])
+    path = os.path.abspath(file_paths[0])
 
     if os.path.isfile(path):
         path = os.path.abspath(os.path.join(path, "../.."))
@@ -534,7 +539,7 @@ def import_AKSEG(self, paths):
         json_paths = glob(path + "/json/*.tif")
 
         metadata = {}
-        imported_data = {}
+        imported_images = {}
         akmeta = {}
 
         import_limit = self.import_limit.currentText()
@@ -545,7 +550,7 @@ def import_AKSEG(self, paths):
         for i in range(len(image_paths)):
 
             progress = int(((i + 1) / len(image_paths)) * 100)
-            self.import_progressbar.setValue(progress)
+            progress_callback.emit(progress)
 
             print("loading image " + str(i + 1) + " of " + str(len(image_paths)))
 
@@ -578,21 +583,24 @@ def import_AKSEG(self, paths):
                 meta["dims"] = [img.shape[0], img.shape[1]]
                 meta["crop"] = [0, img.shape[1], 0, img.shape[0]]
 
-                if channel not in imported_data.keys():
-                    imported_data[channel] = dict(images=[img], masks=[mask], classes=[label], metadata={i: meta})
+                if channel not in imported_images.keys():
+                    imported_images[channel] = dict(images=[img], masks=[mask], classes=[label], metadata={i: meta})
                 else:
-                    imported_data[channel]["images"].append(img)
-                    imported_data[channel]["masks"].append(mask)
-                    imported_data[channel]["classes"].append(label)
-                    imported_data[channel]["metadata"][i] = meta
+                    imported_images[channel]["images"].append(img)
+                    imported_images[channel]["masks"].append(mask)
+                    imported_images[channel]["classes"].append(label)
+                    imported_images[channel]["metadata"][i] = meta
 
-        akmeta = meta_stack
-        akmeta.pop("layer_meta")
+    akmeta = meta_stack
+    akmeta.pop("layer_meta")
 
-    return imported_data, image_paths, akmeta
+    imported_data = dict(imported_images=imported_images,
+                         akmeta=akmeta)
+
+    return imported_data
 
 
-def import_images(self, file_paths):
+def import_images(self, progress_callback, file_paths):
 
     if os.path.isdir(file_paths[0]):
         file_paths = glob(file_paths[0] + "**\*", recursive=True)
@@ -608,12 +616,12 @@ def import_images(self, file_paths):
 
     images = []
     metadata = {}
-    imported_data = {}
+    imported_images = {}
 
     for i in range(len(file_paths)):
 
         progress = int(((i + 1) / len(file_paths)) * 100)
-        self.import_progressbar.setValue(progress)
+        progress_callback.emit(progress)
 
         print("loading image " + str(i + 1) + " of " + str(len(file_paths)))
 
@@ -640,17 +648,19 @@ def import_images(self, file_paths):
         images.append(image)
         metadata[i] = meta
 
-        if imported_data == {}:
-            imported_data["Image"] = dict(images=[image], masks=[], classes=[], metadata={i: meta})
+        if imported_images == {}:
+            imported_images["Image"] = dict(images=[image], masks=[], classes=[], metadata={i: meta})
         else:
-            imported_data["Image"]["images"].append(image)
-            imported_data["Image"]["metadata"][i] = meta
+            imported_images["Image"]["images"].append(image)
+            imported_images["Image"]["metadata"][i] = meta
 
-    return imported_data, file_path
+    imported_data = dict(imported_images=imported_images)
+
+    return imported_data
 
 
 
-def import_cellpose(self, file_paths):
+def import_cellpose(self, progress_callback, file_paths):
 
     if os.path.isdir(file_paths[0]):
         file_paths = glob(file_paths[0] + "**\*", recursive=True)
@@ -664,12 +674,12 @@ def import_cellpose(self, file_paths):
     if import_limit != "None" and len(file_paths) > int(import_limit):
         file_paths = file_paths[:int(import_limit)]
 
-    imported_data = {}
+    imported_images = {}
 
     for i in range(len(file_paths)):
 
         progress = int(((i + 1) / len(file_paths)) * 100)
-        self.import_progressbar.setValue(progress)
+        progress_callback.emit(progress)
 
         print("loading image " + str(i + 1) + " of " + str(len(file_paths)))
 
@@ -730,17 +740,19 @@ def import_cellpose(self, file_paths):
                         dims=[image.shape[0], image.shape[1]],
                         crop=[0, image.shape[1], 0, image.shape[0]])
 
-        if imported_data == {}:
-            imported_data["Image"] = dict(images=[img], masks=[mask], classes=[], metadata={i: meta})
+        if imported_images == {}:
+            imported_images["Image"] = dict(images=[img], masks=[mask], classes=[], metadata={i: meta})
         else:
-            imported_data["Image"]["images"].append(img)
-            imported_data["Image"]["masks"].append(mask)
-            imported_data["Image"]["metadata"][i] = meta
+            imported_images["Image"]["images"].append(img)
+            imported_images["Image"]["masks"].append(mask)
+            imported_images["Image"]["metadata"][i] = meta
 
-    return imported_data, file_paths
+    imported_data = dict(imported_images=imported_images)
+
+    return imported_data
 
 
-def import_oufti(self, file_paths):
+def import_oufti(self, progress_callback, file_paths):
 
     if os.path.isdir(file_paths[0]):
         file_paths = glob(file_paths[0] + "**\*", recursive=True)
@@ -807,13 +819,13 @@ def import_oufti(self, file_paths):
     if import_limit != "None" and len(mat_files) > int(import_limit):
         mat_files = mat_files[:int(import_limit)]
 
-    imported_data = {}
+    imported_images = {}
 
     for i in range(len(mat_files)):
 
         try:
             progress = int(((i + 1) / len(mat_files)) * 100)
-            self.import_progressbar.setValue(progress)
+            progress_callback.emit(progress)
 
             print("loading image " + str(i + 1) + " of " + str(len(mat_files)))
 
@@ -840,17 +852,19 @@ def import_oufti(self, file_paths):
             meta["contrast_beta"] = beta
             meta["contrast_gamma"] = gamma
 
-            if imported_data == {}:
-                imported_data["Image"] = dict(images=[image], masks=[mask], classes=[], metadata={i: meta})
+            if imported_images == {}:
+                imported_images["Image"] = dict(images=[image], masks=[mask], classes=[], metadata={i: meta})
             else:
-                imported_data["Image"]["images"].append(image)
-                imported_data["Image"]["masks"].append(mask)
-                imported_data["Image"]["metadata"][i] = meta
+                imported_images["Image"]["images"].append(image)
+                imported_images["Image"]["masks"].append(mask)
+                imported_images["Image"]["metadata"][i] = meta
 
         except:
             pass
 
-    return imported_data, matching_image_paths
+    imported_data = dict(imported_images=imported_images)
+
+    return imported_data
 
 
 def import_mat_data(image_path, mat_path):
@@ -1119,7 +1133,7 @@ def get_export_data(self,mask_stack,label_stack,meta_stack):
     return export_mask_stack, export_label_stack, export_contours
 
 
-def import_JSON(self, file_paths):
+def import_JSON(self, progress_callback, file_paths):
 
     if os.path.isdir(file_paths[0]):
         file_paths = glob(file_paths[0] + "**\*", recursive=True)
@@ -1182,7 +1196,7 @@ def import_JSON(self, file_paths):
         image_files = matching_image_paths
         json_files = matching_json_paths
 
-    imported_data = {}
+    imported_images = {}
 
     if import_limit != "None" and len(json_files) > int(import_limit):
         json_files = json_files[:int(import_limit)]
@@ -1191,7 +1205,7 @@ def import_JSON(self, file_paths):
 
         try:
             progress = int(((i + 1) / len(json_files)) * 100)
-            self.import_progressbar.setValue(progress)
+            progress_callback.emit(progress)
 
             print("loading image " + str(i + 1) + " of " + str(len(json_files)))
 
@@ -1220,18 +1234,20 @@ def import_JSON(self, file_paths):
             meta["contrast_beta"] = beta
             meta["contrast_gamma"] = gamma
 
-            if imported_data == {}:
-                imported_data["Image"] = dict(images=[image], masks=[mask], classes=[labels], metadata={i: meta})
+            if imported_images == {}:
+                imported_images["Image"] = dict(images=[image], masks=[mask], classes=[labels], metadata={i: meta})
             else:
-                imported_data["Image"]["images"].append(image)
-                imported_data["Image"]["masks"].append(mask)
-                imported_data["Image"]["classes"].append(labels)
-                imported_data["Image"]["metadata"][i] = meta
+                imported_images["Image"]["images"].append(image)
+                imported_images["Image"]["masks"].append(mask)
+                imported_images["Image"]["classes"].append(labels)
+                imported_images["Image"]["metadata"][i] = meta
 
         except:
             pass
 
-    return imported_data, matching_image_paths
+    imported_data = dict(imported_images=imported_images)
+
+    return imported_data
 
 
 def get_histogram(image, bins):
@@ -1304,19 +1320,19 @@ def autocontrast_values(image, clip_hist_percent=1):
 
     return contrast_limit, alpha, beta, gamma
 
-def import_masks(self, file_path):
+def import_masks(self, file_paths):
 
     mask_stack = self.segLayer.data.copy()
 
-    if os.path.isdir(file_path[0]):
+    if os.path.isdir(file_paths[0]):
 
-        file_path = os.path.abspath(file_path[0])
-        import_folder = file_path
+        file_paths = os.path.abspath(file_paths[0])
+        import_folder = file_paths
 
-    if os.path.isfile(file_path[0]):
+    if os.path.isfile(file_paths[0]):
 
-        file_path = os.path.abspath(file_path[0])
-        import_folder = file_path.replace(file_path.split("\\")[-1], "")
+        file_paths = os.path.abspath(file_paths[0])
+        import_folder = file_paths.replace(file_paths.split("\\")[-1], "")
 
     import_folder = os.path.abspath(import_folder)
     mask_paths = glob(import_folder + "**\*", recursive=True)
@@ -1364,13 +1380,13 @@ def import_masks(self, file_path):
 
             mask = tifffile.imread(mask_path)
             mask_stack[i, :, :][y1:y2, x1:x2] = mask
-            self.segLayer.data = mask_stack
+            self.segLayer.data = mask_stack.astype(np.uint16)
 
         if file_format == "txt":
 
             mask, labels = import_coco_json(mask_path)
             mask_stack[i, :, :][y1:y2, x1:x2] = mask
-            self.segLayer.data = mask_stack
+            self.segLayer.data = mask_stack.astype(np.uint16)
 
         if file_format == "npy":
 
@@ -1379,11 +1395,48 @@ def import_masks(self, file_path):
             mask = dat["masks"]
             mask = mask.astype(np.uint16)
             mask_stack[i, :, :][y1:y2, x1:x2] = mask
-            self.segLayer.data = mask_stack
+            self.segLayer.data = mask_stack.astype(np.uint16)
 
         if file_format == "mat":
 
             image, mask, meta = import_mat_data(image_path, mask_path)
             mask_stack[i, :, :][y1:y2, x1:x2] = mask
-            self.segLayer.data = mask_stack
+            self.segLayer.data = mask_stack.astype(np.uint16)
 
+def update_akmetadata(self, akmeta):
+
+    try:
+        user_initial = akmeta["user_initial"]
+        content = akmeta["image_content"]
+        microscope = akmeta["microscope"]
+        modality = akmeta["modality"]
+        source = akmeta["light_source"]
+        stains = akmeta["stains"]
+        antibiotic = akmeta["antibiotic"]
+        treatmenttime = akmeta["treatementtime"]
+        abxconcentration = akmeta["abxconcentration"]
+        mount = akmeta["mount"]
+        protocol = akmeta["protocol"]
+        usermeta1 = akmeta["usermeta1"]
+        usermeta2 = akmeta["usermeta2"]
+        usermeta3 = akmeta["usermeta3"]
+        segChannel = akmeta["segmentation_channel"]
+
+        self.upload_segchannel.setCurrentText(segChannel)
+        self.upload_initial.setCurrentText(user_initial)
+        self.upload_content.setCurrentText(content)
+        self.upload_microscope.setCurrentText(microscope)
+        self.upload_modality.setCurrentText(modality)
+        self.upload_illumination.setCurrentText(source)
+        self.upload_stain.setCurrentText(stains)
+        self.upload_treatmenttime.setCurrentText(treatmenttime)
+        self.upload_mount.setCurrentText(mount)
+        self.upload_antibiotic.setCurrentText(antibiotic)
+        self.upload_abxconcentration.setCurrentText(abxconcentration)
+        self.upload_protocol.setCurrentText(protocol)
+        self.upload_usermeta1.setCurrentText(usermeta1)
+        self.upload_usermeta2.setCurrentText(usermeta2)
+        self.upload_usermeta3.setCurrentText(usermeta3)
+
+    except:
+        print(traceback.format_exc())

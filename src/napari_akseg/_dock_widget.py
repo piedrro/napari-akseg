@@ -7,11 +7,12 @@ see: https://napari.org/docs/dev/plugins/hook_specifications.html
 Replace code below according to your needs.
 """
 import sys
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
 
 from napari_plugin_engine import napari_hook_implementation
-from qtpy.QtWidgets import (QHBoxLayout, QLabel, QPushButton, QComboBox,QCheckBox, QProgressBar,
-                            QVBoxLayout, QWidget, QFileDialog, QSlider, QTextEdit,
-                            QTabWidget)
+import time
 from glob2 import glob
 import napari
 from napari.qt.threading import thread_worker
@@ -30,13 +31,90 @@ import matplotlib.pyplot as plt
 from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
                                  import_dataset, import_AKSEG, import_JSON, generate_multichannel_stack,
-                                 populate_upload_combos, get_export_data, import_masks, get_usermeta, read_nim_folder)
+                                 populate_upload_combos, get_export_data, import_masks, get_usermeta, read_nim_folder,
+                                 update_akmetadata)
 
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 from napari_akseg._utils_cellpose import export_cellpose
 from napari_akseg._utils_oufti import  export_oufti
 from napari_akseg._utils_imagej import export_imagej
 from napari_akseg.akseg_ui import Ui_tab_widget
+
+
+
+class WorkerSignals(QObject):
+    '''
+    Defines the signals available from a running worker thread.
+
+    Supported signals are:
+
+    finished
+        No data
+
+    error
+        tuple (exctype, value, traceback.format_exc() )
+
+    result
+        object data returned from processing, anything
+
+    progress
+        int indicating % progress
+
+    '''
+    finished = pyqtSignal()
+    error = pyqtSignal(tuple)
+    result = pyqtSignal(object)
+    progress = pyqtSignal(int)
+
+
+class Worker(QRunnable):
+    '''
+    Worker thread
+
+    Inherits from QRunnable to handler worker thread setup, signals and wrap-up.
+
+    :param callback: The function callback to run on this worker thread. Supplied args and
+                     kwargs will be passed through to the runner.
+    :type callback: function
+    :param args: Arguments to pass to the callback function
+    :param kwargs: Keywords to pass to the callback function
+
+    '''
+
+    def __init__(self, fn, *args, **kwargs):
+        super(Worker, self).__init__()
+
+        # Store constructor arguments (re-used for processing)
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+        self.signals = WorkerSignals()
+
+        # Add the callback to our kwargs
+        self.kwargs['progress_callback'] = self.signals.progress
+
+    @pyqtSlot()
+    def run(self):
+        '''
+        Initialise the runner function with passed args, kwargs.
+        '''
+
+        # Retrieve args/kwargs here; and fire processing using them
+        try:
+            result = self.fn(*self.args, **self.kwargs)
+        except:
+            traceback.print_exc()
+            exctype, value = sys.exc_info()[:2]
+            self.signals.error.emit((exctype, value, traceback.format_exc()))
+        else:
+            self.signals.result.emit(result)  # Return the result of the processing
+        finally:
+            self.signals.finished.emit()  # Done
+
+
+
+
+
 
 class AKSEG(QWidget):
     """Widget allows selection of two labels layers and returns a new layer
@@ -257,6 +335,21 @@ class AKSEG(QWidget):
 
         populate_upload_combos(self)
 
+        self.threadpool = QThreadPool()
+        print("Multithreading with maximum %d threads" % self.threadpool.maxThreadCount())
+
+        self.import_images = partial(import_images, self)
+        self.import_masks = partial(import_masks, self)
+        self.read_nim_images = partial(read_nim_images, self)
+        self.import_cellpose = partial(import_cellpose, self)
+        self.import_oufti = partial(import_oufti, self)
+        self.import_JSON = partial(import_JSON, self)
+        self.import_dataset = partial(import_dataset, self)
+        self.import_AKSEG = partial(import_AKSEG, self)
+
+    def _aksegProgresbar(self, progress):
+
+        self.import_progressbar.setValue(progress)
 
     def _importDialog(self):
 
@@ -278,113 +371,70 @@ class AKSEG(QWidget):
 
         if import_mode == "Import Images":
 
-            imported_data, file_paths = import_images(self, paths)
-
-            self.path_list = file_paths
-            self._process_import(imported_data)
+            worker = Worker(self.import_images, file_paths = paths)
+            worker.signals.result.connect(self._process_import)
+            worker.signals.progress.connect(self._aksegProgresbar)
+            self.threadpool.start(worker)
 
         if import_mode == "Import NanoImager Map":
 
             measurements, file_paths, channels = read_nim_directory(self, paths)
 
-            self.path_list = file_paths
+            worker = Worker(self.read_nim_images, measurements = measurements, channels = channels)
+            worker.signals.result.connect(self._process_import)
+            worker.signals.progress.connect(self._aksegProgresbar)
+            self.threadpool.start(worker)
 
-            imported_data = read_nim_images(self, measurements, channels,
-                                            self.import_limit.currentText(),
-                                            self.laser_mode.currentText(),
-                                            self.multichannel_mode.currentIndex(),
-                                            self.fov_mode.currentIndex())
-
-            self._process_import(imported_data)
 
         if import_mode == "Import NanoImager Measurement":
 
             measurements, file_paths, channels = read_nim_folder(self, paths)
 
-            self.path_list = file_paths
-
-            imported_data = read_nim_images(self, measurements, channels,
-                                            self.import_limit.currentText(),
-                                            self.laser_mode.currentText(),
-                                            self.multichannel_mode.currentIndex(),
-                                            self.fov_mode.currentIndex())
-
-            self._process_import(imported_data)
+            worker = Worker(self.read_nim_images, measurements = measurements, channels = channels)
+            worker.signals.result.connect(self._process_import)
+            worker.signals.progress.connect(self._aksegProgresbar)
+            self.threadpool.start(worker)
 
         if import_mode == "Import Masks":
 
-            import_masks(self, paths)
+            self.import_masks(paths)
 
         if import_mode == "Import Cellpose .npy file(s)":
 
-            imported_data, file_paths = import_cellpose(self, paths)
-
-            self.path_list = file_paths
-            self._process_import(imported_data)
+            worker = Worker(self.import_cellpose, file_paths = paths)
+            worker.signals.result.connect(self._process_import)
+            worker.signals.progress.connect(self._aksegProgresbar)
+            self.threadpool.start(worker)
 
         if import_mode == "Import Oufti .mat file(s)":
 
-            imported_data, file_paths = import_oufti(self, paths)
-
-            self.path_list = file_paths
-            self._process_import(imported_data)
+            worker = Worker(self.import_oufti, file_paths = paths)
+            worker.signals.result.connect(self._process_import)
+            worker.signals.progress.connect(self._aksegProgresbar)
+            self.threadpool.start(worker)
 
         if import_mode == "Import JSON .txt file(s)":
 
-            imported_data, file_paths = import_JSON(self, paths)
-
-            self.path_list = file_paths
-            self._process_import(imported_data)
+            worker = Worker(self.import_JSON, file_paths = paths)
+            worker.signals.result.connect(self._process_import)
+            worker.signals.progress.connect(self._aksegProgresbar)
+            self.threadpool.start(worker)
 
         if import_mode == "Import Images + Masks Dataset":
 
-            imported_data, file_paths = import_dataset(self, paths)
+            worker = Worker(self.import_dataset, file_paths = paths)
+            worker.signals.result.connect(self._process_import)
+            worker.signals.progress.connect(self._aksegProgresbar)
+            self.threadpool.start(worker)
 
-            self.path_list = file_paths
-            self._process_import(imported_data)
 
         if import_mode == "Import AKSEG Dataset":
 
-            imported_data, file_paths, akmeta = import_AKSEG(self, paths)
+            worker = Worker(self.import_AKSEG, file_paths=paths)
+            worker.signals.result.connect(self._process_import)
+            worker.signals.progress.connect(self._aksegProgresbar)
+            self.threadpool.start(worker)
 
-            self.path_list = file_paths
-            self._process_import(imported_data)
-
-            try:
-                user_initial = akmeta["user_initial"]
-                content = akmeta["image_content"]
-                microscope = akmeta["microscope"]
-                modality = akmeta["modality"]
-                source = akmeta["light_source"]
-                stains = akmeta["stains"]
-                antibiotic = akmeta["antibiotic"]
-                treatmenttime = akmeta["treatementtime"]
-                abxconcentration = akmeta["abxconcentration"]
-                mount = akmeta["mount"]
-                protocol = akmeta["protocol"]
-                usermeta1 = akmeta["usermeta1"]
-                usermeta2 = akmeta["usermeta2"]
-                usermeta3 = akmeta["usermeta3"]
-                segChannel = akmeta["segmentation_channel"]
-
-                self.upload_segchannel.setCurrentText(segChannel)
-                self.upload_initial.setCurrentText(user_initial)
-                self.upload_content.setCurrentText(content)
-                self.upload_microscope.setCurrentText(microscope)
-                self.upload_modality.setCurrentText(modality)
-                self.upload_illumination.setCurrentText(source)
-                self.upload_stain.setCurrentText(stains)
-                self.upload_treatmenttime.setCurrentText(treatmenttime)
-                self.upload_mount.setCurrentText(mount)
-                self.upload_antibiotic.setCurrentText(antibiotic)
-                self.upload_abxconcentration.setCurrentText(abxconcentration)
-                self.upload_protocol.setCurrentText(protocol)
-                self.upload_usermeta1.setCurrentText(usermeta1)
-                self.upload_usermeta2.setCurrentText(usermeta2)
-                self.upload_usermeta3.setCurrentText(usermeta3)
-
-            except:
-                print(traceback.format_exc())
 
     def _populateUSERMETA(self):
 
@@ -1750,7 +1800,12 @@ class AKSEG(QWidget):
             self.segLayer.data = np.zeros((1, 100, 100), dtype=np.uint16)
             self.classLayer.data = np.zeros((1, 100, 100), dtype=np.uint16)
 
-        for layer_name, layer_data in imported_data.items():
+        imported_images = imported_data["imported_images"]
+
+        if "akmeta" in imported_data.keys():
+            update_akmetadata(self, imported_data["akmeta"])
+
+        for layer_name, layer_data in imported_images.items():
 
             images = layer_data['images']
             masks = layer_data['masks']
@@ -1815,8 +1870,6 @@ class AKSEG(QWidget):
                 self.segLayer.data = new_mask_stack
                 self.classLayer.data = new_class_stack
                 self.segLayer.metadata = new_metadata
-
-
 
         layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
 
