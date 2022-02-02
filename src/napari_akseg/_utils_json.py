@@ -47,44 +47,48 @@ def export_coco_json(image_name, image, mask, label, file_path):
 
         if j != 0:
 
-            cnt_mask = mask.copy()
+            try:
+                cnt_mask = mask.copy()
 
-            cnt_mask[cnt_mask != j] = 0
+                cnt_mask[cnt_mask != j] = 0
 
-            contours, _ = cv2.findContours(cnt_mask.astype(np.uint8),
-                                           cv2.RETR_EXTERNAL,
-                                           cv2.CHAIN_APPROX_NONE)
-            cnt = contours[0]
+                contours, _ = cv2.findContours(cnt_mask.astype(np.uint8),
+                                               cv2.RETR_EXTERNAL,
+                                               cv2.CHAIN_APPROX_NONE)
+                cnt = contours[0]
 
-            # cnt coco bounding box
-            x, y, w, h = cv2.boundingRect(cnt)
-            y1, y2, x1, x2 = y, (y + h), x, (x + w)
-            coco_BBOX = [x1, y1, h, w]
+                # cnt coco bounding box
+                x, y, w, h = cv2.boundingRect(cnt)
+                y1, y2, x1, x2 = y, (y + h), x, (x + w)
+                coco_BBOX = [x1, y1, h, w]
 
-            # cnt area
-            area = cv2.contourArea(cnt)
+                # cnt area
+                area = cv2.contourArea(cnt)
 
-            segmentation = cnt.reshape(-1, 1).flatten()
+                segmentation = cnt.reshape(-1, 1).flatten()
 
-            cnt_labels = np.unique(label[cnt_mask != 0])
+                cnt_labels = np.unique(label[cnt_mask != 0])
 
-            if len(cnt_labels) == 0:
+                if len(cnt_labels) == 0:
 
-                cnt_label = 1
+                    cnt_label = 1
 
-            else:
-                cnt_label = int(cnt_labels[0])
+                else:
+                    cnt_label = int(cnt_labels[0])
 
-            annotation = {"segmentation": [segmentation.tolist()],
-                          "area": area,
-                          "iscrowd": 0,
-                          "image_id": 0,
-                          "bbox": coco_BBOX,
-                          "category_id": cnt_label,
-                          "id": j
-                          }
+                annotation = {"segmentation": [segmentation.tolist()],
+                              "area": area,
+                              "iscrowd": 0,
+                              "image_id": 0,
+                              "bbox": coco_BBOX,
+                              "category_id": cnt_label,
+                              "id": j
+                              }
 
-            annotations.append(annotation)
+                annotations.append(annotation)
+
+            except:
+                pass
 
     annotation = {"info": info,
                   "licenses": licenses,

@@ -334,7 +334,6 @@ def read_nim_images(self, progress_callback, measurements, channels):
     return imported_data
 
 
-
 def get_brightest_fov(image):
 
     imageL = image[0, :, :image.shape[2] // 2]
@@ -1317,13 +1316,19 @@ def autocontrast_values(image, clip_hist_percent=1):
 
     # Locate left cut
     minimum_gray = 0
-    while accumulator[minimum_gray] < clip_hist_percent:
-        minimum_gray += 1
+    try:
+        while accumulator[minimum_gray] < clip_hist_percent:
+            minimum_gray += 1
+    except:
+        pass
 
     # Locate right cut
     maximum_gray = hist_size - 1
-    while accumulator[maximum_gray] >= (maximum - clip_hist_percent):
-        maximum_gray -= 1
+    try:
+        while accumulator[maximum_gray] >= (maximum - clip_hist_percent):
+            maximum_gray -= 1
+    except:
+        pass
 
     # Calculate alpha and beta values
     alpha = 255 / (maximum_gray - minimum_gray)
