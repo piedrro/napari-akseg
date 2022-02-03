@@ -32,7 +32,7 @@ from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cell
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
                                  import_dataset, import_AKSEG, import_JSON, generate_multichannel_stack,
                                  populate_upload_combos, get_export_data, import_masks, get_usermeta, read_nim_folder,
-                                 update_akmetadata)
+                                 update_akmetadata, autocontrast_values)
 
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 from napari_akseg._utils_cellpose import export_cellpose
@@ -338,7 +338,6 @@ class AKSEG(QWidget):
 
         #viewer events
         self.viewer.layers.events.inserted.connect(self._updateViwer)
-        self.viewer.layers.events.removed.connect(self._updateViwer)
 
         populate_upload_combos(self)
 
@@ -354,7 +353,6 @@ class AKSEG(QWidget):
         self.import_dataset = partial(import_dataset, self)
         self.import_AKSEG = partial(import_AKSEG, self)
 
-
     def _updateSegChannels(self):
 
         layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
@@ -367,7 +365,65 @@ class AKSEG(QWidget):
 
     def _updateViwer(self):
 
-        self._updateSegmentationCombo()
+        if self.viewer.layers.index("Segmentations") != len(self.viewer.layers) -1:
+
+            self._updateSegmentationCombo()
+            self.viewer.reset_view()
+
+            #reshapes masks to be same shape as active image
+            self.active_layer = self.viewer.layers[-1]
+            active_image = self.active_layer.data
+
+            if len(active_image.shape) < 3:
+                active_image = np.expand_dims(active_image,axis=0)
+                self.active_layer.data = active_image
+
+            if self.classLayer.data.shape != self.active_layer.data.shape:
+                self.classLayer.data = np.zeros(active_image.shape,np.uint16)
+
+            if self.segLayer.data.shape != self.active_layer.data.shape:
+                self.segLayer.data = np.zeros(active_image.shape,np.uint16)
+
+            image_name = str(self.viewer.layers[-1]) + ".tif"
+
+            meta = {}
+            for i in range(active_image.shape[0]):
+
+                img = active_image[i,:,:]
+
+                contrast_limit, alpha, beta, gamma = autocontrast_values(img, clip_hist_percent=1)
+
+                img_meta = dict(image_name = image_name,
+                                image_path='Unknown',
+                                mask_name=None,
+                                mask_path=None,
+                                label_name=None,
+                                label_path=None,
+                                folder=None,
+                                parent_folder=None,
+                                contrast_limit=contrast_limit,
+                                contrast_alpha=alpha,
+                                contrast_beta=beta,
+                                contrast_gamma=gamma,
+                                akseg_hash=None,
+                                import_mode='manual',
+                                dims=[img.shape[1], img.shape[0]],
+                                crop=[0, img.shape[0], 0, img.shape[1]],
+                                frame = i,
+                                frames = active_image.shape[0])
+
+                meta[i] = img_meta
+
+            self.active_layer.metadata = meta
+            self.segLayer.metadata = meta
+            self.classLayer.metadata = meta
+
+            self._updateFileName()
+            self._updateSegmentationCombo()
+
+            self.viewer.reset_view()
+            self._autoContrast()
+            self._autoClassify()
 
     def _aksegProgresbar(self, progress):
 
@@ -533,83 +589,93 @@ class AKSEG(QWidget):
             file_name = meta["image_name"]
             image_path = meta["image_path"]
 
-            if self.export_location.currentText() == "Import Directory":
+            if self.export_location.currentText() == "Import Directory" and file_name != None and image_path != None:
 
                 export_path = os.path.abspath(image_path.replace(file_name,""))
 
-            if self.export_location.currentText() == "Select Directory":
+            elif self.export_location.currentText() == "Select Directory":
 
                 export_path = os.path.abspath(self.export_directory.toPlainText())
 
-            y1, y2, x1, x2 = meta["crop"]
-
-            if len(image.shape) > 2:
-                image = image[:, y1:y2, x1:x2]
             else:
-                image = image[y1:y2, x1:x2]
+                export_path = None
 
-            mask = mask[y1:y2, x1:x2]
-            label = label[y1:y2, x1:x2]
 
-            if os.path.isdir(export_path) == False:
-                os.makedirs(file_path)
+            if os.path.isdir(export_path) != True:
 
-            file_path = export_path + "\\" + file_name
+                print("Directory Does Not Exist")
 
-            old_format = "." + file_path.split(".")[-1]
-            new_format = export_modifier + "." + file_path.split(".")[-1]
-            file_path = file_path.replace(old_format,new_format)
-            file_path = os.path.abspath(file_path)
+            else:
 
-            if self.export_mode.currentText() == "Export .tif Images":
+                y1, y2, x1, x2 = meta["crop"]
 
-                tifffile.imwrite(file_path, image, metadata = meta)
+                if len(image.shape) > 2:
+                    image = image[:, y1:y2, x1:x2]
+                else:
+                    image = image[y1:y2, x1:x2]
 
-            if self.export_mode.currentText() == "Export .tif Masks":
+                mask = mask[y1:y2, x1:x2]
+                label = label[y1:y2, x1:x2]
 
-                tifffile.imwrite(file_path, mask, metadata = meta)
+                if os.path.isdir(export_path) == False:
+                    os.makedirs(file_path)
 
-            if self.export_mode.currentText() == "Export .tif Images and Masks":
+                file_path = export_path + "\\" + file_name
 
-                image_path = os.path.abspath(export_path + "\\images")
-                mask_path = os.path.abspath(export_path + "\\masks")
+                old_format = "." + file_path.split(".")[-1]
+                new_format = export_modifier + "." + file_path.split(".")[-1]
+                file_path = file_path.replace(old_format,new_format)
+                file_path = os.path.abspath(file_path)
 
-                if not os.path.exists(image_path):
-                    os.makedirs(image_path)
+                if self.export_mode.currentText() == "Export .tif Images":
 
-                if not os.path.exists(mask_path):
-                    os.makedirs(mask_path)
+                    tifffile.imwrite(file_path, image, metadata = meta)
 
-                image_path = os.path.abspath(image_path + "\\" + file_name)
-                mask_path = os.path.abspath(mask_path + "\\" + file_name)
+                if self.export_mode.currentText() == "Export .tif Masks":
 
-                tifffile.imwrite(image_path, image, metadata=meta)
-                tifffile.imwrite(mask_path, mask, metadata=meta)
+                    tifffile.imwrite(file_path, mask, metadata = meta)
 
-            if self.export_mode.currentText() == "Export Cellpose":
+                if self.export_mode.currentText() == "Export .tif Images and Masks":
 
-                file_path = os.path.abspath(export_path + "\\" + file_name)
-                export_cellpose(file_path, image, mask)
-                tifffile.imwrite(file_path, image, metadata=meta)
+                    image_path = os.path.abspath(export_path + "\\images")
+                    mask_path = os.path.abspath(export_path + "\\masks")
 
-            if self.export_mode.currentText() == "Export Oufti":
+                    if not os.path.exists(image_path):
+                        os.makedirs(image_path)
 
-                file_path = os.path.abspath(export_path + "\\" + file_name)
-                export_oufti(mask, file_path)
-                tifffile.imwrite(file_path, image, metadata=meta)
+                    if not os.path.exists(mask_path):
+                        os.makedirs(mask_path)
 
-            if self.export_mode.currentText() == "Export ImageJ":
+                    image_path = os.path.abspath(image_path + "\\" + file_name)
+                    mask_path = os.path.abspath(mask_path + "\\" + file_name)
 
-                file_path = os.path.abspath(export_path + "\\" + file_name)
-                export_imagej(image, contours, meta, file_path)
+                    tifffile.imwrite(image_path, image, metadata=meta)
+                    tifffile.imwrite(mask_path, mask, metadata=meta)
 
-            if self.export_mode.currentText() == "Export JSON":
+                if self.export_mode.currentText() == "Export Cellpose":
 
-                file_path = os.path.abspath(export_path + "\\" + file_name)
-                export_coco_json(file_name, image, mask, label, file_path)
-                tifffile.imwrite(file_path, image, metadata=meta)
+                    file_path = os.path.abspath(export_path + "\\" + file_name)
+                    export_cellpose(file_path, image, mask)
+                    tifffile.imwrite(file_path, image, metadata=meta)
 
-        self.export_progressbar.setValue(0)
+                if self.export_mode.currentText() == "Export Oufti":
+
+                    file_path = os.path.abspath(export_path + "\\" + file_name)
+                    export_oufti(mask, file_path)
+                    tifffile.imwrite(file_path, image, metadata=meta)
+
+                if self.export_mode.currentText() == "Export ImageJ":
+
+                    file_path = os.path.abspath(export_path + "\\" + file_name)
+                    export_imagej(image, contours, meta, file_path)
+
+                if self.export_mode.currentText() == "Export JSON":
+
+                    file_path = os.path.abspath(export_path + "\\" + file_name)
+                    export_coco_json(file_name, image, mask, label, file_path)
+                    tifffile.imwrite(file_path, image, metadata=meta)
+
+            self.export_progressbar.setValue(0)
 
     def _imageControls(self, key, viewer=None):
 
@@ -1643,9 +1709,7 @@ class AKSEG(QWidget):
 
         masks = segmentation_data
 
-        print(masks.shape)
-
-        if masks.shape[0] == 1:
+        if self.segLayer.data.shape != masks.shape:
 
             current_fov = self.viewer.dims.current_step[0]
             self.segLayer.data[current_fov,:,:] = masks
@@ -1663,6 +1727,13 @@ class AKSEG(QWidget):
 
         if self.cellpose_resetimage.isChecked() == True:
             self.viewer.reset_view()
+
+        layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
+
+        # ensures segmentation and classes is in correct order in the viewer
+        for layer in layer_names:
+            layer_index = self.viewer.layers.index(layer)
+            self.viewer.layers.move(layer_index, 0)
 
 
     def _update_cellpose_progress(self, progress):
