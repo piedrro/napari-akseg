@@ -72,7 +72,7 @@ def read_nim_directory(self, path):
             laser_index = laseractive.index(True)
             laser = str(laserwavelength_nm[laser_index])
         else:
-            laser = "BF"
+            laser = "White Light"
 
         file_name = path.split("\\")[-1]
 
@@ -114,6 +114,20 @@ def read_nim_directory(self, path):
                 lasers.append(laser)
 
             files.at[index, 'aquisition'] = acquisition
+
+    num_measurements = len(files.aquisition.unique())
+
+    import_limit = self.import_limit.currentText()
+
+    if import_limit == "None":
+        import_limit = num_measurements
+    else:
+        if int(import_limit) > num_measurements:
+            import_limit = num_measurements
+
+    acquisitions = files.aquisition.unique()[:int(import_limit)]
+
+    files = files[files['aquisition'] <= acquisitions[-1]]
 
     measurements = files.groupby(by=['aquisition'])
     channels = files["laser"].drop_duplicates().to_list()
@@ -158,23 +172,16 @@ def read_tif(path):
 
 def read_nim_images(self, progress_callback, measurements, channels):
 
-    import_limit = self.import_limit.currentText()
     laser_mode = self.laser_mode.currentText()
     multiframe_mode = self.multiframe_mode.currentIndex()
     channel_mode = self.channel_mode.currentIndex()
-
-    if import_limit == "None":
-        import_limit = len(measurements)
-    else:
-        if int(import_limit) > len(measurements):
-            import_limit = len(measurements)
 
     nim_images = {}
     img_shape = (100,100)
     img_type = np.uint16
     iter = 0
 
-    for i in range(int(import_limit)):
+    for i in range(len(measurements)):
 
         measurement = measurements.get_group(list(measurements.groups)[i])
 
@@ -188,10 +195,10 @@ def read_nim_images(self, progress_callback, measurements, channels):
             channel = channels[j]
 
             iter += 1
-            progress = int( (iter / (int(import_limit) * len(channels)) ) * 100)
+            progress = int( (iter / (len(measurements) * len(channels)) ) * 100)
             progress_callback.emit(progress)
 
-            print("loading image[" + channel + "] " + str(i + 1) + " of " + str(import_limit))
+            print("loading image[" + channel + "] " + str(i + 1) + " of " + str(len(measurements)))
 
             if channel in measurement_channels:
 
@@ -224,6 +231,22 @@ def read_nim_images(self, progress_callback, measurements, channels):
                 meta["dims"] = [img.shape[-1], img.shape[-2]]
                 meta["crop"] = [0, img.shape[-2], 0, img.shape[-1]]
 
+                if meta["InstrumentSerial"] == '6D699GN6':
+                    meta["microscope"] = 'BIO-NIM'
+                elif meta["InstrumentSerial"] == '2EC5XTUC':
+                    meta["microscope"] = 'JR-NIM'
+                else:
+                    meta["microscope"] = None
+
+                if meta["IlluminationAngle_deg"] < 1:
+                    meta["modality"] = 'Epifluorescence'
+                elif 1 < meta["IlluminationAngle_deg"] < 53:
+                    meta["modality"] = 'HILO'
+                elif 53 < meta["IlluminationAngle_deg"]:
+                    meta["modality"] = 'TIRF'
+
+                meta["light_source"] = channel
+
                 img_shape = img.shape
                 img_type = np.array(img).dtype
 
@@ -245,6 +268,7 @@ def read_nim_images(self, progress_callback, measurements, channels):
                 meta["contrast_gamma"] = None
                 meta["dims"] = [img.shape[-1], img.shape[-2]]
                 meta["crop"] = [0, img.shape[-2], 0, img.shape[-1]]
+                meta["light_source"] = channel
 
             if channel not in nim_images:
                 nim_images[channel] = dict(images=[img], masks=[], classes=[], metadata={i: meta})
@@ -892,10 +916,38 @@ def read_ak_metadata():
 
 def generate_multichannel_stack(self):
 
+    segChannel = self.upload_segchannel.currentText()
+    user_initial = self.upload_initial.currentText()
+    content = self.upload_content.currentText()
+    microscope = self.upload_microscope.currentText()
+    modality = self.upload_modality.currentText()
+    source = self.upload_illumination.currentText()
+    stains = self.upload_stain.currentText()
+    antibiotic = self.upload_antibiotic.currentText()
+    abxconcentration = self.upload_abxconcentration.currentText()
+    treatmenttime = self.upload_treatmenttime.currentText()
+    mount = self.upload_mount.currentText()
+    protocol = self.upload_protocol.currentText()
+    usermeta1 = self.upload_usermeta1.currentText()
+    usermeta2 = self.upload_usermeta2.currentText()
+    usermeta3 = self.upload_usermeta3.currentText()
     mask_curated = self.upload_segcurated.isChecked()
     label_curated = self.upload_classcurated.isChecked()
+    date_uploaded = datetime.datetime.now()
+
+
 
     layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
+
+    # file_list = []
+    # for layer in layer_names:
+    #     meta = self.viewer.layers[layer].metadata
+    #     if "image_name" in meta.keys():
+    #         file_list.append(meta["image_name"])
+    #
+    # # segmentation_file = self.viewer.layers[segChannel].metadata["image_name"]
+    #
+    # print(self.viewer.layers[segChannel].metadata)
 
     layer_names.reverse()
 
@@ -913,16 +965,58 @@ def generate_multichannel_stack(self):
 
         rgb_images = []
         rgb_meta = {}
+        file_list = []
 
         for j in range(len(layer_names)):
 
+            segmentation_file = self.viewer.layers[segChannel].metadata[i]["image_name"]
+
             layer = str(layer_names[j])
 
-            img = self.viewer.layers[layer].data
-            meta = self.viewer.layers[layer].metadata
+            img = self.viewer.layers[layer].data[i]
+            meta = self.viewer.layers[layer].metadata[i]
 
-            rgb_images.append(img[i])
-            rgb_meta[layer] = meta[i]
+            file_list.append(meta['image_name'])
+
+            if meta["import_mode"] != "NIM":
+
+                meta["microscope"] = microscope
+                meta["modality"] = modality
+                meta["light_source"] = source
+
+            meta["user_initial"] = user_initial
+            meta["image_content"] = content
+            meta["stains"] = stains
+            meta["antibiotic"] = antibiotic
+            meta["treatementtime"] = treatmenttime
+            meta["abxconcentration"] = abxconcentration
+            meta["mount"] = mount
+            meta["protocol"] = protocol
+            meta["usermeta1"] = usermeta1
+            meta["usermeta2"] = usermeta2
+            meta["usermeta3"] = usermeta3
+            meta["channels"] = layer_names
+            meta["segmentation_channel"] = segChannel
+            meta["file_list"] = []
+            meta["segmentation_file"] = segmentation_file
+            meta["segmentations_curated"] = mask_curated
+            meta["labels_curated"] = label_curated
+
+            if self.cellpose_segmentation == True:
+                meta["cellpose_segmentation"] = self.cellpose_segmentation
+                meta["flow_threshold"] = float(self.cellpose_flowthresh_label.text())
+                meta["mask_threshold"] = float(self.cellpose_maskthresh_label.text())
+                meta["min_size"] = int(self.cellpose_minsize_label.text())
+                meta["diameter"] = int(self.cellpose_diameter_label.text())
+                meta["cellpose_model"] = self.cellpose_model.currentText()
+                meta["custom_model"] = os.path.abspath(self.cellpose_custom_model_path)
+
+            rgb_images.append(img)
+            rgb_meta[layer] = meta
+
+        for layer in layer_names:
+
+            rgb_meta[layer]["file_list"] = file_list
 
         rgb_images = np.stack(rgb_images, axis=0)
 

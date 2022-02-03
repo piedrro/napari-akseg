@@ -353,8 +353,6 @@ class AKSEG(QWidget):
         self.import_dataset = partial(import_dataset, self)
         self.import_AKSEG = partial(import_AKSEG, self)
 
-        print(self.viewer.layers[1])
-
     def _updateSegChannels(self):
 
         layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
@@ -773,6 +771,8 @@ class AKSEG(QWidget):
                     metadata_akseg_hash = []
                     user_metadata = pd.DataFrame(columns=["date_uploaded",
                                                           "file_name",
+                                                          "file_list",
+                                                          "segmentation_file",
                                                           "akseg_hash",
                                                           "layer_names",
                                                           "user_initial",
@@ -818,11 +818,9 @@ class AKSEG(QWidget):
 
                         image_layer = self.viewer.layers[segChannel]
 
-                        image_stack = image_layer.data
                         image_stack, meta_stack, layer_names = generate_multichannel_stack(self)
                         mask_stack = self.segLayer.data
                         class_stack = self.classLayer.data
-                        # meta_stack = image_layer.metadata
 
                         if len(image_stack) >= 1:
 
@@ -835,153 +833,128 @@ class AKSEG(QWidget):
                                 class_stack = np.expand_dims(class_stack[current_step], axis=0)
                                 meta_stack = np.expand_dims(meta_stack[current_step], axis=0)
 
-
                             for i in range(len(image_stack)):
 
                                 progress = int(((i + 1) / len(image_stack)) * 100)
                                 self.upload_progressbar.setValue(progress)
 
                                 image = image_stack[i]
-
+                                image_meta = meta_stack[i]
                                 mask = mask_stack[i]
                                 class_mask = class_stack[i]
-                                meta = dict(layer_meta = meta_stack[i])
-                                seg_meta = meta["layer_meta"][segChannel]
 
-                                file_name = seg_meta["image_name"]
-                                file_path = os.path.abspath(seg_meta["image_path"])
-                                akseg_hash = seg_meta["akseg_hash"]
-                                import_mode = seg_meta["import_mode"]
-                                folder = seg_meta["folder"][0]
-                                parent_folder = seg_meta["parent_folder"][0]
-                                meta["file_name"] = seg_meta["image_name"]
-                                meta["file_path"] = seg_meta["image_path"]
+                                for j,layer in enumerate(layer_names):
 
-                                #stops user from overwriting AKGROUP files, unless they have opened them from AKGROUP for curation
-                                if akseg_hash in metadata_akseg_hash and import_mode != "AKSEG":
+                                    img = image[j,:,:]
+                                    meta = image_meta[layer]
 
-                                    print("file already exists  in AKGROUP Server:   " + file_name)
+                                    file_name = meta["image_name"]
+                                    file_path = os.path.abspath(meta["image_path"])
+                                    akseg_hash = meta["akseg_hash"]
+                                    import_mode = meta["import_mode"]
+                                    file_list = meta["file_list"]
+                                    segmentation_file = meta["segmentation_file"]
+                                    folder = meta["folder"][0]
+                                    parent_folder = meta["parent_folder"][0]
 
-                                else:
+                                    #stops user from overwriting AKGROUP files, unless they have opened them from AKGROUP for curation
+                                    if akseg_hash in metadata_akseg_hash and import_mode != "AKSEG":
 
-                                    if import_mode != "AKSEG":
-                                        print("Uploading file to AKGROUP Server:   " + file_name)
-                                    else:
-                                        print("Editing file on AKGROUP Server:   " + file_name)
-
-                                    y1, y2, x1, x2 = seg_meta["crop"]
-
-                                    if len(image.shape) > 2 :
-                                        image = image[:, y1:y2, x1:x2]
-                                    else:
-                                        image = image[y1:y2, x1:x2]
-
-                                    mask = mask[y1:y2, x1:x2]
-                                    class_mask = class_mask[y1:y2, x1:x2]
-
-                                    meta["user_initial"] = user_initial
-                                    meta["image_content"] = content
-                                    meta["microscope"] = microscope
-                                    meta["modality"] = modality
-                                    meta["light_source"] = source
-                                    meta["stains"] = stains
-                                    meta["antibiotic"] = antibiotic
-                                    meta["treatementtime"] = treatmenttime
-                                    meta["abxconcentration"] = abxconcentration
-                                    meta["mount"] = mount
-                                    meta["protocol"] = protocol
-                                    meta["usermeta1"] = usermeta1
-                                    meta["usermeta2"] = usermeta2
-                                    meta["usermeta3"] = usermeta3
-                                    meta["channels"] = layer_names
-                                    meta["segmentation_channel"] = segChannel
-
-                                    meta["segmentations_curated"] = self.upload_segcurated.isChecked()
-
-                                    meta["labels_curated"] = self.upload_classcurated.isChecked()
-
-                                    if self.cellpose_segmentation == True:
-                                        meta["cellpose_segmentation"] = self.cellpose_segmentation
-                                        meta["flow_threshold"] = float(self.cellpose_flowthresh_label.text())
-                                        meta["mask_threshold"] = float(self.cellpose_maskthresh_label.text())
-                                        meta["min_size"] = int(self.cellpose_minsize_label.text())
-                                        meta["diameter"] = int(self.cellpose_diameter_label.text())
-                                        meta["cellpose_model"] = self.cellpose_model.currentText()
-                                        meta["custom_model"] = os.path.abspath(self.cellpose_custom_model_path)
-
-                                    save_dir = akgroup_dir + "\\" + user_initial + "\\" + folder + "\\"
-
-                                    image_dir = save_dir + "\\" + "images" + "\\"
-                                    mask_dir = save_dir + "\\" + "masks" + "\\"
-                                    class_dir = save_dir + "\\" + "labels" + "\\"
-                                    json_dir = save_dir + "\\" + "json" + "\\"
-
-                                    if os.path.exists(image_dir) == False:
-                                        os.makedirs(image_dir)
-
-                                    if os.path.exists(mask_dir) == False:
-                                        os.makedirs(mask_dir)
-
-                                    if os.path.exists(json_dir) == False:
-                                        os.makedirs(json_dir)
-
-                                    if os.path.exists(class_dir) == False:
-                                        os.makedirs(class_dir)
-        #
-                                    file_name = os.path.splitext(seg_meta["image_name"])[0] + ".tif"
-                                    image_path = image_dir + "\\" + file_name
-                                    mask_path = mask_dir + "\\" + file_name
-                                    json_path = json_dir + "\\" + file_name.replace(".tif",".txt")
-                                    class_path = class_dir + "\\" + file_name
-
-                                    tifffile.imwrite(image_path, image, metadata=meta)
-                                    tifffile.imwrite(mask_path, mask, metadata=meta)
-                                    tifffile.imwrite(class_path, class_mask, metadata=meta)
-                                    export_coco_json(file_name, image, mask, class_mask, json_path)
-
-                                    file_metadata = [date_uploaded,
-                                                     file_name,
-                                                     akseg_hash,
-                                                     layer_names,
-                                                     user_initial,
-                                                     content,
-                                                     microscope,
-                                                     modality,
-                                                     source,
-                                                     stains,
-                                                     antibiotic,
-                                                     treatmenttime,
-                                                     abxconcentration,
-                                                     mount,
-                                                     protocol,
-                                                     mask_curated,
-                                                     label_curated,
-                                                     usermeta1,
-                                                     usermeta2,
-                                                     usermeta3,
-                                                     folder,
-                                                     parent_folder,
-                                                     seg_meta["image_path"],
-                                                     image_path,
-                                                     seg_meta["mask_path"],
-                                                     mask_path,
-                                                     seg_meta["label_path"],
-                                                     class_path]
-
-                                    if akseg_hash in metadata_akseg_hash:
-
-                                        user_metadata.loc[user_metadata["akseg_hash"] == akseg_hash,
-                                                          user_metadata.columns] = np.array(file_metadata, dtype=object)
+                                        print("file already exists  in AKGROUP Server:   " + file_name)
 
                                     else:
-                                        user_metadata.loc[len(user_metadata)] = file_metadata
 
-                            user_metadata.drop_duplicates(subset=['akseg_hash'], keep="first", inplace=True)
+                                        if import_mode != "AKSEG":
+                                            print("Uploading file to AKGROUP Server:   " + file_name)
+                                        else:
+                                            print("Editing file on AKGROUP Server:   " + file_name)
 
-                            user_metadata.to_csv(user_metadata_path, sep=",", index = False)
+                                        y1, y2, x1, x2 = meta["crop"]
 
-                            # reset progressbar
-                            self.cellpose_progressbar.setValue(0)
+                                        if len(img.shape) > 2 :
+                                            img = img[:, y1:y2, x1:x2]
+                                        else:
+                                            img = img[y1:y2, x1:x2]
+
+                                        mask = mask[y1:y2, x1:x2]
+                                        class_mask = class_mask[y1:y2, x1:x2]
+
+                                        save_dir = akgroup_dir + "\\" + user_initial
+
+                                        image_dir = save_dir + "\\" + "images" + "\\"
+                                        mask_dir = save_dir + "\\" + "masks" + "\\"
+                                        class_dir = save_dir + "\\" + "labels" + "\\"
+                                        json_dir = save_dir + "\\" + "json" + "\\"
+
+                                        if os.path.exists(image_dir) == False:
+                                            os.makedirs(image_dir)
+
+                                        if os.path.exists(mask_dir) == False:
+                                            os.makedirs(mask_dir)
+
+                                        if os.path.exists(json_dir) == False:
+                                            os.makedirs(json_dir)
+
+                                        if os.path.exists(class_dir) == False:
+                                            os.makedirs(class_dir)
+
+                                        file_name = os.path.splitext(meta["image_name"])[0] + ".tif"
+                                        image_path = image_dir + "\\" + file_name
+                                        mask_path = mask_dir + "\\" + file_name
+                                        json_path = json_dir + "\\" + file_name.replace(".tif",".txt")
+                                        class_path = class_dir + "\\" + file_name
+
+
+                                        tifffile.imwrite(os.path.abspath(image_path), img, metadata=meta)
+                                        tifffile.imwrite(mask_path, mask, metadata=meta)
+                                        tifffile.imwrite(class_path, class_mask, metadata=meta)
+                                        export_coco_json(file_name, img, mask, class_mask, json_path)
+
+                                        file_metadata = [date_uploaded,
+                                                         file_name,
+                                                         file_list,
+                                                         segmentation_file,
+                                                         akseg_hash,
+                                                         layer_names,
+                                                         user_initial,
+                                                         content,
+                                                         microscope,
+                                                         modality,
+                                                         source,
+                                                         stains,
+                                                         antibiotic,
+                                                         treatmenttime,
+                                                         abxconcentration,
+                                                         mount,
+                                                         protocol,
+                                                         mask_curated,
+                                                         label_curated,
+                                                         usermeta1,
+                                                         usermeta2,
+                                                         usermeta3,
+                                                         folder,
+                                                         parent_folder,
+                                                         meta["image_path"],
+                                                         image_path,
+                                                         meta["mask_path"],
+                                                         mask_path,
+                                                         meta["label_path"],
+                                                         class_path]
+
+                                        if akseg_hash in metadata_akseg_hash:
+
+                                            user_metadata.loc[user_metadata["akseg_hash"] == akseg_hash,
+                                                              user_metadata.columns] = np.array(file_metadata, dtype=object)
+
+                                        else:
+                                            user_metadata.loc[len(user_metadata)] = file_metadata
+
+                                user_metadata.drop_duplicates(subset=['akseg_hash'], keep="first", inplace=True)
+
+                                user_metadata.to_csv(user_metadata_path, sep=",", index = False)
+
+            # reset progressbar
+            self.upload_progressbar.setValue(0)
 
         except:
             print(traceback.format_exc())
