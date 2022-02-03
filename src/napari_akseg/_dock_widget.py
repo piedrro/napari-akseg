@@ -353,6 +353,8 @@ class AKSEG(QWidget):
         self.import_dataset = partial(import_dataset, self)
         self.import_AKSEG = partial(import_AKSEG, self)
 
+        print(self.viewer.layers[1])
+
     def _updateSegChannels(self):
 
         layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
@@ -364,62 +366,65 @@ class AKSEG(QWidget):
 
     def _manualImport(self):
 
-        if self.viewer.layers.index("Segmentations") != 1:
+        if self.viewer.layers.index("Segmentations") != len(self.viewer.layers)-1:
 
             #reshapes masks to be same shape as active image
             self.active_layer = self.viewer.layers[-1]
-            active_image = self.active_layer.data
 
-            if len(active_image.shape) < 3:
-                active_image = np.expand_dims(active_image,axis=0)
-                self.active_layer.data = active_image
+            if self.active_layer.metadata == {}:
 
-            if self.classLayer.data.shape != self.active_layer.data.shape:
-                self.classLayer.data = np.zeros(active_image.shape,np.uint16)
+                active_image = self.active_layer.data
 
-            if self.segLayer.data.shape != self.active_layer.data.shape:
-                self.segLayer.data = np.zeros(active_image.shape,np.uint16)
+                if len(active_image.shape) < 3:
+                    active_image = np.expand_dims(active_image,axis=0)
+                    self.active_layer.data = active_image
 
-            image_name = str(self.viewer.layers[-1]) + ".tif"
+                if self.classLayer.data.shape != self.active_layer.data.shape:
+                    self.classLayer.data = np.zeros(active_image.shape,np.uint16)
 
-            meta = {}
-            for i in range(active_image.shape[0]):
+                if self.segLayer.data.shape != self.active_layer.data.shape:
+                    self.segLayer.data = np.zeros(active_image.shape,np.uint16)
 
-                img = active_image[i,:,:]
+                image_name = str(self.viewer.layers[-1]) + ".tif"
 
-                contrast_limit, alpha, beta, gamma = autocontrast_values(img, clip_hist_percent=1)
+                meta = {}
+                for i in range(active_image.shape[0]):
 
-                img_meta = dict(image_name = image_name,
-                                image_path='Unknown',
-                                mask_name=None,
-                                mask_path=None,
-                                label_name=None,
-                                label_path=None,
-                                folder=None,
-                                parent_folder=None,
-                                contrast_limit=contrast_limit,
-                                contrast_alpha=alpha,
-                                contrast_beta=beta,
-                                contrast_gamma=gamma,
-                                akseg_hash=None,
-                                import_mode='manual',
-                                dims=[img.shape[1], img.shape[0]],
-                                crop=[0, img.shape[0], 0, img.shape[1]],
-                                frame = i,
-                                frames = active_image.shape[0])
+                    img = active_image[i,:,:]
 
-                meta[i] = img_meta
+                    contrast_limit, alpha, beta, gamma = autocontrast_values(img, clip_hist_percent=1)
 
-            self.active_layer.metadata = meta
-            self.segLayer.metadata = meta
-            self.classLayer.metadata = meta
+                    img_meta = dict(image_name = image_name,
+                                    image_path='Unknown',
+                                    mask_name=None,
+                                    mask_path=None,
+                                    label_name=None,
+                                    label_path=None,
+                                    folder=None,
+                                    parent_folder=None,
+                                    contrast_limit=contrast_limit,
+                                    contrast_alpha=alpha,
+                                    contrast_beta=beta,
+                                    contrast_gamma=gamma,
+                                    akseg_hash=None,
+                                    import_mode='manual',
+                                    dims=[img.shape[1], img.shape[0]],
+                                    crop=[0, img.shape[0], 0, img.shape[1]],
+                                    frame = i,
+                                    frames = active_image.shape[0])
 
-            self._updateFileName()
-            self._updateSegmentationCombo()
+                    meta[i] = img_meta
 
-            self.viewer.reset_view()
-            self._autoContrast()
-            self._autoClassify()
+                self.active_layer.metadata = meta
+                self.segLayer.metadata = meta
+                self.classLayer.metadata = meta
+
+                self._updateFileName()
+                self._updateSegmentationCombo()
+
+                self.viewer.reset_view()
+                self._autoContrast()
+                self._autoClassify()
 
 
     def _aksegProgresbar(self, progress):
