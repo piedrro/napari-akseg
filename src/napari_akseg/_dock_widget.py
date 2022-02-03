@@ -269,6 +269,8 @@ class AKSEG(QWidget):
                                                                                     "cellpose_diameter_label"))
         self.cellpose_segment_all.clicked.connect(self._segmentAll)
         self.cellpose_segment_active.clicked.connect(self._segmentActive)
+        self.cellpose_segchannel.currentTextChanged.connect(self._updateSegChannels)
+
 
         # modify tab events
         self.modify_panzoom.clicked.connect(partial(self._modifyMode, "panzoom"))
@@ -334,6 +336,10 @@ class AKSEG(QWidget):
         # mouse events
         self.segLayer.mouse_drag_callbacks.append(self._segmentationEvents)
 
+        #viewer events
+        self.viewer.layers.events.inserted.connect(self._updateViwer)
+        self.viewer.layers.events.removed.connect(self._updateViwer)
+
         populate_upload_combos(self)
 
         self.threadpool = QThreadPool()
@@ -347,6 +353,21 @@ class AKSEG(QWidget):
         self.import_JSON = partial(import_JSON, self)
         self.import_dataset = partial(import_dataset, self)
         self.import_AKSEG = partial(import_AKSEG, self)
+
+
+    def _updateSegChannels(self):
+
+        layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
+
+        segChannel = self.cellpose_segchannel.currentText()
+
+        self.upload_segchannel.setCurrentText(segChannel)
+        self.export_channel.setCurrentText(segChannel)
+
+
+    def _updateViwer(self):
+
+        self._updateSegmentationCombo()
 
     def _aksegProgresbar(self, progress):
 
