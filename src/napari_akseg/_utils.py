@@ -1447,6 +1447,8 @@ def update_akmetadata(self, akmeta):
         usermeta2 = akmeta["usermeta2"]
         usermeta3 = akmeta["usermeta3"]
         segChannel = akmeta["segmentation_channel"]
+        labels_curated = akmeta["labels_curated"]
+        segmentations_curated = akmeta["segmentations_curated"]
 
         self.upload_segchannel.setCurrentText(segChannel)
         self.upload_initial.setCurrentText(user_initial)
@@ -1463,6 +1465,8 @@ def update_akmetadata(self, akmeta):
         self.upload_usermeta1.setCurrentText(usermeta1)
         self.upload_usermeta2.setCurrentText(usermeta2)
         self.upload_usermeta3.setCurrentText(usermeta3)
+        self.upload_classcurated.setChecked(labels_curated)
+        self.upload_segcurated.setChecked(segmentations_curated)
 
     except:
         print(traceback.format_exc())

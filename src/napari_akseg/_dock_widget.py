@@ -241,6 +241,7 @@ class AKSEG(QWidget):
         self.export_mode = self.findChild(QComboBox, "export_mode")
         self.export_location = self.findChild(QComboBox, "export_location")
         self.export_directory = self.findChild(QTextEdit, "export_directory")
+        self.export_modifier = self.findChild(QLineEdit, "export_modifier")
         self.export_single = self.findChild(QCheckBox, "export_single")
         self.export_dividing = self.findChild(QCheckBox, "export_dividing")
         self.export_divided = self.findChild(QCheckBox, "export_divided")
@@ -475,11 +476,13 @@ class AKSEG(QWidget):
     def _export(self, mode):
 
         export_channel = self.export_channel.currentText()
+        export_modifier = self.export_modifier.text()
 
         image_stack = self.viewer.layers[export_channel].data.copy()
         mask_stack = self.segLayer.data.copy()
         meta_stack = self.segLayer.metadata.copy()
         label_stack = self.classLayer.data.copy()
+
 
         if mode == "active":
 
@@ -527,7 +530,15 @@ class AKSEG(QWidget):
             mask = mask[y1:y2, x1:x2]
             label = label[y1:y2, x1:x2]
 
-            file_path = os.path.abspath(export_path + "\\" + file_name)
+            if os.path.isdir(export_path) == False:
+                os.makedirs(file_path)
+
+            file_path = export_path + "\\" + file_name
+
+            old_format = "." + file_path.split(".")[-1]
+            new_format = export_modifier + "." + file_path.split(".")[-1]
+            file_path = file_path.replace(old_format,new_format)
+            file_path = os.path.abspath(file_path)
 
             if self.export_mode.currentText() == "Export .tif Images":
 
@@ -684,6 +695,7 @@ class AKSEG(QWidget):
                     user_metadata = pd.DataFrame(columns=["date_uploaded",
                                                           "file_name",
                                                           "akseg_hash",
+                                                          "layer_names",
                                                           "user_initial",
                                                           "content",
                                                           "microscope",
@@ -851,6 +863,7 @@ class AKSEG(QWidget):
                                     file_metadata = [date_uploaded,
                                                      file_name,
                                                      akseg_hash,
+                                                     layer_names,
                                                      user_initial,
                                                      content,
                                                      microscope,
