@@ -31,7 +31,7 @@ import matplotlib.pyplot as plt
 from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
                                  import_dataset, import_AKSEG, import_JSON, generate_multichannel_stack,
-                                 populate_upload_combos, get_export_data, import_masks, get_usermeta, read_nim_folder,
+                                 populate_upload_combos, get_export_data, import_masks, get_usermeta,
                                  update_akmetadata, autocontrast_values)
 
 from napari_akseg._utils_json import import_coco_json, export_coco_json
@@ -337,7 +337,7 @@ class AKSEG(QWidget):
         self.segLayer.mouse_drag_callbacks.append(self._segmentationEvents)
 
         #viewer events
-        self.viewer.layers.events.inserted.connect(self._updateViwer)
+        self.viewer.layers.events.inserted.connect(self._manualImport)
 
         populate_upload_combos(self)
 
@@ -362,13 +362,9 @@ class AKSEG(QWidget):
         self.upload_segchannel.setCurrentText(segChannel)
         self.export_channel.setCurrentText(segChannel)
 
+    def _manualImport(self):
 
-    def _updateViwer(self):
-
-        if self.viewer.layers.index("Segmentations") != len(self.viewer.layers) -1:
-
-            self._updateSegmentationCombo()
-            self.viewer.reset_view()
+        if self.viewer.layers.index("Segmentations") != 1:
 
             #reshapes masks to be same shape as active image
             self.active_layer = self.viewer.layers[-1]
@@ -425,6 +421,7 @@ class AKSEG(QWidget):
             self._autoContrast()
             self._autoClassify()
 
+
     def _aksegProgresbar(self, progress):
 
         self.import_progressbar.setValue(progress)
@@ -454,19 +451,9 @@ class AKSEG(QWidget):
             worker.signals.progress.connect(self._aksegProgresbar)
             self.threadpool.start(worker)
 
-        if import_mode == "Import NanoImager Map":
+        if import_mode == "Import NanoImager Data":
 
             measurements, file_paths, channels = read_nim_directory(self, paths)
-
-            worker = Worker(self.read_nim_images, measurements = measurements, channels = channels)
-            worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(self._aksegProgresbar)
-            self.threadpool.start(worker)
-
-
-        if import_mode == "Import NanoImager Measurement":
-
-            measurements, file_paths, channels = read_nim_folder(self, paths)
 
             worker = Worker(self.read_nim_images, measurements = measurements, channels = channels)
             worker.signals.result.connect(self._process_import)

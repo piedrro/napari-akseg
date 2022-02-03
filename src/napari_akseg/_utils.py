@@ -15,16 +15,27 @@ import hashlib
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 
 
-def read_nim_folder(self, path):
+def read_nim_directory(self, path):
 
-    if os.path.isfile(path[0]):
+    if isinstance(path, list) == False:
+        path = [path]
+
+    if len(path) == 1:
+
         path = os.path.abspath(path[0])
-        path = path.replace(path.split("\\")[-1],"")
-    else:
-        path = path[0]
 
-    path = os.path.abspath(path)
-    file_paths = glob(path + "*/*.tif")
+        if os.path.isfile(path) == True:
+            file_paths = [path]
+
+        else:
+
+            file_paths = glob(path + "*\**\*.tif", recursive=True)
+    else:
+        file_paths = path
+
+    file_paths = [file for file in file_paths if file.split(".")[-1] == "tif"]
+
+    file_names = [path.split("\\")[-1] for path in file_paths]
 
     files = pd.DataFrame(columns=["path",
                                   "file_name",
@@ -33,16 +44,18 @@ def read_nim_folder(self, path):
                                   "posX",
                                   "posY",
                                   "posZ",
-                                  "repeat",
                                   "laser",
                                   "timestamp"])
 
     for i in range(len(file_paths)):
 
         path = file_paths[i]
-        file_name = path.split("\\")[-1]
+        path = os.path.abspath(path)
+
         folder = os.path.abspath(path).split("\\")[-1]
         parent_folder = os.path.abspath(path).split("\\")[-2]
+
+        file_name = path.split("\\")[-1]
 
         with tifffile.TiffFile(path) as tif:
 
@@ -53,11 +66,6 @@ def read_nim_folder(self, path):
         laserwavelength_nm = metadata["LaserWavelength_nm"]
         timestamp = metadata["timestamp_us"]
 
-        if file_name.split(".tif")[0][-2] == "-":
-            repeat = file_name.split(".tif")[0][-1]
-        else:
-            repeat = 0
-
         posX, posY, posZ = metadata["StagePos_um"]
 
         if True in laseractive:
@@ -66,9 +74,11 @@ def read_nim_folder(self, path):
         else:
             laser = "BF"
 
-        file_name = path.split("\\")[-1].replace("_channels_t0", "").replace("__", "_")
+        file_name = path.split("\\")[-1]
 
-        files.loc[len(files)] = [path, file_name, folder, parent_folder, posX, posY, posZ, repeat, laser, timestamp]
+        data = [path, file_name, posX, posY, posZ, laser, timestamp]
+
+        files.loc[len(files)] = [path, file_name, folder, parent_folder, posX, posY, posZ, laser, timestamp]
 
     files[["posX", "posY", "posZ"]] = files[["posX", "posY", "posZ"]].round(decimals=1)
 
@@ -105,8 +115,6 @@ def read_nim_folder(self, path):
 
             files.at[index, 'aquisition'] = acquisition
 
-        acquisition += 1
-
     measurements = files.groupby(by=['aquisition'])
     channels = files["laser"].drop_duplicates().to_list()
 
@@ -115,93 +123,6 @@ def read_nim_folder(self, path):
     print("Found " + str(len(measurements)) + " measurments in NIM Folder with " + channel_num + " channels.")
 
     return measurements, file_paths, channels
-
-
-def read_nim_directory(self, path):
-
-    if os.path.isfile(path[0]):
-        path = os.path.abspath(os.path.join(path[0], "../../.."))
-    else:
-        path = path[0]
-
-    path = os.path.abspath(path)
-    folder = os.path.abspath(path).split("\\")[-1]
-    parent_folder = os.path.abspath(path).split("\\")[-2]
-
-    files = pd.DataFrame(columns=["path",
-                                  "file_name",
-                                  "folder",
-                                  "parent_folder",
-                                  "pos_dir",
-                                  "channel_dir",
-                                  "posXY",
-                                  "posZ",
-                                  "laser",
-                                  "timestamp"])
-
-    paths = glob(path + "*/**/*.tif", recursive=True)
-
-    for path in paths:
-
-        with tifffile.TiffFile(path) as tif:
-
-            metadata = tif.pages[0].tags["ImageDescription"].value
-            metadata = json.loads(metadata)
-
-        laseractive = metadata["LaserActive"]
-        laserwavelength_nm = metadata["LaserWavelength_nm"]
-        timestamp = metadata["timestamp_us"]
-
-        if True in laseractive:
-            laser_index = laseractive.index(True)
-            laser = str(laserwavelength_nm[laser_index])
-        else:
-            laser = "BF"
-
-        file_name = path.split("\\")[-1].replace("_channels_t0", "").replace("__", "_")
-        pos_dir = path.split("\\")[-2]
-        channel_dir = path.split("\\")[-3]
-        posXY = int(file_name.split("posXY")[-1].split("_")[0])
-        posZ = int(file_name.split("posZ")[-1].split("_")[0].replace(".tif", ""))
-
-        if 'colour' in file_name:
-            colour_int = file_name.split("colour")[-1].replace(".tif", "")
-
-        files.loc[len(files)] = [path, file_name, folder, parent_folder, pos_dir, channel_dir, posXY, posZ, laser, timestamp]
-
-    files = files.sort_values(by=['timestamp'], ascending=True)
-    files = files.reset_index(drop=True)
-
-    lasers = []
-    acquisitions = []
-    acquisition = 1
-
-    for i in range(len(files)):
-
-        posXY = files.iloc[i]["posXY"]
-        laser = files.iloc[i]["laser"]
-
-        if i != 0 and posXY == 0 and laser in lasers:
-            # lasers = []
-            acquisition += 1
-            lasers = []
-
-        lasers.append(laser)
-        acquisitions.append(acquisition)
-
-    acquisitions = pd.DataFrame(acquisitions, columns=['acquisitions'])
-    files = files.join(acquisitions)
-    files = files.sort_values(by=['acquisitions', 'posXY', 'posZ'], ascending=True)
-    files = files.reset_index(drop=True)
-
-    measurements = files.groupby(by=['acquisitions', 'posXY', 'posZ'])
-
-    channel_num = str(len(files["laser"].unique()))
-    channels = files["laser"].drop_duplicates().to_list()
-
-    print("Found " + str(len(measurements)) + " measurments in NIM directory with " + channel_num + " channels.")
-
-    return measurements, paths, channels
 
 
 def read_tif(path):
@@ -287,6 +208,8 @@ def read_nim_images(self, progress_callback, measurements, channels):
 
                 contrast_limit, alpha, beta, gamma = autocontrast_values(img, clip_hist_percent=1)
 
+                meta["image_name"] = os.path.basename(path)
+                meta["image_path"] = path
                 meta["folder"] = folder,
                 meta["parent_folder"] = parent_folder,
                 meta["akseg_hash"] = get_hash(path)
