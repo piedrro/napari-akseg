@@ -32,7 +32,7 @@ from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cell
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
                                  import_dataset, import_AKSEG, import_JSON, generate_multichannel_stack,
                                  populate_upload_combos, get_export_data, import_masks, get_usermeta,
-                                 update_akmetadata, autocontrast_values)
+                                 update_akmetadata, autocontrast_values, read_AKSEG_directory)
 
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 from napari_akseg._utils_cellpose import export_cellpose
@@ -110,10 +110,6 @@ class Worker(QRunnable):
             self.signals.result.emit(result)  # Return the result of the processing
         finally:
             self.signals.finished.emit()  # Done
-
-
-
-
 
 
 class AKSEG(QWidget):
@@ -216,8 +212,12 @@ class AKSEG(QWidget):
 
         # upload tab controls from Qt Desinger References
         self.upload_segchannel = self.findChild(QComboBox, "upload_segchannel")
+        self.upload_segmented = self.findChild(QCheckBox, "upload_segmented")
+        self.upload_labelled = self.findChild(QCheckBox, "upload_labelled")
         self.upload_segcurated = self.findChild(QCheckBox, "upload_segcurated")
         self.upload_classcurated = self.findChild(QCheckBox, "upload_classcurated")
+        self.upload_seg_truth = self.findChild(QCheckBox, "upload_seg_truth")
+        self.upload_class_truth = self.findChild(QCheckBox, "upload_class_truth")
         self.upload_initial = self.findChild(QComboBox, "upload_initial")
         self.upload_content = self.findChild(QComboBox, "upload_content")
         self.upload_microscope = self.findChild(QComboBox, "upload_microscope")
@@ -311,6 +311,7 @@ class AKSEG(QWidget):
                               4: (170 / 255, 0 / 255, 255 / 255, 1),
                               5: (255 / 255, 170 / 255, 0 / 255, 1),
                               6: (255 / 255, 0 / 255, 0 / 255, 1), }
+
         self.classLayer = self.viewer.add_labels(np.zeros((1, 100, 100), dtype=np.uint16), opacity=0.25, name="Classes",
                                                  color=self.class_colours,metadata = {0:{"image_name":""}})
         self.segLayer = self.viewer.add_labels(np.zeros((1, 100, 100), dtype=np.uint16), opacity=1,
@@ -498,10 +499,14 @@ class AKSEG(QWidget):
 
         if import_mode == "Import AKSEG Dataset":
 
-            worker = Worker(self.import_AKSEG, file_paths=paths)
-            worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(self._aksegProgresbar)
-            self.threadpool.start(worker)
+            measurements, file_paths, channels = read_AKSEG_directory(self, paths)
+
+            print(len(measurements))
+
+            # worker = Worker(self.import_AKSEG, file_paths=paths)
+            # worker.signals.result.connect(self._process_import)
+            # worker.signals.progress.connect(self._aksegProgresbar)
+            # self.threadpool.start(worker)
 
 
     def _populateUSERMETA(self):
@@ -755,8 +760,6 @@ class AKSEG(QWidget):
                 usermeta1 = self.upload_usermeta1.currentText()
                 usermeta2 = self.upload_usermeta2.currentText()
                 usermeta3 = self.upload_usermeta3.currentText()
-                mask_curated = self.upload_segcurated.isChecked()
-                label_curated = self.upload_classcurated.isChecked()
                 date_uploaded = datetime.datetime.now()
 
                 user_metadata_path = akgroup_dir + "\\" + user_initial + "\\" + user_initial + "_file_metadata.txt"
@@ -766,15 +769,18 @@ class AKSEG(QWidget):
                     user_metadata = pd.read_csv(user_metadata_path, sep=",")
                     metadata_file_names = user_metadata["file_name"].tolist()
                     metadata_akseg_hash = user_metadata["akseg_hash"].tolist()
+
                 else:
                     metadata_file_names = []
                     metadata_akseg_hash = []
                     user_metadata = pd.DataFrame(columns=["date_uploaded",
                                                           "file_name",
+                                                          "channel",
                                                           "file_list",
+                                                          "channel_list",
                                                           "segmentation_file",
+                                                          "segmentation_channel",
                                                           "akseg_hash",
-                                                          "layer_names",
                                                           "user_initial",
                                                           "content",
                                                           "microscope",
@@ -789,10 +795,14 @@ class AKSEG(QWidget):
                                                           "user_meta1",
                                                           "user_meta2",
                                                           "user_meta3",
-                                                          "mask_curated",
-                                                          "label_curated",
                                                           "folder",
                                                           "parent_folder",
+                                                          "segmented",
+                                                          "labelled",
+                                                          "segmentation_curated",
+                                                          "label_curated",
+                                                          "segmentation_ground_truth",
+                                                          "label_ground_truth",
                                                           "image_load_path",
                                                           "image_save_path",
                                                           "mask_load_path",
@@ -807,7 +817,7 @@ class AKSEG(QWidget):
                 else:
 
                     segChannel = self.upload_segchannel.currentText()
-                    layer_names = [layer.name for layer in self.viewer.layers if
+                    channel_list = [layer.name for layer in self.viewer.layers if
                                    layer.name not in ["Segmentations", "Classes"]]
 
                     if segChannel == "":
@@ -818,7 +828,7 @@ class AKSEG(QWidget):
 
                         image_layer = self.viewer.layers[segChannel]
 
-                        image_stack, meta_stack, layer_names = generate_multichannel_stack(self)
+                        image_stack, meta_stack, channel_list = generate_multichannel_stack(self)
                         mask_stack = self.segLayer.data
                         class_stack = self.classLayer.data
 
@@ -843,7 +853,9 @@ class AKSEG(QWidget):
                                 mask = mask_stack[i]
                                 class_mask = class_stack[i]
 
-                                for j,layer in enumerate(layer_names):
+                                channel_list = image_meta["channel_list"]
+
+                                for j,layer in enumerate(channel_list):
 
                                     img = image[j,:,:]
                                     meta = image_meta[layer]
@@ -854,8 +866,8 @@ class AKSEG(QWidget):
                                     import_mode = meta["import_mode"]
                                     file_list = meta["file_list"]
                                     segmentation_file = meta["segmentation_file"]
-                                    folder = meta["folder"][0]
-                                    parent_folder = meta["parent_folder"][0]
+                                    folder = meta["folder"]
+                                    parent_folder = meta["parent_folder"]
 
                                     #stops user from overwriting AKGROUP files, unless they have opened them from AKGROUP for curation
                                     if akseg_hash in metadata_akseg_hash and import_mode != "AKSEG":
@@ -912,10 +924,12 @@ class AKSEG(QWidget):
 
                                         file_metadata = [date_uploaded,
                                                          file_name,
-                                                         file_list,
-                                                         segmentation_file,
-                                                         akseg_hash,
-                                                         layer_names,
+                                                         meta["channel"],
+                                                         meta["file_list"],
+                                                         meta["channel_list"],
+                                                         meta["segmentation_file"],
+                                                         meta["segmentation_channel"],
+                                                         meta["akseg_hash"],
                                                          user_initial,
                                                          content,
                                                          microscope,
@@ -927,13 +941,17 @@ class AKSEG(QWidget):
                                                          abxconcentration,
                                                          mount,
                                                          protocol,
-                                                         mask_curated,
-                                                         label_curated,
                                                          usermeta1,
                                                          usermeta2,
                                                          usermeta3,
                                                          folder,
                                                          parent_folder,
+                                                         meta["segmented"],
+                                                         meta["labelled"],
+                                                         meta["segmentations_curated"],
+                                                         meta["labels_curated"],
+                                                         meta["segmentations_ground_truth"],
+                                                         meta["labels_curated_ground_truth"],
                                                          meta["image_path"],
                                                          image_path,
                                                          meta["mask_path"],

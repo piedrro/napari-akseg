@@ -139,6 +139,104 @@ def read_nim_directory(self, path):
     return measurements, file_paths, channels
 
 
+def read_AKSEG_directory(self, path):
+
+    if isinstance(path, list) == False:
+        path = [path]
+
+    if len(path) == 1:
+
+        path = os.path.abspath(path[0])
+
+        if os.path.isfile(path) == True:
+            file_paths = [path]
+
+        else:
+
+            file_paths = glob(path + "*\**\*.tif", recursive=True)
+    else:
+        file_paths = path
+
+    file_paths = [file for file in file_paths if file.split(".")[-1] == "tif"]
+
+    files = pd.DataFrame(columns=["path",
+                                  "file_name",
+                                  "channel",
+                                  "file_list",
+                                  "channel_list",
+                                  "segmentation_file",
+                                  "segmentation_channel",
+                                  "segmented",
+                                  "labelled",
+                                  "segmentation_curated",
+                                  "label_curated",
+                                  "segmentation_ground_truth",
+                                  "label_ground_truth"])
+
+    for i in range(len(file_paths)):
+        path = file_paths[i]
+        path = os.path.abspath(path)
+
+        file_name = path.split("\\")[-1]
+
+        with tifffile.TiffFile(path) as tif:
+            meta = tif.pages[0].tags["ImageDescription"].value
+            meta = json.loads(meta)
+
+            segmentation_channel = meta["segmentation_channel"]
+            file_list = meta["file_list"]
+            channel = meta["channel"]
+            channel_list = meta["channel_list"]
+            segmentation_channel = meta["segmentation_channel"]
+            segmentation_file = meta["segmentation_file"]
+            segmented = meta["segmented"]
+            labelled = meta["labelled"]
+            segmentations_curated = meta["segmentations_curated"]
+            labels_curated = meta["labels_curated"]
+            segmentations_ground_truth = meta["segmentations_ground_truth"]
+            labels_curated_ground_truth = meta["labels_curated_ground_truth"]
+
+            data = [path,
+                    file_name,
+                    channel,
+                    file_list,
+                    channel_list,
+                    segmentation_file,
+                    segmentation_channel,
+                    segmented,
+                    labelled,
+                    segmentations_curated,
+                    labels_curated,
+                    segmentations_ground_truth,
+                    labels_curated_ground_truth]
+
+            files.loc[len(files)] = data
+
+    files["file_name"] = files["file_list"]
+    files["channel"] = files["channel_list"]
+
+    files = files.explode(["file_name", "channel"]).drop_duplicates("file_name")
+
+    num_measurements = len(files)
+
+    import_limit = self.import_limit.currentText()
+
+    if import_limit == "None":
+        import_limit = num_measurements
+    else:
+        if int(import_limit) > num_measurements:
+            import_limit = num_measurements
+
+    files = files.loc[:int(import_limit) - 1]
+
+    channels = files.explode("channel_list")["channel_list"].unique().tolist()
+
+    measurements = files.groupby("segmentation_file")
+
+    return measurements, file_paths, channels
+
+
+
 def read_tif(path):
 
     with tifffile.TiffFile(path) as tif:
@@ -250,11 +348,19 @@ def read_nim_images(self, progress_callback, measurements, channels):
                 img_shape = img.shape
                 img_type = np.array(img).dtype
 
+                image_path = meta["image_path"]
+
+                if "pos_" in image_path:
+                    meta["folder"] = image_path.split("\\")[-4]
+                    meta["parent_folder"] = image_path.split("\\")[-5]
+
             else:
 
                 img = np.zeros(img_shape, dtype=img_type)
                 meta = {}
 
+                meta["image_name"] = "missing image channel"
+                meta["image_path"] = "missing image channel"
                 meta["folder"] = None,
                 meta["parent_folder"] = None,
                 meta["akseg_hash"] = None
@@ -931,23 +1037,17 @@ def generate_multichannel_stack(self):
     usermeta1 = self.upload_usermeta1.currentText()
     usermeta2 = self.upload_usermeta2.currentText()
     usermeta3 = self.upload_usermeta3.currentText()
-    mask_curated = self.upload_segcurated.isChecked()
-    label_curated = self.upload_classcurated.isChecked()
+
+    upload_segmented = self.upload_segmented.isChecked()
+    upload_labelled = self.upload_labelled.isChecked()
+    upload_segcurated = self.upload_segcurated.isChecked()
+    upload_classcurated = self.upload_classcurated.isChecked()
+    upload_seg_truth = self.upload_seg_truth.isChecked()
+    upload_class_truth = self.upload_class_truth.isChecked()
+
     date_uploaded = datetime.datetime.now()
 
-
-
     layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
-
-    # file_list = []
-    # for layer in layer_names:
-    #     meta = self.viewer.layers[layer].metadata
-    #     if "image_name" in meta.keys():
-    #         file_list.append(meta["image_name"])
-    #
-    # # segmentation_file = self.viewer.layers[segChannel].metadata["image_name"]
-    #
-    # print(self.viewer.layers[segChannel].metadata)
 
     layer_names.reverse()
 
@@ -966,6 +1066,7 @@ def generate_multichannel_stack(self):
         rgb_images = []
         rgb_meta = {}
         file_list = []
+        layer_list = []
 
         for j in range(len(layer_names)):
 
@@ -976,54 +1077,66 @@ def generate_multichannel_stack(self):
             img = self.viewer.layers[layer].data[i]
             meta = self.viewer.layers[layer].metadata[i]
 
-            file_list.append(meta['image_name'])
+            if meta["image_name"] != "missing image channel":
 
-            if meta["import_mode"] != "NIM":
+                file_list.append(meta['image_name'])
+                layer_list.append(layer)
 
-                meta["microscope"] = microscope
-                meta["modality"] = modality
-                meta["light_source"] = source
+                if meta["import_mode"] != "NIM":
 
-            meta["user_initial"] = user_initial
-            meta["image_content"] = content
-            meta["stains"] = stains
-            meta["antibiotic"] = antibiotic
-            meta["treatementtime"] = treatmenttime
-            meta["abxconcentration"] = abxconcentration
-            meta["mount"] = mount
-            meta["protocol"] = protocol
-            meta["usermeta1"] = usermeta1
-            meta["usermeta2"] = usermeta2
-            meta["usermeta3"] = usermeta3
-            meta["channels"] = layer_names
-            meta["segmentation_channel"] = segChannel
-            meta["file_list"] = []
-            meta["segmentation_file"] = segmentation_file
-            meta["segmentations_curated"] = mask_curated
-            meta["labels_curated"] = label_curated
+                    meta["microscope"] = microscope
+                    meta["modality"] = modality
+                    meta["light_source"] = source
 
-            if self.cellpose_segmentation == True:
-                meta["cellpose_segmentation"] = self.cellpose_segmentation
-                meta["flow_threshold"] = float(self.cellpose_flowthresh_label.text())
-                meta["mask_threshold"] = float(self.cellpose_maskthresh_label.text())
-                meta["min_size"] = int(self.cellpose_minsize_label.text())
-                meta["diameter"] = int(self.cellpose_diameter_label.text())
-                meta["cellpose_model"] = self.cellpose_model.currentText()
-                meta["custom_model"] = os.path.abspath(self.cellpose_custom_model_path)
+                meta["user_initial"] = user_initial
+                meta["image_content"] = content
+                meta["stains"] = stains
+                meta["antibiotic"] = antibiotic
+                meta["treatementtime"] = treatmenttime
+                meta["abxconcentration"] = abxconcentration
+                meta["mount"] = mount
+                meta["protocol"] = protocol
+                meta["usermeta1"] = usermeta1
+                meta["usermeta2"] = usermeta2
+                meta["usermeta3"] = usermeta3
+                meta["channel"] = layer
+                meta["segmentation_channel"] = segChannel
+                meta["file_list"] = []
+                meta["layer_list"] = []
+                meta["segmentation_file"] = segmentation_file
+                meta["segmented"] = upload_segmented
+                meta["labelled"] = upload_labelled
+                meta["segmentations_curated"] = upload_segcurated
+                meta["labels_curated"] = upload_classcurated
+                meta["segmentations_ground_truth"] = upload_seg_truth
+                meta["labels_curated_ground_truth"] = upload_class_truth
 
-            rgb_images.append(img)
-            rgb_meta[layer] = meta
+
+                if self.cellpose_segmentation == True:
+
+                    meta["cellpose_segmentation"] = self.cellpose_segmentation
+                    meta["flow_threshold"] = float(self.cellpose_flowthresh_label.text())
+                    meta["mask_threshold"] = float(self.cellpose_maskthresh_label.text())
+                    meta["min_size"] = int(self.cellpose_minsize_label.text())
+                    meta["diameter"] = int(self.cellpose_diameter_label.text())
+                    meta["cellpose_model"] = self.cellpose_model.currentText()
+                    meta["custom_model"] = os.path.abspath(self.cellpose_custom_model_path)
+
+                rgb_images.append(img)
+                rgb_meta[layer] = meta
 
         for layer in layer_names:
-
-            rgb_meta[layer]["file_list"] = file_list
+            if layer in rgb_meta.keys():
+                rgb_meta[layer]["file_list"] = file_list
+                rgb_meta[layer]["channel_list"] = layer_list
+                rgb_meta["channel_list"] = layer_list
 
         rgb_images = np.stack(rgb_images, axis=0)
 
         multi_image_stack.append(rgb_images)
         multi_meta_stack[i] = rgb_meta
 
-    multi_image_stack = np.stack(multi_image_stack, axis=0)
+    # multi_image_stack = np.stack(multi_image_stack, axis=0)
 
     return multi_image_stack, multi_meta_stack, layer_names
 
