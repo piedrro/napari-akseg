@@ -32,7 +32,7 @@ from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cell
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
                                  import_dataset, import_AKSEG, import_JSON, generate_multichannel_stack,
                                  populate_upload_combos, get_export_data, import_masks, get_usermeta,
-                                 update_akmetadata, autocontrast_values, read_AKSEG_directory)
+                                 update_akmetadata, autocontrast_values, read_AKSEG_directory, read_AKSEG_images)
 
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 from napari_akseg._utils_cellpose import export_cellpose
@@ -353,6 +353,7 @@ class AKSEG(QWidget):
         self.import_JSON = partial(import_JSON, self)
         self.import_dataset = partial(import_dataset, self)
         self.import_AKSEG = partial(import_AKSEG, self)
+        self.read_AKSEG_images = partial(read_AKSEG_images , self)
 
     def _updateSegChannels(self):
 
@@ -501,12 +502,10 @@ class AKSEG(QWidget):
 
             measurements, file_paths, channels = read_AKSEG_directory(self, paths)
 
-            print(len(measurements))
-
-            # worker = Worker(self.import_AKSEG, file_paths=paths)
-            # worker.signals.result.connect(self._process_import)
-            # worker.signals.progress.connect(self._aksegProgresbar)
-            # self.threadpool.start(worker)
+            worker = Worker(self.read_AKSEG_images, measurements=measurements, channels=channels)
+            worker.signals.result.connect(self._process_import)
+            worker.signals.progress.connect(self._aksegProgresbar)
+            self.threadpool.start(worker)
 
 
     def _populateUSERMETA(self):

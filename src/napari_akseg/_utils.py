@@ -160,6 +160,7 @@ def read_AKSEG_directory(self, path):
     file_paths = [file for file in file_paths if file.split(".")[-1] == "tif"]
 
     files = pd.DataFrame(columns=["path",
+                                  "user_initial",
                                   "file_name",
                                   "channel",
                                   "file_list",
@@ -183,6 +184,7 @@ def read_AKSEG_directory(self, path):
             meta = tif.pages[0].tags["ImageDescription"].value
             meta = json.loads(meta)
 
+            user_initial = meta["user_initial"]
             segmentation_channel = meta["segmentation_channel"]
             file_list = meta["file_list"]
             channel = meta["channel"]
@@ -197,6 +199,7 @@ def read_AKSEG_directory(self, path):
             labels_curated_ground_truth = meta["labels_curated_ground_truth"]
 
             data = [path,
+                    user_initial,
                     file_name,
                     channel,
                     file_list,
@@ -235,6 +238,63 @@ def read_AKSEG_directory(self, path):
 
     return measurements, file_paths, channels
 
+
+
+
+def read_AKSEG_images(self, progress_callback, measurements, channels):
+
+    imported_images = {}
+    iter = 0
+
+    for i in range(len(measurements)):
+
+        measurement = measurements.get_group(list(measurements.groups)[i])
+
+        for j in range(len(channels)):
+
+            channel = channels[j]
+
+            dat = measurement[measurement["channel"] == channel]
+
+            iter += 1
+            progress = int( (iter / (len(measurements) * len(channels)) ) * 100)
+            progress_callback.emit(progress)
+
+            print("loading image[" + channel + "] " + str(i + 1) + " of " + str(len(measurements)))
+
+            file_name = dat["file_name"].item()
+            user_initial = dat["user_initial"].item()
+
+            akseg_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images" + "\\" + user_initial
+
+            image_path = os.path.abspath(akseg_dir + "\\images\\" + file_name)
+            mask_path = os.path.abspath(akseg_dir + "\\masks\\" + file_name)
+            label_path = os.path.abspath(akseg_dir + "\\labels\\" + file_name)
+
+            image = tifffile.imread(image_path)
+            mask = tifffile.imread(mask_path)
+            label = tifffile.imread(label_path)
+
+            with tifffile.TiffFile(image_path) as tif:
+                try:
+                    meta = tif.pages[0].tags["ImageDescription"].value
+                    meta = json.loads(meta)
+                except:
+                    meta = {}
+
+            meta["import_mode"] = "AKSEG"
+
+            if channel not in imported_images:
+                imported_images[channel] = dict(images=[image], masks=[mask], classes=[label], metadata={i: meta})
+            else:
+                imported_images[channel]["images"].append(image)
+                imported_images[channel]["masks"].append(mask)
+                imported_images[channel]["classes"].append(label)
+                imported_images[channel]["metadata"][i] = meta
+
+    imported_data = dict(imported_images=imported_images)
+
+    return imported_data
 
 
 def read_tif(path):
