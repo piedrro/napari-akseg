@@ -182,6 +182,7 @@ def read_AKSEG_directory(self, path):
 
         with tifffile.TiffFile(path) as tif:
             meta = tif.pages[0].tags["ImageDescription"].value
+
             meta = json.loads(meta)
 
             user_initial = meta["user_initial"]

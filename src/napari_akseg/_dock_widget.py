@@ -915,6 +915,7 @@ class AKSEG(QWidget):
                                         json_path = json_dir + "\\" + file_name.replace(".tif",".txt")
                                         class_path = class_dir + "\\" + file_name
 
+                                        meta.pop("shape", None)
 
                                         tifffile.imwrite(os.path.abspath(image_path), img, metadata=meta)
                                         tifffile.imwrite(mask_path, mask, metadata=meta)
