@@ -406,6 +406,9 @@ def read_nim_images(self, progress_callback, measurements, channels):
 
                 meta["light_source"] = channel
 
+                if meta["light_source"] == "White Light":
+                    meta["modality"] = "Bright Field"
+
                 img_shape = img.shape
                 img_type = np.array(img).dtype
 
@@ -759,8 +762,8 @@ def import_images(self, progress_callback, file_paths):
 
         print("loading image " + str(i + 1) + " of " + str(len(file_paths)))
 
-        file_path = file_paths[i]
-        file_name = file_path.split("\\")[-1]
+        file_path = os.path.abspath(file_paths[i])
+        file_name = os.path.basename(file_path)
 
         image, meta = read_tif(file_path)
 

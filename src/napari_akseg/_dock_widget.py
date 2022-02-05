@@ -594,10 +594,9 @@ class AKSEG(QWidget):
             else:
                 export_path = None
 
-
             if os.path.isdir(export_path) != True:
 
-                print("Directory Does Not Exist")
+                print("Directory does not exist, try selecting a directory instead!")
 
             else:
 
@@ -621,55 +620,61 @@ class AKSEG(QWidget):
                 file_path = file_path.replace(old_format,new_format)
                 file_path = os.path.abspath(file_path)
 
-                if self.export_mode.currentText() == "Export .tif Images":
+                if os.path.isfile(file_path) == True:
 
-                    tifffile.imwrite(file_path, image, metadata = meta)
+                    print("File already exists, change file name modifier!")
 
-                if self.export_mode.currentText() == "Export .tif Masks":
+                else:
 
-                    tifffile.imwrite(file_path, mask, metadata = meta)
+                    if self.export_mode.currentText() == "Export .tif Images":
 
-                if self.export_mode.currentText() == "Export .tif Images and Masks":
+                        tifffile.imwrite(file_path, image, metadata = meta)
 
-                    image_path = os.path.abspath(export_path + "\\images")
-                    mask_path = os.path.abspath(export_path + "\\masks")
+                    if self.export_mode.currentText() == "Export .tif Masks":
 
-                    if not os.path.exists(image_path):
-                        os.makedirs(image_path)
+                        tifffile.imwrite(file_path, mask, metadata = meta)
 
-                    if not os.path.exists(mask_path):
-                        os.makedirs(mask_path)
+                    if self.export_mode.currentText() == "Export .tif Images and Masks":
 
-                    image_path = os.path.abspath(image_path + "\\" + file_name)
-                    mask_path = os.path.abspath(mask_path + "\\" + file_name)
+                        image_path = os.path.abspath(export_path + "\\images")
+                        mask_path = os.path.abspath(export_path + "\\masks")
 
-                    tifffile.imwrite(image_path, image, metadata=meta)
-                    tifffile.imwrite(mask_path, mask, metadata=meta)
+                        if not os.path.exists(image_path):
+                            os.makedirs(image_path)
 
-                if self.export_mode.currentText() == "Export Cellpose":
+                        if not os.path.exists(mask_path):
+                            os.makedirs(mask_path)
 
-                    file_path = os.path.abspath(export_path + "\\" + file_name)
-                    export_cellpose(file_path, image, mask)
-                    tifffile.imwrite(file_path, image, metadata=meta)
+                        image_path = os.path.abspath(image_path + "\\" + file_name)
+                        mask_path = os.path.abspath(mask_path + "\\" + file_name)
 
-                if self.export_mode.currentText() == "Export Oufti":
+                        tifffile.imwrite(image_path, image, metadata=meta)
+                        tifffile.imwrite(mask_path, mask, metadata=meta)
 
-                    file_path = os.path.abspath(export_path + "\\" + file_name)
-                    export_oufti(mask, file_path)
-                    tifffile.imwrite(file_path, image, metadata=meta)
+                    if self.export_mode.currentText() == "Export Cellpose":
 
-                if self.export_mode.currentText() == "Export ImageJ":
+                        file_path = os.path.abspath(export_path + "\\" + file_name)
+                        export_cellpose(file_path, image, mask)
+                        tifffile.imwrite(file_path, image, metadata=meta)
 
-                    file_path = os.path.abspath(export_path + "\\" + file_name)
-                    export_imagej(image, contours, meta, file_path)
+                    if self.export_mode.currentText() == "Export Oufti":
 
-                if self.export_mode.currentText() == "Export JSON":
+                        file_path = os.path.abspath(export_path + "\\" + file_name)
+                        export_oufti(mask, file_path)
+                        tifffile.imwrite(file_path, image, metadata=meta)
 
-                    file_path = os.path.abspath(export_path + "\\" + file_name)
-                    export_coco_json(file_name, image, mask, label, file_path)
-                    tifffile.imwrite(file_path, image, metadata=meta)
+                    if self.export_mode.currentText() == "Export ImageJ":
 
-            self.export_progressbar.setValue(0)
+                        file_path = os.path.abspath(export_path + "\\" + file_name)
+                        export_imagej(image, contours, meta, file_path)
+
+                    if self.export_mode.currentText() == "Export JSON":
+
+                        file_path = os.path.abspath(export_path + "\\" + file_name)
+                        export_coco_json(file_name, image, mask, label, file_path)
+                        tifffile.imwrite(file_path, image, metadata=meta)
+
+                self.export_progressbar.setValue(0)
 
     def _imageControls(self, key, viewer=None):
 
