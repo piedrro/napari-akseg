@@ -52,8 +52,8 @@ def read_nim_directory(self, path):
         path = file_paths[i]
         path = os.path.abspath(path)
 
-        folder = os.path.abspath(path).split("\\")[-1]
-        parent_folder = os.path.abspath(path).split("\\")[-2]
+        folder = os.path.abspath(path).split("\\")[-2]
+        parent_folder = os.path.abspath(path).split("\\")[-3]
 
         file_name = path.split("\\")[-1]
 
@@ -219,7 +219,7 @@ def read_AKSEG_directory(self, path):
     files["file_name"] = files["file_list"]
     files["channel"] = files["channel_list"]
 
-    files = files.explode(["file_name", "channel"]).drop_duplicates("file_name")
+    files = files.explode(["file_name", "channel"]).drop_duplicates("file_name").dropna()
 
     num_measurements = len(files)
 
@@ -255,33 +255,62 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
 
             channel = channels[j]
 
-            dat = measurement[measurement["channel"] == channel]
+            measurement_channels = measurement["channel"].tolist()
 
-            iter += 1
-            progress = int( (iter / (len(measurements) * len(channels)) ) * 100)
-            progress_callback.emit(progress)
+            if channel in measurement_channels:
 
-            print("loading image[" + channel + "] " + str(i + 1) + " of " + str(len(measurements)))
+                dat = measurement[measurement["channel"] == channel]
 
-            file_name = dat["file_name"].item()
-            user_initial = dat["user_initial"].item()
+                iter += 1
+                progress = int( (iter / (len(measurements) * len(channels)) ) * 100)
+                progress_callback.emit(progress)
 
-            akseg_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images" + "\\" + user_initial
+                print("loading image[" + channel + "] " + str(i + 1) + " of " + str(len(measurements)))
 
-            image_path = os.path.abspath(akseg_dir + "\\images\\" + file_name)
-            mask_path = os.path.abspath(akseg_dir + "\\masks\\" + file_name)
-            label_path = os.path.abspath(akseg_dir + "\\labels\\" + file_name)
+                file_name = dat["file_name"].item()
+                user_initial = dat["user_initial"].item()
 
-            image = tifffile.imread(image_path)
-            mask = tifffile.imread(mask_path)
-            label = tifffile.imread(label_path)
+                akseg_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images" + "\\" + user_initial
 
-            with tifffile.TiffFile(image_path) as tif:
-                try:
-                    meta = tif.pages[0].tags["ImageDescription"].value
-                    meta = json.loads(meta)
-                except:
-                    meta = {}
+                image_path = os.path.abspath(akseg_dir + "\\images\\" + file_name)
+                mask_path = os.path.abspath(akseg_dir + "\\masks\\" + file_name)
+                label_path = os.path.abspath(akseg_dir + "\\labels\\" + file_name)
+
+                image = tifffile.imread(image_path)
+                mask = tifffile.imread(mask_path)
+                label = tifffile.imread(label_path)
+
+                with tifffile.TiffFile(image_path) as tif:
+                    try:
+                        meta = tif.pages[0].tags["ImageDescription"].value
+                        meta = json.loads(meta)
+                    except:
+                        meta = {}
+
+            else:
+
+                img = np.zeros((100,100), dtype=np.uint16)
+                mask = np.zeros((100,100), dtype=np.uint16)
+                label = np.zeros((100,100), dtype=np.uint16)
+
+                meta = {}
+
+                meta["image_name"] = "missing image channel"
+                meta["image_path"] = "missing image channel"
+                meta["folder"] = None,
+                meta["parent_folder"] = None,
+                meta["akseg_hash"] = None
+                meta["nim_laser_mode"] = None
+                meta["nim_multichannel_mode"] = None
+                meta["fov_mode"] = None
+                meta["import_mode"] = "NIM"
+                meta["contrast_limit"] = None
+                meta["contrast_alpha"] = None
+                meta["contrast_beta"] = None
+                meta["contrast_gamma"] = None
+                meta["dims"] = [img.shape[-1], img.shape[-2]]
+                meta["crop"] = [0, img.shape[-2], 0, img.shape[-1]]
+                meta["light_source"] = channel
 
             meta["import_mode"] = "AKSEG"
 

@@ -1756,7 +1756,6 @@ class AKSEG(QWidget):
                                              gpu=gpu,
                                              torch=True,
                                              net_avg=False,
-                                             omni=False
                                              )
             else:
 
@@ -1765,7 +1764,6 @@ class AKSEG(QWidget):
                                              gpu=gpu,
                                              torch=True,
                                              net_avg=False,
-                                             omni=False
                                              )
 
             print("Loaded Cellpose Model: " + cellpose_model)
@@ -1778,8 +1776,9 @@ class AKSEG(QWidget):
                                               diameter=diameter,
                                               channels=[0, 0],
                                               flow_threshold=flow_threshold,
-                                              mask_threshold=mask_threshold,
-                                              min_size=min_size)
+                                              cellprob_threshold=mask_threshold,
+                                              min_size=min_size,
+                                              batch_size = 3)
 
                 masks.append(mask)
 
