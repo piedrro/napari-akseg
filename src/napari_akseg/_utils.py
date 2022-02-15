@@ -267,6 +267,8 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
 
                 print("loading image[" + channel + "] " + str(i + 1) + " of " + str(len(measurements)))
 
+                print("filename:   " + dat["file_name"])
+
                 file_name = dat["file_name"].item()
                 user_initial = dat["user_initial"].item()
 
@@ -303,7 +305,7 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
                 meta["nim_laser_mode"] = None
                 meta["nim_multichannel_mode"] = None
                 meta["fov_mode"] = None
-                meta["import_mode"] = "NIM"
+                meta["import_mode"] = "AKSEG"
                 meta["contrast_limit"] = None
                 meta["contrast_alpha"] = None
                 meta["contrast_beta"] = None
@@ -312,8 +314,6 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
                 meta["crop"] = [0, img.shape[-2], 0, img.shape[-1]]
                 meta["light_source"] = channel
 
-            meta["import_mode"] = "AKSEG"
-
             if channel not in imported_images:
                 imported_images[channel] = dict(images=[image], masks=[mask], classes=[label], metadata={i: meta})
             else:
@@ -321,6 +321,7 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
                 imported_images[channel]["masks"].append(mask)
                 imported_images[channel]["classes"].append(label)
                 imported_images[channel]["metadata"][i] = meta
+
 
     imported_data = dict(imported_images=imported_images)
 
@@ -1175,28 +1176,32 @@ def generate_multichannel_stack(self):
                 file_list.append(meta['image_name'])
                 layer_list.append(layer)
 
-                if meta["import_mode"] != "NIM":
 
-                    meta["microscope"] = microscope
-                    meta["modality"] = modality
-                    meta["light_source"] = source
+                if meta["import_mode"] != "AKSEG":
 
-                meta["user_initial"] = user_initial
-                meta["image_content"] = content
-                meta["stains"] = stains
-                meta["antibiotic"] = antibiotic
-                meta["treatementtime"] = treatmenttime
-                meta["abxconcentration"] = abxconcentration
-                meta["mount"] = mount
-                meta["protocol"] = protocol
-                meta["usermeta1"] = usermeta1
-                meta["usermeta2"] = usermeta2
-                meta["usermeta3"] = usermeta3
-                meta["channel"] = layer
-                meta["segmentation_channel"] = segChannel
-                meta["file_list"] = []
-                meta["layer_list"] = []
-                meta["segmentation_file"] = segmentation_file
+                    if meta["import_mode"] != "NIM":
+
+                        meta["microscope"] = microscope
+                        meta["modality"] = modality
+                        meta["light_source"] = source
+
+                    meta["user_initial"] = user_initial
+                    meta["image_content"] = content
+                    meta["stains"] = stains
+                    meta["antibiotic"] = antibiotic
+                    meta["treatementtime"] = treatmenttime
+                    meta["abxconcentration"] = abxconcentration
+                    meta["mount"] = mount
+                    meta["protocol"] = protocol
+                    meta["usermeta1"] = usermeta1
+                    meta["usermeta2"] = usermeta2
+                    meta["usermeta3"] = usermeta3
+                    meta["channel"] = layer
+                    meta["segmentation_channel"] = segChannel
+                    meta["file_list"] = []
+                    meta["layer_list"] = []
+                    meta["segmentation_file"] = segmentation_file
+
                 meta["segmented"] = upload_segmented
                 meta["labelled"] = upload_labelled
                 meta["segmentations_curated"] = upload_segcurated
