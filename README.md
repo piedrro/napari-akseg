@@ -25,9 +25,12 @@ https://napari.org/plugins/stable/index.html
 
 You can install `napari-akseg` from AKGROUP via [pip]:
 
-    pushd \\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Install\napari-akseg
-    pip install -e .
-    napari
+    conda create –name napari-akseg python==3.8
+    conda activate Napari-akseg
+    pip install Napari[all]
+
+    Type napari-akseg directory into plugin install text field:
+    \\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Install\napari-akseg
 
 
 ## Contributing
