@@ -1876,7 +1876,7 @@ class AKSEG(QWidget):
 
             self.viewer.text_overlay.text = file_name
 
-            update_akmetadata(self, metadata)
+            # update_akmetadata(self, metadata)
 
         except:
             pass
