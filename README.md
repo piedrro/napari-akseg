@@ -32,6 +32,9 @@ You can install `napari-akseg` from AKGROUP via [pip]:
     Type napari-akseg directory into plugin install text field:
     \\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Install\napari-akseg
 
+    From GitHub:
+    pip install "git+https://github.com/piedrro/napari-akseg.git"
+
 
 ## Contributing
 

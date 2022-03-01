@@ -1839,6 +1839,23 @@ class AKSEG(QWidget):
 
         self._updateFileName()
         self._autoContrast()
+        self._updateakmetadata()
+
+
+    def _updateakmetadata(self):
+
+        try:
+
+            current_fov = self.viewer.dims.current_step[0]
+            active_layer = self.viewer.layers.selection.active
+
+            metadata = self.viewer.layers[str(active_layer)].metadata[current_fov]
+
+            if metadata["import_mode"] == "AKSEG":
+                update_akmetadata(self, metadata)
+
+        except:
+            pass
 
 
     def _autoContrast(self):
@@ -1875,8 +1892,6 @@ class AKSEG(QWidget):
             self.viewer.text_overlay.visible = True
 
             self.viewer.text_overlay.text = file_name
-
-            # update_akmetadata(self, metadata)
 
         except:
             pass

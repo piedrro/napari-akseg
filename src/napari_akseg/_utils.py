@@ -296,6 +296,8 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
                     except:
                         meta = {}
 
+                meta["import_mode"] = "AKSEG"
+
             else:
 
                 img = np.zeros((100,100), dtype=np.uint16)
@@ -1196,7 +1198,7 @@ def generate_multichannel_stack(self):
                     meta["image_content"] = content
                     meta["stains"] = stains
                     meta["antibiotic"] = antibiotic
-                    meta["treatementtime"] = treatmenttime
+                    meta["treatmenttime"] = treatmenttime
                     meta["abxconcentration"] = abxconcentration
                     meta["mount"] = mount
                     meta["protocol"] = protocol
@@ -1674,7 +1676,7 @@ def update_akmetadata(self, akmeta):
         source = akmeta["light_source"]
         stains = akmeta["stains"]
         antibiotic = akmeta["antibiotic"]
-        treatmenttime = akmeta["treatementtime"]
+        treatmenttime = akmeta["treatmenttime"]
         abxconcentration = akmeta["abxconcentration"]
         mount = akmeta["mount"]
         protocol = akmeta["protocol"]
