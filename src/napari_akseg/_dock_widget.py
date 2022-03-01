@@ -30,17 +30,20 @@ import json
 import matplotlib.pyplot as plt
 from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
-                                 import_dataset, import_AKSEG, import_JSON, generate_multichannel_stack,
+                                 import_dataset, import_AKSEG, import_JSON,
                                  populate_upload_combos, get_export_data, import_masks, get_usermeta,
-                                 update_akmetadata, autocontrast_values, read_AKSEG_directory, read_AKSEG_images)
+                                 update_akmetadata, autocontrast_values)
 
 from napari_akseg._utils_json import import_coco_json, export_coco_json
+from napari_akseg._utils_upload import generate_multichannel_stack, read_AKSEG_directory, read_AKSEG_images, _uploadAKGROUP
 from napari_akseg._utils_cellpose import export_cellpose
 from napari_akseg._utils_oufti import  export_oufti
 from napari_akseg._utils_imagej import export_imagej
 from napari_akseg.akseg_ui import Ui_tab_widget
+import torch
 
 
+os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
 
 class WorkerSignals(QObject):
     '''
@@ -122,6 +125,18 @@ class AKSEG(QWidget):
         """
 
         super().__init__()
+
+        #import functions
+        self.import_images = partial(import_images, self)
+        self.import_masks = partial(import_masks, self)
+        self.read_nim_images = partial(read_nim_images, self)
+        self.import_cellpose = partial(import_cellpose, self)
+        self.import_oufti = partial(import_oufti, self)
+        self.import_JSON = partial(import_JSON, self)
+        self.import_dataset = partial(import_dataset, self)
+        self.import_AKSEG = partial(import_AKSEG, self)
+        self.read_AKSEG_images = partial(read_AKSEG_images, self)
+        self._uploadAKGROUP = partial(_uploadAKGROUP, self)
 
         application_path = os.path.dirname(sys.executable)
         self.viewer = viewer
@@ -216,8 +231,6 @@ class AKSEG(QWidget):
         self.upload_labelled = self.findChild(QCheckBox, "upload_labelled")
         self.upload_segcurated = self.findChild(QCheckBox, "upload_segcurated")
         self.upload_classcurated = self.findChild(QCheckBox, "upload_classcurated")
-        self.upload_seg_truth = self.findChild(QCheckBox, "upload_seg_truth")
-        self.upload_class_truth = self.findChild(QCheckBox, "upload_class_truth")
         self.upload_initial = self.findChild(QComboBox, "upload_initial")
         self.upload_content = self.findChild(QComboBox, "upload_content")
         self.upload_microscope = self.findChild(QComboBox, "upload_microscope")
@@ -343,17 +356,8 @@ class AKSEG(QWidget):
         populate_upload_combos(self)
 
         self.threadpool = QThreadPool()
-        print("Multithreading with maximum %d threads" % self.threadpool.maxThreadCount())
 
-        self.import_images = partial(import_images, self)
-        self.import_masks = partial(import_masks, self)
-        self.read_nim_images = partial(read_nim_images, self)
-        self.import_cellpose = partial(import_cellpose, self)
-        self.import_oufti = partial(import_oufti, self)
-        self.import_JSON = partial(import_JSON, self)
-        self.import_dataset = partial(import_dataset, self)
-        self.import_AKSEG = partial(import_AKSEG, self)
-        self.read_AKSEG_images = partial(read_AKSEG_images , self)
+
 
     def _updateSegChannels(self):
 
@@ -739,248 +743,6 @@ class AKSEG(QWidget):
         if key == "viewmasks":
             self.segLayer.visible = self.modify_viewmasks.isChecked()
 
-    def _uploadAKGROUP(self, mode):
-
-        try:
-            akgroup_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images"
-
-            if os.path.exists(akgroup_dir) == False:
-
-                print("Could not find AKGROUP")
-
-            else:
-
-                user_initial = self.upload_initial.currentText()
-                content = self.upload_content.currentText()
-                microscope = self.upload_microscope.currentText()
-                modality = self.upload_modality.currentText()
-                source = self.upload_illumination.currentText()
-                stains = self.upload_stain.currentText()
-                antibiotic = self.upload_antibiotic.currentText()
-                abxconcentration = self.upload_abxconcentration.currentText()
-                treatmenttime = self.upload_treatmenttime.currentText()
-                mount = self.upload_mount.currentText()
-                protocol = self.upload_protocol.currentText()
-                usermeta1 = self.upload_usermeta1.currentText()
-                usermeta2 = self.upload_usermeta2.currentText()
-                usermeta3 = self.upload_usermeta3.currentText()
-                date_uploaded = datetime.datetime.now()
-
-                user_metadata_path = akgroup_dir + "\\" + user_initial + "\\" + user_initial + "_file_metadata.txt"
-
-                if os.path.exists(user_metadata_path):
-
-                    user_metadata = pd.read_csv(user_metadata_path, sep=",")
-                    metadata_file_names = user_metadata["file_name"].tolist()
-                    metadata_akseg_hash = user_metadata["akseg_hash"].tolist()
-
-                else:
-                    metadata_file_names = []
-                    metadata_akseg_hash = []
-                    user_metadata = pd.DataFrame(columns=["date_uploaded",
-                                                          "file_name",
-                                                          "channel",
-                                                          "file_list",
-                                                          "channel_list",
-                                                          "segmentation_file",
-                                                          "segmentation_channel",
-                                                          "akseg_hash",
-                                                          "user_initial",
-                                                          "content",
-                                                          "microscope",
-                                                          "modality",
-                                                          "source",
-                                                          "stains",
-                                                          "antibiotic",
-                                                          "treatment time (mins)",
-                                                          "antibiotic concentration",
-                                                          "mounting method",
-                                                          "protocol",
-                                                          "user_meta1",
-                                                          "user_meta2",
-                                                          "user_meta3",
-                                                          "folder",
-                                                          "parent_folder",
-                                                          "segmented",
-                                                          "labelled",
-                                                          "segmentation_curated",
-                                                          "label_curated",
-                                                          "segmentation_ground_truth",
-                                                          "label_ground_truth",
-                                                          "image_load_path",
-                                                          "image_save_path",
-                                                          "mask_load_path",
-                                                          "mask_save_path",
-                                                          "label_load_path",
-                                                          "label_save_path"])
-
-                if "Required for upload" in [user_initial, content, microscope, modality]:
-
-                    print("Please fill out upload tab metadata before uploading files")
-
-                else:
-
-                    segChannel = self.upload_segchannel.currentText()
-                    channel_list = [layer.name for layer in self.viewer.layers if
-                                   layer.name not in ["Segmentations", "Classes"]]
-
-                    if segChannel == "":
-
-                        print("Please pick an image channel to upload")
-
-                    else:
-
-                        image_layer = self.viewer.layers[segChannel]
-
-                        image_stack, meta_stack, channel_list = generate_multichannel_stack(self)
-                        mask_stack = self.segLayer.data
-                        class_stack = self.classLayer.data
-
-                        if len(image_stack) >= 1:
-
-                            if mode == "active":
-
-                                current_step = self.viewer.dims.current_step[0]
-
-                                image_stack = np.expand_dims(image_stack[current_step], axis=0)
-                                mask_stack = np.expand_dims(mask_stack[current_step], axis=0)
-                                class_stack = np.expand_dims(class_stack[current_step], axis=0)
-                                meta_stack = np.expand_dims(meta_stack[current_step], axis=0)
-
-                            for i in range(len(image_stack)):
-
-                                progress = int(((i + 1) / len(image_stack)) * 100)
-                                self.upload_progressbar.setValue(progress)
-
-                                image = image_stack[i]
-                                image_meta = meta_stack[i]
-                                mask = mask_stack[i]
-                                class_mask = class_stack[i]
-
-                                channel_list = image_meta["channel_list"]
-
-                                for j,layer in enumerate(channel_list):
-
-                                    img = image[j,:,:]
-                                    meta = image_meta[layer]
-
-                                    file_name = meta["image_name"]
-                                    file_path = os.path.abspath(meta["image_path"])
-                                    akseg_hash = meta["akseg_hash"]
-                                    import_mode = meta["import_mode"]
-                                    file_list = meta["file_list"]
-                                    segmentation_file = meta["segmentation_file"]
-                                    folder = meta["folder"]
-                                    parent_folder = meta["parent_folder"]
-
-                                    #stops user from overwriting AKGROUP files, unless they have opened them from AKGROUP for curation
-                                    if akseg_hash in metadata_akseg_hash and import_mode != "AKSEG":
-
-                                        print("file already exists  in AKGROUP Server:   " + file_name)
-
-                                    else:
-
-                                        if import_mode != "AKSEG":
-                                            print("Uploading file to AKGROUP Server:   " + file_name)
-                                        else:
-                                            print("Editing file on AKGROUP Server:   " + file_name)
-
-                                        y1, y2, x1, x2 = meta["crop"]
-
-                                        if len(img.shape) > 2 :
-                                            img = img[:, y1:y2, x1:x2]
-                                        else:
-                                            img = img[y1:y2, x1:x2]
-
-                                        mask = mask[y1:y2, x1:x2]
-                                        class_mask = class_mask[y1:y2, x1:x2]
-
-                                        save_dir = akgroup_dir + "\\" + user_initial
-
-                                        image_dir = save_dir + "\\" + "images" + "\\"
-                                        mask_dir = save_dir + "\\" + "masks" + "\\"
-                                        class_dir = save_dir + "\\" + "labels" + "\\"
-                                        json_dir = save_dir + "\\" + "json" + "\\"
-
-                                        if os.path.exists(image_dir) == False:
-                                            os.makedirs(image_dir)
-
-                                        if os.path.exists(mask_dir) == False:
-                                            os.makedirs(mask_dir)
-
-                                        if os.path.exists(json_dir) == False:
-                                            os.makedirs(json_dir)
-
-                                        if os.path.exists(class_dir) == False:
-                                            os.makedirs(class_dir)
-
-                                        file_name = os.path.splitext(meta["image_name"])[0] + ".tif"
-                                        image_path = image_dir + "\\" + file_name
-                                        mask_path = mask_dir + "\\" + file_name
-                                        json_path = json_dir + "\\" + file_name.replace(".tif",".txt")
-                                        class_path = class_dir + "\\" + file_name
-
-                                        meta.pop("shape", None)
-
-                                        tifffile.imwrite(os.path.abspath(image_path), img, metadata=meta)
-                                        tifffile.imwrite(mask_path, mask, metadata=meta)
-                                        tifffile.imwrite(class_path, class_mask, metadata=meta)
-                                        export_coco_json(file_name, img, mask, class_mask, json_path)
-
-                                        file_metadata = [date_uploaded,
-                                                         file_name,
-                                                         meta["channel"],
-                                                         meta["file_list"],
-                                                         meta["channel_list"],
-                                                         meta["segmentation_file"],
-                                                         meta["segmentation_channel"],
-                                                         meta["akseg_hash"],
-                                                         user_initial,
-                                                         content,
-                                                         microscope,
-                                                         modality,
-                                                         source,
-                                                         stains,
-                                                         antibiotic,
-                                                         treatmenttime,
-                                                         abxconcentration,
-                                                         mount,
-                                                         protocol,
-                                                         usermeta1,
-                                                         usermeta2,
-                                                         usermeta3,
-                                                         folder,
-                                                         parent_folder,
-                                                         meta["segmented"],
-                                                         meta["labelled"],
-                                                         meta["segmentations_curated"],
-                                                         meta["labels_curated"],
-                                                         meta["segmentations_ground_truth"],
-                                                         meta["labels_curated_ground_truth"],
-                                                         meta["image_path"],
-                                                         image_path,
-                                                         meta["mask_path"],
-                                                         mask_path,
-                                                         meta["label_path"],
-                                                         class_path]
-
-                                        if akseg_hash in metadata_akseg_hash:
-
-                                            user_metadata.loc[user_metadata["akseg_hash"] == akseg_hash,
-                                                              user_metadata.columns] = np.array(file_metadata, dtype=object)
-
-                                        else:
-                                            user_metadata.loc[len(user_metadata)] = file_metadata
-
-                                user_metadata.drop_duplicates(subset=['akseg_hash'], keep="first", inplace=True)
-
-                                user_metadata.to_csv(user_metadata_path, sep=",", index = False)
-
-            # reset progressbar
-            self.upload_progressbar.setValue(0)
-
-        except:
-            print(traceback.format_exc())
 
     def _modifyMode(self, mode, viewer=None):
 
@@ -1743,7 +1505,13 @@ class AKSEG(QWidget):
             mask_threshold = float(self.cellpose_maskthresh_label.text())
             min_size = int(self.cellpose_minsize_label.text())
             diameter = int(self.cellpose_diameter_label.text())
-            gpu = self.cellpose_usegpu.isChecked()
+
+            if torch.cuda.is_available() and self.cellpose_usegpu.isChecked():
+                gpu = True
+                print("Segmenting images on GPU")
+            else:
+                gpu = False
+                print("Segmenting images on CPU")
 
             cellpose_model = self.cellpose_model.currentText()
             custom_model = self.cellpose_custom_model_path
@@ -1776,7 +1544,7 @@ class AKSEG(QWidget):
                                               diameter=diameter,
                                               channels=[0, 0],
                                               flow_threshold=flow_threshold,
-                                              cellprob_threshold=mask_threshold,
+                                              mask_threshold=mask_threshold,
                                               min_size=min_size,
                                               batch_size = 3)
 
@@ -2006,6 +1774,7 @@ class AKSEG(QWidget):
         self.viewer.reset_view()
         self._autoContrast()
         self._autoClassify()
+        self._updateakmetadata()
 
     def _autoClassify(self, reset = False):
 

@@ -41,7 +41,7 @@
    <enum>QTabWidget::Rounded</enum>
   </property>
   <property name="currentIndex">
-   <number>0</number>
+   <number>3</number>
   </property>
   <property name="elideMode">
    <enum>Qt::ElideNone</enum>
@@ -1147,6 +1147,13 @@ p, li { white-space: pre-wrap; }
     </item>
     <item>
      <layout class="QGridLayout" name="gridLayout_8">
+      <item row="1" column="1">
+       <widget class="QCheckBox" name="upload_classcurated">
+        <property name="text">
+         <string>Labels Curated</string>
+        </property>
+       </widget>
+      </item>
       <item row="0" column="1">
        <widget class="QCheckBox" name="upload_labelled">
         <property name="text">
@@ -1165,45 +1172,6 @@ p, li { white-space: pre-wrap; }
        <widget class="QCheckBox" name="upload_segcurated">
         <property name="text">
          <string>Segmentations Curated</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QCheckBox" name="upload_classcurated">
-        <property name="text">
-         <string>Labels Curated</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QCheckBox" name="upload_seg_truth">
-        <property name="font">
-         <font>
-          <weight>75</weight>
-          <bold>true</bold>
-         </font>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">color: rgb(255, 0, 0);</string>
-        </property>
-        <property name="text">
-         <string>Segmentations Ground Truth</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1">
-       <widget class="QCheckBox" name="upload_class_truth">
-        <property name="font">
-         <font>
-          <weight>75</weight>
-          <bold>true</bold>
-         </font>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">color: rgb(255, 0, 0);</string>
-        </property>
-        <property name="text">
-         <string>Labels Ground Truth</string>
         </property>
        </widget>
       </item>
