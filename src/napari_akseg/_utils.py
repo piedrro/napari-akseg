@@ -63,6 +63,7 @@ def read_nim_directory(self, path):
             metadata = json.loads(metadata)
 
         laseractive = metadata["LaserActive"]
+        laserpowers = metadata["LaserPowerPercent"]
         laserwavelength_nm = metadata["LaserWavelength_nm"]
         timestamp = metadata["timestamp_us"]
 
