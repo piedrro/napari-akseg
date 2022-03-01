@@ -69,8 +69,16 @@ def read_nim_directory(self, path):
         posX, posY, posZ = metadata["StagePos_um"]
 
         if True in laseractive:
-            laser_index = laseractive.index(True)
-            laser = str(laserwavelength_nm[laser_index])
+            laseractive = np.array(laseractive, dtype=bool)
+            laserpowers = np.array(laserpowers, dtype=float)
+            laserwavelength_nm = np.array(laserwavelength_nm, dtype=str)
+
+            # finds maximum active power
+            power = laserpowers[laseractive == True].max()
+
+            laser_index = np.where(laserpowers == power)
+
+            laser = laserwavelength_nm[laser_index][0]
         else:
             laser = "White Light"
 
@@ -255,7 +263,7 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
 
             channel = channels[j]
 
-            measurement_channels = measurement["channel"].tolist()
+            measurement_channels = measurement["channel"].unique()
 
             if channel in measurement_channels:
 
@@ -266,8 +274,6 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
                 progress_callback.emit(progress)
 
                 print("loading image[" + channel + "] " + str(i + 1) + " of " + str(len(measurements)))
-
-                print("filename:   " + dat["file_name"])
 
                 file_name = dat["file_name"].item()
                 user_initial = dat["user_initial"].item()
