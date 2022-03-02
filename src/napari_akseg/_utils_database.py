@@ -169,7 +169,7 @@ def populate_upload_combos(self):
             print(traceback.format_exc())
 
 
-def read_AKSEG_directory(self, path):
+def read_AKSEG_directory(self, path, import_limit=1):
 
     if isinstance(path, list) == False:
         path = [path]
@@ -247,8 +247,6 @@ def read_AKSEG_directory(self, path):
     files = files.explode(["file_name", "channel"]).drop_duplicates("file_name").dropna()
 
     num_measurements = len(files)
-
-    import_limit = self.import_limit.currentText()
 
     if import_limit == "None":
         import_limit = num_measurements
@@ -368,7 +366,6 @@ def generate_multichannel_stack(self):
     usermeta1 = self.upload_usermeta1.currentText()
     usermeta2 = self.upload_usermeta2.currentText()
     usermeta3 = self.upload_usermeta3.currentText()
-
     upload_segmented = self.upload_segmented.isChecked()
     upload_labelled = self.upload_labelled.isChecked()
     upload_segcurated = self.upload_segcurated.isChecked()

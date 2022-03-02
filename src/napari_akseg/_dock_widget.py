@@ -34,8 +34,8 @@ from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cell
                                  autocontrast_values)
 
 from napari_akseg._utils_json import import_coco_json, export_coco_json
-from napari_akseg._utils_upload import (read_AKSEG_directory,update_akmetadata,
-                                        read_AKSEG_images, _uploadAKGROUP, populate_upload_combos, get_usermeta)
+from napari_akseg._utils_database import (read_AKSEG_directory, update_akmetadata,
+                                          read_AKSEG_images, _uploadAKGROUP, populate_upload_combos, get_usermeta)
 
 from napari_akseg._utils_cellpose import export_cellpose
 from napari_akseg._utils_oufti import  export_oufti
@@ -248,6 +248,8 @@ class AKSEG(QWidget):
         self.upload_usermeta3 = self.findChild(QComboBox, "upload_usermeta3")
         self.upload_all = self.findChild(QPushButton, "upload_all")
         self.upload_active = self.findChild(QPushButton, "upload_active")
+        self.database_download = self.findChild(QPushButton, "database_download")
+        self.database_download_limit = self.findChild(QComboBox, "database_download_limit")
         self.upload_progressbar = self.findChild(QProgressBar, "upload_progressbar")
 
         # export tab controls from Qt Desinger References
@@ -312,6 +314,7 @@ class AKSEG(QWidget):
         # upload tab events
         self.upload_all.clicked.connect(partial(self._uploadAKGROUP, "all"))
         self.upload_active.clicked.connect(partial(self._uploadAKGROUP, "active"))
+        self.database_download.clicked.connect(self._downloadDatabase)
         self.upload_initial.currentTextChanged.connect(self._populateUSERMETA)
 
         # viewer event that call updateFileName when the slider is modified
@@ -358,6 +361,99 @@ class AKSEG(QWidget):
 
         self.threadpool = QThreadPool()
 
+    user_metadata = pd.DataFrame(columns=["date_uploaded",
+                                          "file_name",
+                                          "channel",
+                                          "file_list",
+                                          "channel_list",
+                                          "segmentation_file",
+                                          "segmentation_channel",
+                                          "akseg_hash",
+                                          "user_initial",
+                                          "content",
+                                          "microscope",
+                                          "modality",
+                                          "source",
+                                          "stains",
+                                          "antibiotic",
+                                          "treatment time (mins)",
+                                          "antibiotic concentration",
+                                          "mounting method",
+                                          "protocol",
+                                          "user_meta1",
+                                          "user_meta2",
+                                          "user_meta3",
+                                          "folder",
+                                          "parent_folder",
+                                          "segmented",
+                                          "labelled",
+                                          "segmentation_curated",
+                                          "label_curated",
+                                          "image_load_path",
+                                          "image_save_path",
+                                          "mask_load_path",
+                                          "mask_save_path",
+                                          "label_load_path",
+                                          "label_save_path"])
+    def _downloadDatabase(self):
+
+        database_metadata = {"segmentation_channel" : "532",
+                                    "user_initial" : self.upload_initial.currentText(),
+                                    "content" : self.upload_content.currentText(),
+                                    "microscope" : self.upload_microscope.currentText(),
+                                    "modality" : self.upload_modality.currentText(),
+                                    "source" : self.upload_illumination.currentText(),
+                                    "stains" : self.upload_stain.currentText(),
+                                    "antibiotic" : self.upload_antibiotic.currentText(),
+                                    "antibiotic concentration" : self.upload_abxconcentration.currentText(),
+                                    "treatment time (mins)" : self.upload_treatmenttime.currentText(),
+                                    "mounting method" : self.upload_mount.currentText(),
+                                    "protocol" : self.upload_protocol.currentText(),
+                                    "user_meta1" : self.upload_usermeta1.currentText(),
+                                    "user_meta2" : self.upload_usermeta2.currentText(),
+                                    "user_meta3" : self.upload_usermeta3.currentText(),
+                                    "segmented" : self.upload_segmented.isChecked(),
+                                    "labelled" : self.upload_labelled.isChecked(),
+                                    "segmentation_curated" : self.upload_segcurated.isChecked(),
+                                    "label_curated" : self.upload_classcurated.isChecked()}
+
+        database_metadata = {key: val for key, val in database_metadata.items() if val not in ["", "Required for upload"]}
+
+        akgroup_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images"
+        user_initial = database_metadata["user_initial"]
+        user_metadata_path = akgroup_dir + "\\" + user_initial + "\\" + user_initial + "_file_metadata.txt"
+
+        if os.path.isfile(user_metadata_path) == False:
+
+            print("could not find: " + user_metadata_path)
+
+        else:
+
+            user_metadata = pd.read_csv(user_metadata_path, sep=",")
+            user_metadata["segmentation_channel"] = user_metadata["segmentation_channel"].astype(str)
+
+            for key,value in database_metadata.items():
+                user_metadata = user_metadata[user_metadata[key]==value]
+
+            import_limit = self.database_download_limit.currentText()
+
+            paths = user_metadata["image_save_path"].tolist()
+
+            if import_limit != "All":
+                paths = paths[:int(import_limit)]
+
+            if len(paths) == 0:
+
+                print("no matching database files found")
+
+            else:
+
+                measurements, file_paths, channels = read_AKSEG_directory(self, paths, import_limit)
+
+                worker = Worker(self.read_AKSEG_images, measurements=measurements, channels=channels)
+                worker.signals.result.connect(self._process_import)
+                worker.signals.progress.connect(self._aksegProgresbar)
+                self.threadpool.start(worker)
 
 
     def _updateSegChannels(self):
@@ -505,7 +601,8 @@ class AKSEG(QWidget):
 
         if import_mode == "Import AKSEG Dataset":
 
-            measurements, file_paths, channels = read_AKSEG_directory(self, paths)
+            import_limit = self.import_limit.currentText()
+            measurements, file_paths, channels = read_AKSEG_directory(self, paths,import_limit)
 
             worker = Worker(self.read_AKSEG_images, measurements=measurements, channels=channels)
             worker.signals.result.connect(self._process_import)

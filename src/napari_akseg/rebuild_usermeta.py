@@ -41,8 +41,7 @@ def read_tif(path):
     return metadata
 
 
-paths = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images"
-paths = glob(paths + "*\**\*.tif")
+
 
 def get_filemeta(path):
     
@@ -56,7 +55,7 @@ def get_filemeta(path):
         meta["file_list"],
         meta["channel_list"],
         meta["segmentation_file"],
-        meta["segmentation_channel"],
+        str(meta["segmentation_channel"]),
         meta["akseg_hash"],
         meta["user_initial"],
         meta["image_content"],
@@ -124,27 +123,44 @@ def get_filemeta(path):
     return file_metadata
                                  
     
+# paths = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images"
+# paths = glob(paths + "*\**\*.tif")
+
+# if __name__ == '__main__':
+
+#     with Pool() as p:
+        
+#         d = list(tqdm.tqdm(p.imap(get_filemeta, paths), total=len(paths)))
+#         p.close()
+#         p.join()
+        
+#         user_metadata = pd.concat(d)
+        
+#         user_metadata.drop_duplicates(subset=['akseg_hash'], keep="first", inplace=True)
+        
+#         user_initials = user_metadata["user_initial"].unique().tolist()
+        
+#         for user_initial in user_initials:
+            
+#             akgroup_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images"
+#             user_metadata_path = akgroup_dir + "\\" + user_initial + "\\" + user_initial + "_file_metadata.txt"   
+            
+#             data = user_metadata[user_metadata["user_initial"] == user_initial]
+            
+#             data.to_csv(user_metadata_path, sep=",", index = False)            
 
 
-if __name__ == '__main__':
 
-    with Pool() as p:
-        
-        d = list(tqdm.tqdm(p.imap(get_filemeta, paths), total=len(paths)))
-        p.close()
-        p.join()
-        
-        user_metadata = pd.concat(d)
-        
-        user_metadata.drop_duplicates(subset=['akseg_hash'], keep="first", inplace=True)
-        
-        user_initials = user_metadata["user_initial"].unique().tolist()
-        
-        for user_initial in user_initials:
-            
-            akgroup_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images"
-            user_metadata_path = akgroup_dir + "\\" + user_initial + "\\" + user_initial + "_file_metadata.txt"   
-            
-            data = user_metadata[user_metadata["user_initial"] == user_initial]
-            
-            data.to_csv(user_metadata_path, sep=",", index = False)            
+akgroup_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images"
+user_initial = "AZ"
+user_metadata_path = akgroup_dir + "\\" + user_initial + "\\" + user_initial + "_file_metadata.txt"
+user_metadata = pd.read_csv(user_metadata_path, sep=",")
+
+
+user_metadata["segmentation_channel"] = user_metadata["segmentation_channel"].astype(str)
+user_metadata = user_metadata[user_metadata["segmentation_channel"]=="53d2"]
+
+
+
+
+
