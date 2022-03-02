@@ -152,15 +152,21 @@ def get_filemeta(path):
 
 
 akgroup_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images"
-user_initial = "AZ"
+user_initial = "PT"
 user_metadata_path = akgroup_dir + "\\" + user_initial + "\\" + user_initial + "_file_metadata.txt"
 user_metadata = pd.read_csv(user_metadata_path, sep=",")
 
 
-user_metadata["segmentation_channel"] = user_metadata["segmentation_channel"].astype(str)
-user_metadata = user_metadata[user_metadata["segmentation_channel"]=="53d2"]
+# user_metadata["segmentation_channel"] = user_metadata["segmentation_channel"].astype(str)
+# user_metadata = user_metadata[user_metadata["segmentation_channel"]=="53d2"]
 
-
+# for i in range(len(user_metadata)):
+    
+#     file_name = user_metadata["file_name"][i]
+#     file_name_path = os.path.basename(user_metadata["image_save_path"][i])
+    
+#     if file_name != file_name_path:
+#         print(i)
 
 
 

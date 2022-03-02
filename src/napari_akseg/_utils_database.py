@@ -67,8 +67,6 @@ def update_akmetadata(self, akmeta):
         labels_curated = False
         segmentations_curated = False
 
-
-    self.upload_segchannel.setCurrentText(segChannel)
     self.upload_initial.setCurrentText(user_initial)
     self.upload_content.setCurrentText(content)
     self.upload_microscope.setCurrentText(microscope)
@@ -190,6 +188,7 @@ def read_AKSEG_directory(self, path, import_limit=1):
     file_paths = [file for file in file_paths if file.split(".")[-1] == "tif"]
 
     files = pd.DataFrame(columns=["path",
+                                  "folder",
                                   "user_initial",
                                   "file_name",
                                   "channel",
@@ -208,8 +207,10 @@ def read_AKSEG_directory(self, path, import_limit=1):
         path = os.path.abspath(path)
 
         file_name = path.split("\\")[-1]
+        folder = path.split("\\")[-2]
 
         with tifffile.TiffFile(path) as tif:
+
             meta = tif.pages[0].tags["ImageDescription"].value
 
             meta = json.loads(meta)
@@ -227,6 +228,7 @@ def read_AKSEG_directory(self, path, import_limit=1):
             labels_curated = meta["labels_curated"]
 
             data = [path,
+                    folder,
                     user_initial,
                     file_name,
                     channel,
@@ -246,15 +248,18 @@ def read_AKSEG_directory(self, path, import_limit=1):
 
     files = files.explode(["file_name", "channel"]).drop_duplicates("file_name").dropna()
 
-    num_measurements = len(files)
+    files["path"] = files.apply(lambda x: (x['path'].replace(os.path.basename(x['path']), "") + x["file_name"]), axis=1)
 
-    if import_limit == "None":
+    segmentation_files = files["segmentation_file"].unique()
+    num_measurements = len(segmentation_files)
+
+    if import_limit == "All":
         import_limit = num_measurements
     else:
         if int(import_limit) > num_measurements:
             import_limit = num_measurements
 
-    files = files.loc[:int(import_limit) - 1]
+    files = files[files["segmentation_file"].isin(segmentation_files[:int(import_limit)])]
 
     channels = files.explode("channel_list")["channel_list"].unique().tolist()
 
@@ -266,7 +271,7 @@ def read_AKSEG_directory(self, path, import_limit=1):
 def read_AKSEG_images(self, progress_callback, measurements, channels):
 
     imported_images = {}
-    iter = 0
+    iter = 1
 
     for i in range(len(measurements)):
 
@@ -282,20 +287,20 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
 
                 dat = measurement[measurement["channel"] == channel]
 
-                iter += 1
-                progress = int( (iter / (len(measurements) * len(channels)) ) * 100)
+                progress = int( ((iter+1) / ((len(measurements) * len(channels))) ) * 100)
                 progress_callback.emit(progress)
+                iter += 1
 
                 print("loading image[" + channel + "] " + str(i + 1) + " of " + str(len(measurements)))
 
                 file_name = dat["file_name"].item()
-                user_initial = dat["user_initial"].item()
+                path = dat["path"].item()
 
-                akseg_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images" + "\\" + user_initial
+                # path = path.replace(os.path.basename(path),"") + file_name
 
-                image_path = os.path.abspath(akseg_dir + "\\images\\" + file_name)
-                mask_path = os.path.abspath(akseg_dir + "\\masks\\" + file_name)
-                label_path = os.path.abspath(akseg_dir + "\\labels\\" + file_name)
+                image_path = os.path.abspath(path)
+                mask_path = os.path.abspath(path.replace("\\images\\","\\masks\\"))
+                label_path = os.path.abspath(path.replace("\\images\\","\\labels\\"))
 
                 image = tifffile.imread(image_path)
                 mask = tifffile.imread(mask_path)
@@ -351,7 +356,7 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
 
 def generate_multichannel_stack(self):
 
-    segChannel = self.upload_segchannel.currentText()
+    segChannel = self.cellpose_segchannel.currentText()
     user_initial = self.upload_initial.currentText()
     content = self.upload_content.currentText()
     microscope = self.upload_microscope.currentText()
@@ -378,7 +383,7 @@ def generate_multichannel_stack(self):
     layer_names.reverse()
 
     #put segmentation channel as first channel in stack
-    segChannel = self.upload_segchannel.currentText()
+    segChannel = self.cellpose_segchannel.currentText()
     layer_names.remove(segChannel)
     layer_names.insert(0, segChannel)
 
@@ -434,9 +439,6 @@ def generate_multichannel_stack(self):
                     meta["layer_list"] = []
                     meta["segmentation_file"] = segmentation_file
 
-                else:
-                    print("AKSEG!!")
-                    print(meta["treatmenttime"])
 
                 meta["segmented"] = upload_segmented
                 meta["labelled"] = upload_labelled
@@ -542,7 +544,7 @@ def _uploadAKGROUP(self, mode):
 
             else:
 
-                segChannel = self.upload_segchannel.currentText()
+                segChannel = self.cellpose_segchannel.currentText()
                 channel_list = [layer.name for layer in self.viewer.layers if
                                layer.name not in ["Segmentations", "Classes"]]
 
@@ -587,6 +589,7 @@ def _uploadAKGROUP(self, mode):
                                 meta = image_meta[layer]
 
                                 file_name = meta["image_name"]
+                                folder = meta["folder"]
                                 akseg_hash = meta["akseg_hash"]
                                 import_mode = meta["import_mode"]
 
@@ -614,10 +617,10 @@ def _uploadAKGROUP(self, mode):
 
                                     save_dir = akgroup_dir + "\\" + user_initial
 
-                                    image_dir = save_dir + "\\" + "images" + "\\"
-                                    mask_dir = save_dir + "\\" + "masks" + "\\"
-                                    class_dir = save_dir + "\\" + "labels" + "\\"
-                                    json_dir = save_dir + "\\" + "json" + "\\"
+                                    image_dir = save_dir + "\\" + "images" + "\\" + folder + "\\"
+                                    mask_dir = save_dir + "\\" + "masks" + "\\" + folder + "\\"
+                                    class_dir = save_dir + "\\" + "labels" + "\\" + folder + "\\"
+                                    json_dir = save_dir + "\\" + "json" + "\\" + folder + "\\"
 
                                     if os.path.exists(image_dir) == False:
                                         os.makedirs(image_dir)
@@ -706,8 +709,7 @@ def _uploadAKGROUP(self, mode):
 
 def _get_database_paths(self):
 
-    database_metadata = {"segmentation_channel": "532",
-                         "user_initial": self.upload_initial.currentText(),
+    database_metadata = {"user_initial": self.upload_initial.currentText(),
                          "content": self.upload_content.currentText(),
                          "microscope": self.upload_microscope.currentText(),
                          "modality": self.upload_modality.currentText(),
@@ -742,6 +744,7 @@ def _get_database_paths(self):
         user_metadata["segmentation_channel"] = user_metadata["segmentation_channel"].astype(str)
 
         for key, value in database_metadata.items():
+
             user_metadata = user_metadata[user_metadata[key] == value]
 
         paths = user_metadata["image_save_path"].tolist()

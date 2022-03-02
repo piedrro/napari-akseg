@@ -229,7 +229,6 @@ class AKSEG(QWidget):
         self.classify_edge.setEnabled(False)
 
         # upload tab controls from Qt Desinger References
-        self.upload_segchannel = self.findChild(QComboBox, "upload_segchannel")
         self.upload_segmented = self.findChild(QCheckBox, "upload_segmented")
         self.upload_labelled = self.findChild(QCheckBox, "upload_labelled")
         self.upload_segcurated = self.findChild(QCheckBox, "upload_segcurated")
@@ -363,40 +362,6 @@ class AKSEG(QWidget):
 
         self.threadpool = QThreadPool()
 
-    user_metadata = pd.DataFrame(columns=["date_uploaded",
-                                          "file_name",
-                                          "channel",
-                                          "file_list",
-                                          "channel_list",
-                                          "segmentation_file",
-                                          "segmentation_channel",
-                                          "akseg_hash",
-                                          "user_initial",
-                                          "content",
-                                          "microscope",
-                                          "modality",
-                                          "source",
-                                          "stains",
-                                          "antibiotic",
-                                          "treatment time (mins)",
-                                          "antibiotic concentration",
-                                          "mounting method",
-                                          "protocol",
-                                          "user_meta1",
-                                          "user_meta2",
-                                          "user_meta3",
-                                          "folder",
-                                          "parent_folder",
-                                          "segmented",
-                                          "labelled",
-                                          "segmentation_curated",
-                                          "label_curated",
-                                          "image_load_path",
-                                          "image_save_path",
-                                          "mask_load_path",
-                                          "mask_save_path",
-                                          "label_load_path",
-                                          "label_save_path"])
     def _downloadDatabase(self):
 
         paths, import_limit = self._get_database_paths()
@@ -411,7 +376,7 @@ class AKSEG(QWidget):
 
             worker = Worker(self.read_AKSEG_images, measurements=measurements, channels=channels)
             worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(self._aksegProgresbar)
+            worker.signals.progress.connect(self._uploadProgresbar)
             self.threadpool.start(worker)
 
 
@@ -421,7 +386,6 @@ class AKSEG(QWidget):
 
         segChannel = self.cellpose_segchannel.currentText()
 
-        self.upload_segchannel.setCurrentText(segChannel)
         self.export_channel.setCurrentText(segChannel)
 
     def _manualImport(self):
@@ -490,6 +454,11 @@ class AKSEG(QWidget):
     def _aksegProgresbar(self, progress):
 
         self.import_progressbar.setValue(progress)
+
+    def _uploadProgresbar(self, progress):
+
+        self.upload_progressbar.setValue(progress)
+
 
     def _importDialog(self):
 
@@ -1504,7 +1473,6 @@ class AKSEG(QWidget):
     def _segmentAll(self):
 
         chanel = self.cellpose_segchannel.currentText()
-        self.upload_segchannel.setCurrentText(chanel)
 
         images = self.viewer.layers[chanel].data
 
@@ -1657,9 +1625,6 @@ class AKSEG(QWidget):
         self.cellpose_segchannel.clear()
         self.cellpose_segchannel.addItems(layer_names)
 
-        self.upload_segchannel.clear()
-        self.upload_segchannel.addItems(layer_names)
-
         self.export_channel.clear()
         self.export_channel.addItems(layer_names)
 
@@ -1671,8 +1636,6 @@ class AKSEG(QWidget):
 
         self._updateFileName()
         self._autoContrast()
-        self._updateakmetadata()
-
 
     def _updateakmetadata(self):
 
@@ -1833,12 +1796,12 @@ class AKSEG(QWidget):
 
         self._updateFileName()
         self._updateSegmentationCombo()
+        self._updateSegChannels()
         self.import_progressbar.reset()
 
         self.viewer.reset_view()
         self._autoContrast()
         self._autoClassify()
-        self._updateakmetadata()
 
     def _autoClassify(self, reset = False):
 

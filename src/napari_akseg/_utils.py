@@ -87,12 +87,6 @@ def import_imagej(self, progress_callback, paths):
 
 
 
-
-
-
-
-
-
 def read_nim_directory(self, path):
 
     if isinstance(path, list) == False:
@@ -130,10 +124,9 @@ def read_nim_directory(self, path):
         path = file_paths[i]
         path = os.path.abspath(path)
 
+        file_name = path.split("\\")[-1]
         folder = os.path.abspath(path).split("\\")[-2]
         parent_folder = os.path.abspath(path).split("\\")[-3]
-
-        file_name = path.split("\\")[-1]
 
         with tifffile.TiffFile(path) as tif:
 
@@ -216,6 +209,11 @@ def read_nim_directory(self, path):
 
     files = files[files['aquisition'] <= acquisitions[-1]]
 
+    folder, parent_folder = get_folder(files)
+
+    files["folder"] = folder
+    files["parent_folder"] = parent_folder
+
     measurements = files.groupby(by=['aquisition'])
     channels = files["laser"].drop_duplicates().to_list()
 
@@ -226,6 +224,31 @@ def read_nim_directory(self, path):
     return measurements, file_paths, channels
 
 
+def get_folder(files):
+
+    folder = ""
+    parent_folder = ""
+
+    paths = files["path"].tolist()
+
+    if len(paths) > 1:
+
+        paths = np.array([path.split("\\") for path in paths]).T
+
+        for i in range(len(paths)):
+
+            if len(set(paths[i].tolist())) != 1:
+                folder = str(paths[i - 1][0])
+                parent_folder = str(paths[i - 2][0])
+
+                break
+
+    else:
+
+        folder = paths[0].split("\\")[-2]
+        parent_folder = paths[0].split("\\")[-3]
+
+    return folder, parent_folder
 
 def read_tif(path):
 
@@ -247,10 +270,10 @@ def read_tif(path):
         metadata["image_path"] = path
         metadata["mask_name"] = None
         metadata["mask_path"] = None
-        metadata["label_name"] = None,
-        metadata["label_path"] = None,
-        metadata["folder"] = folder,
-        metadata["parent_folder"] = parent_folder,
+        metadata["label_name"] = None
+        metadata["label_path"] = None
+        metadata["folder"] = folder
+        metadata["parent_folder"] = parent_folder
 
         metadata["dims"] = [image.shape[-1], image.shape[-2]]
         metadata["crop"] = [0, image.shape[-2], 0, image.shape[-1]]
