@@ -14,6 +14,159 @@ import matplotlib.pyplot as plt
 import hashlib
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 
+def update_akmetadata(self, akmeta):
+
+    keys = ["user_initial","image_content","microscope","modality","light_source","stains","antibiotic",
+                "treatmenttime","abxconcentration","abxconcentration","mount","protocol","usermeta1","usermeta2",
+                "usermeta3","segmented","labelled","segmentation_channel","labels_curated","segmentations_curated"]
+
+
+    akmeta_keys = akmeta.keys()
+
+    if set(keys).issubset(akmeta_keys):
+
+        user_initial = akmeta["user_initial"]
+        content = akmeta["image_content"]
+        microscope = akmeta["microscope"]
+        modality = akmeta["modality"]
+        source = akmeta["light_source"]
+        stains = akmeta["stains"]
+        antibiotic = akmeta["antibiotic"]
+        treatmenttime = akmeta["treatmenttime"]
+        abxconcentration = akmeta["abxconcentration"]
+        mount = akmeta["mount"]
+        protocol = akmeta["protocol"]
+        usermeta1 = akmeta["usermeta1"]
+        usermeta2 = akmeta["usermeta2"]
+        usermeta3 = akmeta["usermeta3"]
+        segmented = akmeta["segmented"]
+        labelled = akmeta["labelled"]
+        segChannel = akmeta["segmentation_channel"]
+        labels_curated = akmeta["labels_curated"]
+        segmentations_curated = akmeta["segmentations_curated"]
+
+    else:
+
+        user_initial = "Required for upload"
+        content = "Required for upload"
+        microscope = "Required for upload"
+        modality = "Required for upload"
+        source = ""
+        stains = ""
+        antibiotic = ""
+        treatmenttime = ""
+        abxconcentration = ""
+        mount = ""
+        protocol = ""
+        usermeta1 = ""
+        usermeta2 = ""
+        usermeta3 = ""
+        segChannel = ""
+        segmented = False
+        labelled = False
+        labels_curated = False
+        segmentations_curated = False
+
+
+    self.upload_segchannel.setCurrentText(segChannel)
+    self.upload_initial.setCurrentText(user_initial)
+    self.upload_content.setCurrentText(content)
+    self.upload_microscope.setCurrentText(microscope)
+    self.upload_modality.setCurrentText(modality)
+    self.upload_illumination.setCurrentText(source)
+    self.upload_stain.setCurrentText(stains)
+    self.upload_treatmenttime.setCurrentText(treatmenttime)
+    self.upload_mount.setCurrentText(mount)
+    self.upload_antibiotic.setCurrentText(antibiotic)
+    self.upload_abxconcentration.setCurrentText(abxconcentration)
+    self.upload_protocol.setCurrentText(protocol)
+    self.upload_usermeta1.setCurrentText(usermeta1)
+    self.upload_usermeta2.setCurrentText(usermeta2)
+    self.upload_usermeta3.setCurrentText(usermeta3)
+    self.upload_segmented.setCurrentText(segmented)
+    self.upload_labelled.setCurrentText(labelled)
+    self.upload_classcurated.setChecked(labels_curated)
+    self.upload_segcurated.setChecked(segmentations_curated)
+
+
+
+
+def get_usermeta(self):
+
+    meta_path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Metadata\AKSEG Metadata.xlsx"
+
+    if os.path.isfile(meta_path):
+
+        try:
+
+            usermeta = pd.read_excel(meta_path, sheet_name=1, usecols="B:E", header=2)
+
+            users = usermeta["User Initial"].unique()
+
+            usermeta_dict = {}
+
+            for user in users:
+                meta1 = usermeta[usermeta["User Initial"] == user]["User Meta #1"].dropna().tolist()
+                meta2 = usermeta[usermeta["User Initial"] == user]["User Meta #2"].dropna().tolist()
+                meta3 = usermeta[usermeta["User Initial"] == user]["User Meta #3"].dropna().tolist()
+
+                usermeta_dict[user] = dict(meta1=meta1,
+                                           meta2=meta2,
+                                           meta3=meta3)
+
+            return usermeta_dict
+
+        except:
+            pass
+
+
+def populate_upload_combos(self):
+
+    meta_path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Metadata\AKSEG Metadata.xlsx"
+
+    if os.path.isfile(meta_path):
+
+        try:
+
+            akmeta = pd.read_excel(meta_path, usecols="B:L", header=2)
+
+            akmeta = dict(user_initial=akmeta["User Initial"].dropna().astype(str).tolist(),
+                          content=akmeta["Image Content"].dropna().astype(str).tolist(),
+                          microscope=akmeta["Microscope"].dropna().astype(str).tolist(),
+                          modality=akmeta["Modality"].dropna().astype(str).tolist(),
+                          source=akmeta["Light Source"].dropna().astype(str).tolist(),
+                          antibiotic=akmeta["Antibiotic"].dropna().astype(str).tolist(),
+                          abxconcentration=akmeta["Antibiotic Concentration"].dropna().astype(str).tolist(),
+                          treatment_time=akmeta["Treatment Time (mins)"].dropna().astype(str).tolist(),
+                          stains=akmeta["Stains"].dropna().astype(str).tolist(),
+                          mount=akmeta["Mounting Method"].dropna().astype(str).tolist(),
+                          protocol=akmeta["Protocol"].dropna().astype(str).tolist())
+
+            self.upload_initial.clear()
+            self.upload_initial.addItems(["Required for upload"] + akmeta["user_initial"])
+            self.upload_content.clear()
+            self.upload_content.addItems(["Required for upload"] + akmeta["content"])
+            self.upload_microscope.clear()
+            self.upload_microscope.addItems(["Required for upload"] + akmeta["microscope"])
+            self.upload_modality.clear()
+            self.upload_modality.addItems(["Required for upload"] + akmeta["modality"])
+            self.upload_illumination.clear()
+            self.upload_illumination.addItems([""] + akmeta["source"])
+            self.upload_stain.clear()
+            self.upload_stain.addItems([""] + akmeta["stains"])
+            self.upload_antibiotic.clear()
+            self.upload_antibiotic.addItems([""] + akmeta["antibiotic"])
+            self.upload_abxconcentration.clear()
+            self.upload_abxconcentration.addItems([""] + akmeta["abxconcentration"])
+            self.upload_treatmenttime.clear()
+            self.upload_treatmenttime.addItems([""] + akmeta["treatment_time"])
+            self.upload_mount.clear()
+            self.upload_mount.addItems([""] + akmeta["mount"])
+            self.upload_protocol.clear()
+            self.upload_protocol.addItems([""] + akmeta["protocol"])
+
+        except:
+            print(traceback.format_exc())
 
 
 def read_AKSEG_directory(self, path):
@@ -50,6 +203,7 @@ def read_AKSEG_directory(self, path):
                                   "label_curated"])
 
     for i in range(len(file_paths)):
+
         path = file_paths[i]
         path = os.path.abspath(path)
 

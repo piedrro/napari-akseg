@@ -30,12 +30,13 @@ import json
 import matplotlib.pyplot as plt
 from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
-                                 import_dataset, import_AKSEG, import_JSON,
-                                 populate_upload_combos, get_export_data, import_masks, get_usermeta,
-                                 update_akmetadata, autocontrast_values)
+                                 import_dataset, import_AKSEG, import_JSON, get_export_data, import_masks,
+                                 autocontrast_values)
 
 from napari_akseg._utils_json import import_coco_json, export_coco_json
-from napari_akseg._utils_upload import generate_multichannel_stack, read_AKSEG_directory, read_AKSEG_images, _uploadAKGROUP
+from napari_akseg._utils_upload import (read_AKSEG_directory,update_akmetadata,
+                                        read_AKSEG_images, _uploadAKGROUP, populate_upload_combos, get_usermeta)
+
 from napari_akseg._utils_cellpose import export_cellpose
 from napari_akseg._utils_oufti import  export_oufti
 from napari_akseg._utils_imagej import export_imagej
