@@ -618,7 +618,11 @@ class AKSEG(QWidget):
                 meta.pop("shape")
 
             file_name = meta["image_name"]
+
             image_path = meta["image_path"]
+
+            file_name = file_name.split(".")[0] + export_modifier + "." + file_name.split(".")[-1]
+            image_path = image_path.replace(image_path.split("\\")[-1],file_name)
 
             if self.export_location.currentText() == "Import Directory" and file_name != None and image_path != None:
 
@@ -652,14 +656,9 @@ class AKSEG(QWidget):
 
                 file_path = export_path + "\\" + file_name
 
-                old_format = "." + file_path.split(".")[-1]
-                new_format = export_modifier + "." + file_path.split(".")[-1]
-                file_path = file_path.replace(old_format,new_format)
-                file_path = os.path.abspath(file_path)
-
                 if os.path.isfile(file_path) == True:
 
-                    print("File already exists, change file name modifier!")
+                    print("File already exists, AKSEG will not overwrite files!")
 
                 else:
 
@@ -690,24 +689,20 @@ class AKSEG(QWidget):
 
                     if self.export_mode.currentText() == "Export Cellpose":
 
-                        file_path = os.path.abspath(export_path + "\\" + file_name)
                         export_cellpose(file_path, image, mask)
                         tifffile.imwrite(file_path, image, metadata=meta)
 
                     if self.export_mode.currentText() == "Export Oufti":
 
-                        file_path = os.path.abspath(export_path + "\\" + file_name)
                         export_oufti(mask, file_path)
                         tifffile.imwrite(file_path, image, metadata=meta)
 
                     if self.export_mode.currentText() == "Export ImageJ":
 
-                        file_path = os.path.abspath(export_path + "\\" + file_name)
                         export_imagej(image, contours, meta, file_path)
 
                     if self.export_mode.currentText() == "Export JSON":
 
-                        file_path = os.path.abspath(export_path + "\\" + file_name)
                         export_coco_json(file_name, image, mask, label, file_path)
                         tifffile.imwrite(file_path, image, metadata=meta)
 
