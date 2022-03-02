@@ -31,7 +31,7 @@ import matplotlib.pyplot as plt
 from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
                                  import_dataset, import_AKSEG, import_JSON, get_export_data, import_masks,
-                                 autocontrast_values)
+                                 import_imagej,autocontrast_values)
 
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 from napari_akseg._utils_database import (read_AKSEG_directory, update_akmetadata, _get_database_paths,
@@ -136,6 +136,7 @@ class AKSEG(QWidget):
         self.import_JSON = partial(import_JSON, self)
         self.import_dataset = partial(import_dataset, self)
         self.import_AKSEG = partial(import_AKSEG, self)
+        self.import_imagej = partial(import_imagej, self)
         self.read_AKSEG_images = partial(read_AKSEG_images, self)
         self._uploadAKGROUP = partial(_uploadAKGROUP, self)
         self._get_database_paths = partial(_get_database_paths,self)
@@ -545,6 +546,13 @@ class AKSEG(QWidget):
         if import_mode == "Import JSON .txt file(s)":
 
             worker = Worker(self.import_JSON, file_paths = paths)
+            worker.signals.result.connect(self._process_import)
+            worker.signals.progress.connect(self._aksegProgresbar)
+            self.threadpool.start(worker)
+
+        if import_mode == "Import ImageJ files(s)":
+
+            worker = Worker(self.import_imagej, paths = paths)
             worker.signals.result.connect(self._process_import)
             worker.signals.progress.connect(self._aksegProgresbar)
             self.threadpool.start(worker)

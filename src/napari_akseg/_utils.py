@@ -13,6 +13,84 @@ import json
 import matplotlib.pyplot as plt
 import hashlib
 from napari_akseg._utils_json import import_coco_json, export_coco_json
+from napari_akseg._utils_imagej import read_imagej_file
+
+
+def import_imagej(self, progress_callback, paths):
+
+    if isinstance(paths, list) == False:
+        paths = [paths]
+
+    if len(paths) == 1:
+
+        paths = os.path.abspath(paths[0])
+
+        if os.path.isfile(paths) == True:
+            file_paths = [paths]
+
+        else:
+
+            file_paths = glob(paths + "*\**\*.tif", recursive=True)
+    else:
+        file_paths = paths
+
+    file_paths = [file for file in file_paths if file.split(".")[-1] == "tif"]
+
+    images = []
+    masks = []
+    metadata = {}
+    imported_images = {}
+
+    for i in range(len(file_paths)):
+
+        progress = int(((i + 1) / len(file_paths)) * 100)
+        progress_callback.emit(progress)
+
+        print("loading image " + str(i + 1) + " of " + str(len(file_paths)))
+
+        paths = file_paths[i]
+        paths = os.path.abspath(paths)
+
+        image, meta = read_tif(paths)
+
+        mask = read_imagej_file(paths, image)
+
+        contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
+
+        metadata["akseg_hash"] = get_hash(paths)
+        meta["image_name"] = os.path.basename(paths)
+        meta["image_path"] = paths
+        meta["mask_name"] = os.path.basename(paths)
+        meta["mask_path"] = paths
+        meta["label_name"] = None
+        meta["label_path"] = None
+        meta["import_mode"] = "Dataset"
+        meta["contrast_limit"] = contrast_limit
+        meta["contrast_alpha"] = alpha
+        meta["contrast_beta"] = beta
+        meta["contrast_gamma"] = gamma
+
+        images.append(image)
+        masks.append(mask)
+        metadata[i] = meta
+
+        if imported_images == {}:
+            imported_images["Image"] = dict(images=[image], masks=[mask], classes=[], metadata={i: meta})
+        else:
+            imported_images["Image"]["images"].append(image)
+            imported_images["Image"]["masks"].append(mask)
+            imported_images["Image"]["metadata"][i] = meta
+
+    imported_data = dict(imported_images=imported_images)
+
+    return imported_data
+
+
+
+
+
+
+
 
 
 def read_nim_directory(self, path):

@@ -114,6 +114,11 @@
         </item>
         <item>
          <property name="text">
+          <string>Import ImageJ files(s)</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
           <string>Import Images + Masks Dataset</string>
          </property>
         </item>

@@ -4,36 +4,37 @@ from tifffile import TiffFile, imwrite, imsave
 from roifile import roiread, ImagejRoi
 import ast
 import os
+import cv2
+import tifffile
 
-def import_imagej(path):
 
-    with TiffFile(path) as tif:
-
-        image = tif.pages[0].asarray()
-        imagej_metadata = tif.imagej_metadata
-
-        if "metadata" in imagej_metadata:
-            metadata = ast.literal_eval(imagej_metadata["metadata"])
-            pixel_size = metadata["Pixel Size"]
-        else:
-            pixel_size = (1 / tif.pages[0].tags['XResolution'].value[0])
+def read_imagej_file(path, image):
 
     contours = []
+    mask = np.zeros_like(image)
 
     # reads overlays sequentially and then converts them to openCV contours
-    for roi in roiread(path):
-        coordinates = roi.integer_coordinates
+    try:
+        for roi in roiread(path):
+            coordinates = roi.integer_coordinates
 
-        top = roi.top
-        left = roi.left
+            top = roi.top
+            left = roi.left
 
-        coordinates[:, 1] = coordinates[:, 1] + top
-        coordinates[:, 0] = coordinates[:, 0] + left
+            coordinates[:, 1] = coordinates[:, 1] + top
+            coordinates[:, 0] = coordinates[:, 0] + left
 
-        cnt = np.array(coordinates).reshape((-1, 1, 2)).astype(np.int32)
-        contours.append(cnt)
+            cnt = np.array(coordinates).reshape((-1, 1, 2)).astype(np.int32)
+            contours.append(cnt)
 
-    return image, metadata, contours
+        for i in range(len(contours)):
+
+            cnt = contours[i]
+            cv2.drawContours(mask, [cnt], contourIdx=-1, color=(i+1, i+1, i+1), thickness=-1)
+    except:
+        print("Image does not contain ImageJ Overlays")
+
+    return mask
 
 
 def export_imagej(image, contours, metadata, file_path):
