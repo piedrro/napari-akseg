@@ -703,3 +703,53 @@ def _uploadAKGROUP(self, mode):
 
     except:
         print(traceback.format_exc())
+
+def _get_database_paths(self):
+
+    database_metadata = {"segmentation_channel": "532",
+                         "user_initial": self.upload_initial.currentText(),
+                         "content": self.upload_content.currentText(),
+                         "microscope": self.upload_microscope.currentText(),
+                         "modality": self.upload_modality.currentText(),
+                         "source": self.upload_illumination.currentText(),
+                         "stains": self.upload_stain.currentText(),
+                         "antibiotic": self.upload_antibiotic.currentText(),
+                         "antibiotic concentration": self.upload_abxconcentration.currentText(),
+                         "treatment time (mins)": self.upload_treatmenttime.currentText(),
+                         "mounting method": self.upload_mount.currentText(),
+                         "protocol": self.upload_protocol.currentText(),
+                         "user_meta1": self.upload_usermeta1.currentText(),
+                         "user_meta2": self.upload_usermeta2.currentText(),
+                         "user_meta3": self.upload_usermeta3.currentText(),
+                         "segmented": self.upload_segmented.isChecked(),
+                         "labelled": self.upload_labelled.isChecked(),
+                         "segmentation_curated": self.upload_segcurated.isChecked(),
+                         "label_curated": self.upload_classcurated.isChecked()}
+
+    database_metadata = {key: val for key, val in database_metadata.items() if val not in ["", "Required for upload"]}
+
+    akgroup_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images"
+    user_initial = database_metadata["user_initial"]
+    user_metadata_path = akgroup_dir + "\\" + user_initial + "\\" + user_initial + "_file_metadata.txt"
+
+    if os.path.isfile(user_metadata_path) == False:
+
+        print("could not find: " + user_metadata_path)
+
+    else:
+
+        user_metadata = pd.read_csv(user_metadata_path, sep=",")
+        user_metadata["segmentation_channel"] = user_metadata["segmentation_channel"].astype(str)
+
+        for key, value in database_metadata.items():
+            user_metadata = user_metadata[user_metadata[key] == value]
+
+        paths = user_metadata["image_save_path"].tolist()
+
+        import_limit = self.database_download_limit.currentText()
+
+        if import_limit != "All":
+            paths = paths[:int(import_limit)]
+
+        return paths, import_limit
+
