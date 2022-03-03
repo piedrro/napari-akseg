@@ -821,6 +821,13 @@ class AKSEG(QWidget):
             self.modify_split.setEnabled(False)
             self.modify_delete.setEnabled(False)
 
+            self.classify_single.setEnabled(False)
+            self.classify_dividing.setEnabled(False)
+            self.classify_divided.setEnabled(False)
+            self.classify_vertical.setEnabled(False)
+            self.classify_broken.setEnabled(False)
+            self.classify_edge.setEnabled(False)
+
             self.interface_mode = "panzoom"
             self.modify_panzoom.setEnabled(False)
             self.modify_segment.setEnabled(True)
@@ -834,6 +841,13 @@ class AKSEG(QWidget):
             self.modify_join.setEnabled(True)
             self.modify_split.setEnabled(True)
             self.modify_delete.setEnabled(True)
+
+            self.classify_single.setEnabled(True)
+            self.classify_dividing.setEnabled(False)
+            self.classify_divided.setEnabled(False)
+            self.classify_vertical.setEnabled(False)
+            self.classify_broken.setEnabled(False)
+            self.classify_edge.setEnabled(False)
 
             self.interface_mode = "segment"
             self.segmentation_mode = "add"
