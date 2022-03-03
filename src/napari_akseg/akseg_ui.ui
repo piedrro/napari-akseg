@@ -924,7 +924,7 @@ p, li { white-space: pre-wrap; }
          <string notr="true">color: rgb(255, 0, 0);</string>
         </property>
         <property name="text">
-         <string>Edge [6]</string>
+         <string>Edge [Ctrl+6]</string>
         </property>
        </widget>
       </item>
@@ -934,7 +934,7 @@ p, li { white-space: pre-wrap; }
          <string notr="true">color: rgb(0, 170, 255);</string>
         </property>
         <property name="text">
-         <string>Divided [3]</string>
+         <string>Divided [Ctrl+3]</string>
         </property>
        </widget>
       </item>
@@ -945,7 +945,7 @@ p, li { white-space: pre-wrap; }
 color: rgb(0, 255, 0);</string>
         </property>
         <property name="text">
-         <string>Dividing [2]</string>
+         <string>Dividing [Ctrl+2]</string>
         </property>
        </widget>
       </item>
@@ -955,7 +955,7 @@ color: rgb(0, 255, 0);</string>
          <string notr="true">color:rgb(170, 0, 255)</string>
         </property>
         <property name="text">
-         <string>Vertical [4]</string>
+         <string>Vertical [Ctrl+4]</string>
         </property>
        </widget>
       </item>
@@ -965,7 +965,7 @@ color: rgb(0, 255, 0);</string>
          <string notr="true">color: rgb(255, 170, 0);</string>
         </property>
         <property name="text">
-         <string>Broken [5]</string>
+         <string>Broken [Ctrl+5]</string>
         </property>
        </widget>
       </item>
@@ -975,7 +975,7 @@ color: rgb(0, 255, 0);</string>
          <string notr="true">color: rgb(255, 255, 255);</string>
         </property>
         <property name="text">
-         <string>Single [1]</string>
+         <string>Single [Ctrl+1]</string>
         </property>
        </widget>
       </item>

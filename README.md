@@ -33,7 +33,9 @@ You can install `napari-akseg` from AKGROUP via [pip]:
     \\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Install\napari-akseg
 
     From GitHub:
-    pip install "git+https://github.com/piedrro/napari-akseg.git"
+    pip install git+https://github.com/piedrro/napari-akseg.git
+    pip install git+https://${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}@github.com/piedrro/napari-akseg.git
+
 
 
 ## Contributing

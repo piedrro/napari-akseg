@@ -160,6 +160,7 @@ class AKSEG(QWidget):
 
         # import controls from Qt Desinger References
         self.path_list = []
+        self.active_import_mode = ""
         self.import_mode = self.findChild(QComboBox, "import_mode")
         self.import_filemode = self.findChild(QComboBox, "import_filemode")
         self.import_import = self.findChild(QPushButton, "import_import")
@@ -343,6 +344,12 @@ class AKSEG(QWidget):
         self.viewer.bind_key(key="j", func=partial(self._modifyMode, "join"), overwrite=True)
         self.viewer.bind_key(key="s", func=partial(self._modifyMode, "split"), overwrite=True)
         self.viewer.bind_key(key="d", func=partial(self._modifyMode, "delete"), overwrite=True)
+        self.viewer.bind_key(key="Control-1", func=partial(self._modifyMode, "single"), overwrite=True)
+        self.viewer.bind_key(key="Control-2", func=partial(self._modifyMode, "dividing"), overwrite=True)
+        self.viewer.bind_key(key="Control-3", func=partial(self._modifyMode, "divided"), overwrite=True)
+        self.viewer.bind_key(key="Control-4", func=partial(self._modifyMode, "vertical"), overwrite=True)
+        self.viewer.bind_key(key="Control-5", func=partial(self._modifyMode, "broken"), overwrite=True)
+        self.viewer.bind_key(key="Control-6", func=partial(self._modifyMode, "edge"), overwrite=True)
         self.viewer.bind_key(key="h", func=partial(self._viewerControls, "h"), overwrite=True)
         self.viewer.bind_key(key="i", func=partial(self._viewerControls, "i"), overwrite=True)
         self.viewer.bind_key(key="o", func=partial(self._viewerControls, "o"), overwrite=True)
@@ -351,6 +358,8 @@ class AKSEG(QWidget):
         self.viewer.bind_key(key="Right", func=partial(self._imageControls, "Right"), overwrite=True)
         self.viewer.bind_key(key="Left", func=partial(self._imageControls, "Left"), overwrite=True)
         self.viewer.bind_key(key="u", func=partial(self._imageControls, "Upload"), overwrite=True)
+
+        # self.viewer.bind_key(key="Control-c", func=self.autocontrast(), overwrite=True)
 
         # mouse events
         self.segLayer.mouse_drag_callbacks.append(self._segmentationEvents)
@@ -362,7 +371,17 @@ class AKSEG(QWidget):
 
         self.threadpool = QThreadPool()
 
+
+    def autocontrast(self, viewer=None):
+
+        print(True)
+
+
+
+
     def _downloadDatabase(self):
+
+        self.active_import_mode = "AKSEG"
 
         paths, import_limit = self._get_database_paths()
 
@@ -658,7 +677,7 @@ class AKSEG(QWidget):
 
                 if os.path.isfile(file_path) == True:
 
-                    print("File already exists, AKSEG will not overwrite files!")
+                    print(file_name + " already exists, AKSEG will not overwrite files!")
 
                 else:
 

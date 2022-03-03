@@ -57,6 +57,8 @@ def import_imagej(self, progress_callback, paths):
 
         contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
 
+        self.active_import_mode = "Dataset"
+
         metadata["akseg_hash"] = get_hash(paths)
         meta["image_name"] = os.path.basename(paths)
         meta["image_path"] = paths
@@ -326,6 +328,8 @@ def read_nim_images(self, progress_callback, measurements, channels):
 
                 contrast_limit, alpha, beta, gamma = autocontrast_values(img, clip_hist_percent=1)
 
+                self.active_import_mode = "NIM"
+
                 meta["image_name"] = os.path.basename(path)
                 meta["image_path"] = path
                 meta["folder"] = folder,
@@ -374,6 +378,8 @@ def read_nim_images(self, progress_callback, measurements, channels):
 
                 img = np.zeros(img_shape, dtype=img_type)
                 meta = {}
+
+                self.active_import_mode = "NIM"
 
                 meta["image_name"] = "missing image channel"
                 meta["image_path"] = "missing image channel"
@@ -583,6 +589,8 @@ def import_dataset(self, progress_callback, paths):
 
             contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
 
+            self.active_import_mode = "Dataset"
+
             metadata["akseg_hash"] = get_hash(image_path)
             meta["image_name"] = image_name
             meta["image_path"] = image_path
@@ -663,6 +671,8 @@ def import_AKSEG(self, progress_callback, file_paths):
 
                 contrast_limit, alpha, beta, gamma = autocontrast_values(img, clip_hist_percent=1)
 
+                self.active_import_mode = "AKSEG"
+
                 meta = meta_stack["layer_meta"][channel]
                 meta["import_mode"] = "AKSEG"
                 meta["contrast_limit"] = contrast_limit
@@ -720,6 +730,8 @@ def import_images(self, progress_callback, file_paths):
         image, meta = read_tif(file_path)
 
         contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
+
+        self.active_import_mode = "image"
 
         meta["akseg_hash"] = get_hash(file_path)
         meta["image_name"] = file_name
@@ -790,6 +802,8 @@ def import_cellpose(self, progress_callback, file_paths):
 
             contrast_limit, alpha, beta, gamma = autocontrast_values(img, clip_hist_percent=1)
 
+            self.active_import_mode = "cellpose"
+
             meta["akseg_hash"] = get_hash(image_path)
             meta["image_name"] = image_name
             meta["image_path"] = image_path
@@ -808,6 +822,8 @@ def import_cellpose(self, progress_callback, file_paths):
             image = dat["img"]
 
             contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
+
+            self.active_import_mode = "cellpose"
 
             folder = os.path.abspath(file_path).split("\\")[-2]
             parent_folder = os.path.abspath(file_path).split("\\")[-3]
@@ -927,6 +943,8 @@ def import_oufti(self, progress_callback, file_paths):
             image, mask, meta = import_mat_data(image_path, mat_path)
 
             contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
+
+            self.active_import_mode = "oufti"
 
             meta["akseg_hash"] = get_hash(image_path)
             meta["image_name"] = image_name
@@ -1196,6 +1214,8 @@ def import_JSON(self, progress_callback, file_paths):
             mask, labels = import_coco_json(json_path)
 
             contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
+
+            self.active_import_mode = "JSON"
 
             meta["akseg_hash"] = get_hash(image_path)
             meta["image_name"] = image_name

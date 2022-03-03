@@ -317,7 +317,7 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
 
             else:
 
-                img = np.zeros((100,100), dtype=np.uint16)
+                image = np.zeros((100,100), dtype=np.uint16)
                 mask = np.zeros((100,100), dtype=np.uint16)
                 label = np.zeros((100,100), dtype=np.uint16)
 
@@ -336,8 +336,8 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
                 meta["contrast_alpha"] = None
                 meta["contrast_beta"] = None
                 meta["contrast_gamma"] = None
-                meta["dims"] = [img.shape[-1], img.shape[-2]]
-                meta["crop"] = [0, img.shape[-2], 0, img.shape[-1]]
+                meta["dims"] = [image.shape[-1], image.shape[-2]]
+                meta["crop"] = [0, image.shape[-2], 0, image.shape[-1]]
                 meta["light_source"] = channel
 
             if channel not in imported_images:
@@ -538,7 +538,7 @@ def _uploadAKGROUP(self, mode):
                                                       "label_load_path",
                                                       "label_save_path"])
 
-            if "Required for upload" in [user_initial, content, microscope, modality] and self.import_mode != "Import AKSEG Dataset":
+            if "Required for upload" in [user_initial, content, microscope, modality] and self.active_import_mode != "AKSEG":
 
                 print("Please fill out upload tab metadata before uploading files")
 
@@ -744,7 +744,6 @@ def _get_database_paths(self):
         user_metadata["segmentation_channel"] = user_metadata["segmentation_channel"].astype(str)
 
         for key, value in database_metadata.items():
-
             user_metadata = user_metadata[user_metadata[key] == value]
 
         paths = user_metadata["image_save_path"].tolist()
