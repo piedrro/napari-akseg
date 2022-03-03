@@ -355,11 +355,10 @@ class AKSEG(QWidget):
         self.viewer.bind_key(key="o", func=partial(self._viewerControls, "o"), overwrite=True)
         self.viewer.bind_key(key="x", func=partial(self._viewerControls, "x"), overwrite=True)
         self.viewer.bind_key(key="z", func=partial(self._viewerControls, "z"), overwrite=True)
+        self.viewer.bind_key(key="c", func=partial(self._viewerControls, "c"), overwrite=True)
         self.viewer.bind_key(key="Right", func=partial(self._imageControls, "Right"), overwrite=True)
         self.viewer.bind_key(key="Left", func=partial(self._imageControls, "Left"), overwrite=True)
         self.viewer.bind_key(key="u", func=partial(self._imageControls, "Upload"), overwrite=True)
-
-        # self.viewer.bind_key(key="Control-c", func=self.autocontrast(), overwrite=True)
 
         # mouse events
         self.segLayer.mouse_drag_callbacks.append(self._segmentationEvents)
@@ -370,13 +369,6 @@ class AKSEG(QWidget):
         populate_upload_combos(self)
 
         self.threadpool = QThreadPool()
-
-
-    def autocontrast(self, viewer=None):
-
-        print(True)
-
-
 
 
     def _downloadDatabase(self):
@@ -790,6 +782,25 @@ class AKSEG(QWidget):
         if key == "viewmasks":
             self.segLayer.visible = self.modify_viewmasks.isChecked()
 
+        if key == "c":
+
+            active_layer = self.viewer.layers.selection.active
+
+            if active_layer not in ["Segmentations","Classes"]:
+
+                image = self.viewer.layers[str(active_layer)].data
+                crop = self.viewer.layers[str(active_layer)].corner_pixels
+
+                [[c, y1, x1], [c, y2, x2]] = crop
+
+                image_crop = image[c][y1:y2, x1:x2]
+
+                contrast_limit, alpha, beta, gamma = autocontrast_values(image_crop, clip_hist_percent=0.1)
+
+                self.viewer.layers[str(active_layer)].contrast_limits = contrast_limit
+                self.viewer.layers[str(active_layer)].gamma = gamma
+
+
 
     def _modifyMode(self, mode, viewer=None):
 
@@ -1046,7 +1057,7 @@ class AKSEG(QWidget):
 
         return new_colour
 
-    # change mode to it activates paint brush whewn you click
+    # change mode to it activates paint brush when you click
     def _segmentationEvents(self, viewer, event):
 
         if self.interface_mode == "segment":
