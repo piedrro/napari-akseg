@@ -203,6 +203,7 @@ class AKSEG(QWidget):
         self.modify_panzoom = self.findChild(QPushButton, "modify_panzoom")
         self.modify_segment = self.findChild(QPushButton, "modify_segment")
         self.modify_classify = self.findChild(QPushButton, "modify_classify")
+        self.modify_auto_panzoom = self.findChild(QCheckBox, "modify_auto_panzoom")
         self.modify_add = self.findChild(QPushButton, "modify_add")
         self.modify_extend = self.findChild(QPushButton, "modify_extend")
         self.modify_split = self.findChild(QPushButton, "modify_split")
@@ -350,6 +351,9 @@ class AKSEG(QWidget):
         self.viewer.bind_key(key="Control-4", func=partial(self._modifyMode, "vertical"), overwrite=True)
         self.viewer.bind_key(key="Control-5", func=partial(self._modifyMode, "broken"), overwrite=True)
         self.viewer.bind_key(key="Control-6", func=partial(self._modifyMode, "edge"), overwrite=True)
+        self.viewer.bind_key(key="F1", func=partial(self._modifyMode, "panzoom"), overwrite=True)
+        self.viewer.bind_key(key="F2", func=partial(self._modifyMode, "segment"), overwrite=True)
+        self.viewer.bind_key(key="F3", func=partial(self._modifyMode, "classify"), overwrite=True)
         self.viewer.bind_key(key="h", func=partial(self._viewerControls, "h"), overwrite=True)
         self.viewer.bind_key(key="i", func=partial(self._viewerControls, "i"), overwrite=True)
         self.viewer.bind_key(key="o", func=partial(self._viewerControls, "o"), overwrite=True)
@@ -784,9 +788,11 @@ class AKSEG(QWidget):
 
         if key == "c":
 
-            active_layer = self.viewer.layers.selection.active
+            layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
 
-            if active_layer not in ["Segmentations","Classes"]:
+            if len(layer_names) != 0:
+
+                active_layer = layer_names[-1]
 
                 image = self.viewer.layers[str(active_layer)].data
                 crop = self.viewer.layers[str(active_layer)].corner_pixels
@@ -856,6 +862,7 @@ class AKSEG(QWidget):
             self.modify_classify.setEnabled(True)
 
         if mode == "classify":
+
             self.viewer.layers.selection.select_only(self.segLayer)
 
             self.modify_add.setEnabled(False)
@@ -987,6 +994,10 @@ class AKSEG(QWidget):
 
             self.class_mode = mode
             self.class_colour = 1
+            self.interface_mode = "classify"
+            self.modify_panzoom.setEnabled(True)
+            self.modify_segment.setEnabled(True)
+            self.modify_classify.setEnabled(False)
 
         if mode == "dividing":
             self.viewer.layers.selection.select_only(self.segLayer)
@@ -1000,6 +1011,10 @@ class AKSEG(QWidget):
 
             self.class_mode = mode
             self.class_colour = 2
+            self.interface_mode = "classify"
+            self.modify_panzoom.setEnabled(True)
+            self.modify_segment.setEnabled(True)
+            self.modify_classify.setEnabled(False)
 
         if mode == "divided":
             self.viewer.layers.selection.select_only(self.segLayer)
@@ -1013,6 +1028,10 @@ class AKSEG(QWidget):
 
             self.class_mode = mode
             self.class_colour = 3
+            self.interface_mode = "classify"
+            self.modify_panzoom.setEnabled(True)
+            self.modify_segment.setEnabled(True)
+            self.modify_classify.setEnabled(False)
 
         if mode == "vertical":
             self.viewer.layers.selection.select_only(self.segLayer)
@@ -1026,6 +1045,10 @@ class AKSEG(QWidget):
 
             self.class_mode = mode
             self.class_colour = 4
+            self.interface_mode = "classify"
+            self.modify_panzoom.setEnabled(True)
+            self.modify_segment.setEnabled(True)
+            self.modify_classify.setEnabled(False)
 
         if mode == "broken":
             self.viewer.layers.selection.select_only(self.segLayer)
@@ -1039,6 +1062,10 @@ class AKSEG(QWidget):
 
             self.class_mode = mode
             self.class_colour = 5
+            self.interface_mode = "classify"
+            self.modify_panzoom.setEnabled(True)
+            self.modify_segment.setEnabled(True)
+            self.modify_classify.setEnabled(False)
 
         if mode == "edge":
             self.viewer.layers.selection.select_only(self.segLayer)
@@ -1052,6 +1079,10 @@ class AKSEG(QWidget):
 
             self.class_mode = mode
             self.class_colour = 6
+            self.interface_mode = "classify"
+            self.modify_panzoom.setEnabled(True)
+            self.modify_segment.setEnabled(True)
+            self.modify_classify.setEnabled(False)
 
     def _newSegColour(self):
 
@@ -1155,6 +1186,9 @@ class AKSEG(QWidget):
                             self.segLayer.metadata = meta
                             self.segLayer.mode = "pan_zoom"
 
+                            if self.modify_auto_panzoom.isChecked() == True:
+                                self._modifyMode(mode="panzoom")
+
                         else:
 
                             cnt = coordinates
@@ -1180,6 +1214,9 @@ class AKSEG(QWidget):
                             meta["manual_segmentation"] = True
                             self.segLayer.metadata = meta
                             self.segLayer.mode = "pan_zoom"
+
+                            if self.modify_auto_panzoom.isChecked() == True:
+                                self._modifyMode(mode="panzoom")
 
                     else:
                         self.segLayer.data = stored_mask
@@ -1230,11 +1267,12 @@ class AKSEG(QWidget):
 
                     colours = np.array(colours)
                     colours = np.unique(colours)
+                    colours = np.delete(colours, np.where(colours == 0))
 
                     if new_colour in colours:
                         colours = np.delete(colours, np.where(colours == new_colour))
 
-                    if len(colours) == 1:
+                    if len(colours) == 1 and new_colour not in colours:
 
                         mask_stack = self.segLayer.data
 
@@ -1294,9 +1332,13 @@ class AKSEG(QWidget):
                             self.segLayer.metadata = meta
                             self.segLayer.mode = "pan_zoom"
 
+                            if self.modify_auto_panzoom.isChecked() == True:
+                                self._modifyMode(mode="panzoom")
+
                     else:
+
                         self.segLayer.data = stored_mask
-                        self.segLayer.data = stored_class
+                        self.classLayer.data = stored_class
                         self.segLayer.mode = "pan_zoom"
 
             # split segmentations
@@ -1406,6 +1448,9 @@ class AKSEG(QWidget):
                             self.segLayer.metadata = meta
                             self.segLayer.mode = "pan_zoom"
 
+                            if self.modify_auto_panzoom.isChecked() == True:
+                                self._modifyMode(mode="panzoom")
+
                     else:
                         self.segLayer.data = stored_mask
                         self.segLayer.mode = "pan_zoom"
@@ -1439,6 +1484,9 @@ class AKSEG(QWidget):
                     stored_class[current_fov, :, :] = class_mask
 
                     self.classLayer.data = stored_class
+
+                    if self.modify_auto_panzoom.isChecked() == True:
+                        self._modifyMode(mode="panzoom")
 
                 else:
 
@@ -1483,12 +1531,17 @@ class AKSEG(QWidget):
                     self.classLayer.data = stored_class
                     self.segLayer.mode = "pan_zoom"
 
+                    if self.modify_auto_panzoom.isChecked() == True:
+                        self._modifyMode(mode="panzoom")
+
                 else:
 
                     stored_class[stored_mask == mask_val] = self.class_colour
 
                     self.classLayer.data = stored_class
                     self.segLayer.mode = "pan_zoom"
+
+
 
     def _segmentActive(self):
 

@@ -817,25 +817,32 @@ p, li { white-space: pre-wrap; }
       <item row="0" column="1">
        <widget class="QPushButton" name="modify_segment">
         <property name="text">
-         <string>Segment</string>
+         <string>Segment [F2]</string>
         </property>
        </widget>
       </item>
       <item row="0" column="0">
        <widget class="QPushButton" name="modify_panzoom">
         <property name="text">
-         <string>Pan/Zoom</string>
+         <string>Pan/Zoom [F1]</string>
         </property>
        </widget>
       </item>
-      <item row="0" column="2">
+      <item row="0" column="3">
        <widget class="QPushButton" name="modify_classify">
         <property name="text">
-         <string>Classify</string>
+         <string>Classify [F3]</string>
         </property>
        </widget>
       </item>
      </layout>
+    </item>
+    <item>
+     <widget class="QCheckBox" name="modify_auto_panzoom">
+      <property name="text">
+       <string>Auto select Pan/Zoom after segmentation/classification</string>
+      </property>
+     </widget>
     </item>
     <item>
      <widget class="Line" name="line_18">
