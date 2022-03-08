@@ -1134,7 +1134,9 @@ class AKSEG(QWidget):
                     new_colour = self.segLayer.get_value(coord)
 
                     new_class = self.classLayer.get_value(coord)
-                    self.class_colour = new_class
+
+                    if new_class != None:
+                        self.class_colour = new_class
 
                 dragged = False
                 coordinates = []
@@ -1150,7 +1152,7 @@ class AKSEG(QWidget):
                 # on release
                 if dragged:
 
-                    if new_colour != 0 and new_colour != None:
+                    if new_colour != 0 and new_colour != None and self.class_colour != None:
 
                         coordinates = np.round(np.array(coordinates)).astype(np.int32)
 
@@ -1192,9 +1194,6 @@ class AKSEG(QWidget):
                             self.segLayer.metadata = meta
                             self.segLayer.mode = "pan_zoom"
 
-                            if self.modify_auto_panzoom.isChecked() == True:
-                                self._modifyMode(mode="panzoom")
-
                         else:
 
                             cnt = coordinates
@@ -1221,8 +1220,6 @@ class AKSEG(QWidget):
                             self.segLayer.metadata = meta
                             self.segLayer.mode = "pan_zoom"
 
-                            if self.modify_auto_panzoom.isChecked() == True:
-                                self._modifyMode(mode="panzoom")
 
                     else:
                         self.segLayer.data = stored_mask
@@ -1247,7 +1244,9 @@ class AKSEG(QWidget):
                 new_colour = self.segLayer.get_value(coord)
 
                 new_class = self.classLayer.get_value(coord)
-                self.class_colour = new_class
+
+                if new_class != None:
+                    self.class_colour = new_class
 
 
                 dragged = False
@@ -1278,7 +1277,7 @@ class AKSEG(QWidget):
                     if new_colour in colours:
                         colours = np.delete(colours, np.where(colours == new_colour))
 
-                    if len(colours) == 1 and new_colour not in colours:
+                    if len(colours) == 1 and new_colour not in colours and new_colour != None:
 
                         mask_stack = self.segLayer.data
 
@@ -1338,8 +1337,6 @@ class AKSEG(QWidget):
                             self.segLayer.metadata = meta
                             self.segLayer.mode = "pan_zoom"
 
-                            if self.modify_auto_panzoom.isChecked() == True:
-                                self._modifyMode(mode="panzoom")
 
                     else:
 
@@ -1382,7 +1379,7 @@ class AKSEG(QWidget):
 
                     bisection = colours[0] != maskref and colours[-1] != maskref
 
-                    if bisection:
+                    if bisection and new_colour != None:
 
                         if len(stored_mask.shape) > 2:
 
@@ -1454,8 +1451,6 @@ class AKSEG(QWidget):
                             self.segLayer.metadata = meta
                             self.segLayer.mode = "pan_zoom"
 
-                            if self.modify_auto_panzoom.isChecked() == True:
-                                self._modifyMode(mode="panzoom")
 
                     else:
                         self.segLayer.data = stored_mask
@@ -1491,8 +1486,6 @@ class AKSEG(QWidget):
 
                     self.classLayer.data = stored_class
 
-                    if self.modify_auto_panzoom.isChecked() == True:
-                        self._modifyMode(mode="panzoom")
 
                 else:
 
@@ -1537,9 +1530,6 @@ class AKSEG(QWidget):
                     self.classLayer.data = stored_class
                     self.segLayer.mode = "pan_zoom"
 
-                    if self.modify_auto_panzoom.isChecked() == True:
-                        self._modifyMode(mode="panzoom")
-
                 else:
 
                     stored_class[stored_mask == mask_val] = self.class_colour
@@ -1547,7 +1537,8 @@ class AKSEG(QWidget):
                     self.classLayer.data = stored_class
                     self.segLayer.mode = "pan_zoom"
 
-
+        if self.modify_auto_panzoom.isChecked() == True:
+            self._modifyMode(mode="panzoom")
 
     def _segmentActive(self):
 
