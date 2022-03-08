@@ -36,7 +36,6 @@ from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cell
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 from napari_akseg._utils_database import (read_AKSEG_directory, update_akmetadata, _get_database_paths,
                                           read_AKSEG_images, _uploadAKGROUP, populate_upload_combos, get_usermeta)
-
 from napari_akseg._utils_cellpose import export_cellpose
 from napari_akseg._utils_oufti import  export_oufti
 from napari_akseg._utils_imagej import export_imagej
@@ -1102,8 +1101,15 @@ class AKSEG(QWidget):
 
         return new_colour
 
+
     # change mode to it activates paint brush when you click
     def _segmentationEvents(self, viewer, event):
+
+        if "Control" in event.modifiers:
+            self._modifyMode(mode="delete")
+
+        if "Shift" in event.modifiers:
+            self._modifyMode(mode="add")
 
         if self.interface_mode == "segment":
 
@@ -1144,7 +1150,7 @@ class AKSEG(QWidget):
                 # on release
                 if dragged:
 
-                    if new_colour != 0:
+                    if new_colour != 0 and new_colour != None:
 
                         coordinates = np.round(np.array(coordinates)).astype(np.int32)
 

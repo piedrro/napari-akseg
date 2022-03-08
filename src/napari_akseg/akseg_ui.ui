@@ -840,7 +840,10 @@ p, li { white-space: pre-wrap; }
     <item>
      <widget class="QCheckBox" name="modify_auto_panzoom">
       <property name="text">
-       <string>Auto select Pan/Zoom after segmentation/classification</string>
+       <string>Auto select Pan/Zoom after Segment/Classify</string>
+      </property>
+      <property name="checked">
+       <bool>true</bool>
       </property>
      </widget>
     </item>
@@ -1935,6 +1938,16 @@ p, li { white-space: pre-wrap; }
         </property>
        </widget>
       </item>
+      <item row="1" column="0">
+       <widget class="QCheckBox" name="export_vertical">
+        <property name="text">
+         <string>Vertical</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
       <item row="0" column="2">
        <widget class="QCheckBox" name="export_divided">
         <property name="text">
@@ -1955,10 +1968,13 @@ p, li { white-space: pre-wrap; }
         </property>
        </widget>
       </item>
-      <item row="1" column="0">
-       <widget class="QCheckBox" name="export_vertical">
+      <item row="1" column="2">
+       <widget class="QCheckBox" name="export_edge">
         <property name="text">
-         <string>Vertical</string>
+         <string>Edge</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
         </property>
        </widget>
       </item>
@@ -1967,12 +1983,8 @@ p, li { white-space: pre-wrap; }
         <property name="text">
          <string>Broken</string>
         </property>
-       </widget>
-      </item>
-      <item row="1" column="2">
-       <widget class="QCheckBox" name="export_edge">
-        <property name="text">
-         <string>Edge</string>
+        <property name="checked">
+         <bool>true</bool>
         </property>
        </widget>
       </item>
