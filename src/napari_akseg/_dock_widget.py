@@ -115,6 +115,7 @@ class Worker(QRunnable):
             self.signals.finished.emit()  # Done
 
 
+
 class AKSEG(QWidget):
     """Widget allows selection of two labels layers and returns a new layer
     highlighing pixels whose values differ between the two layers."""

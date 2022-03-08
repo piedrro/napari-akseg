@@ -365,6 +365,7 @@ def read_nim_images(self, progress_callback, measurements, channels):
                 if meta["light_source"] == "White Light":
                     meta["modality"] = "Bright Field"
 
+
                 img_shape = img.shape
                 img_type = np.array(img).dtype
 
