@@ -14,6 +14,14 @@ import matplotlib.pyplot as plt
 import hashlib
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 from napari_akseg._utils_imagej import read_imagej_file
+from skimage import data
+from skimage.registration import phase_cross_correlation
+from skimage.registration._phase_cross_correlation import _upsampled_dft
+from scipy.ndimage import fourier_shift
+import scipy
+
+
+
 
 
 def import_imagej(self, progress_callback, paths):
@@ -1064,8 +1072,30 @@ def get_hash(img_path):
 
         return hashlib.sha256(bytes).hexdigest()
 
+def align_image_channels(self):
 
+    layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
 
+    if self.import_align.isChecked() and len(layer_names) > 1:
+
+        primary_image = layer_names[-1]
+
+        layer_names.remove(primary_image)
+
+        dim_range = int(self.viewer.dims.range[0][1])
+
+        for i in range(dim_range):
+
+            img = self.viewer.layers[primary_image].data[i, :, :]
+
+            for layer in layer_names:
+
+                shifted_img = self.viewer.layers[layer].data[i, :, :]
+
+                shift, error, diffphase = phase_cross_correlation(img, shifted_img, upsample_factor=100)
+                shifted_img = scipy.ndimage.shift(shifted_img, shift)
+
+                self.viewer.layers[layer].data[i, :, :] = shifted_img
 
 def get_export_data(self,mask_stack,label_stack,meta_stack):
 

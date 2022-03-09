@@ -31,7 +31,7 @@ import matplotlib.pyplot as plt
 from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
                                  import_dataset, import_AKSEG, import_JSON, get_export_data, import_masks,
-                                 import_imagej,autocontrast_values)
+                                 import_imagej,autocontrast_values, align_image_channels)
 
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 from napari_akseg._utils_database import (read_AKSEG_directory, update_akmetadata, _get_database_paths,
@@ -171,6 +171,7 @@ class AKSEG(QWidget):
         self.laser_mode = self.findChild(QComboBox, "nim_laser_mode")
         self.channel_mode = self.findChild(QComboBox, "nim_channel_mode")
         self.import_progressbar = self.findChild(QProgressBar, "import_progressbar")
+        self.import_align = self.findChild(QCheckBox,"import_align")
 
         # cellpose controls + variabes from Qt Desinger References
         self.cellpose_segmentation = False
@@ -1892,6 +1893,8 @@ class AKSEG(QWidget):
         self.viewer.reset_view()
         self._autoContrast()
         self._autoClassify()
+
+        align_image_channels(self)
 
     def _autoClassify(self, reset = False):
 
