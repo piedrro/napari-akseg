@@ -27,11 +27,12 @@ You can install `napari-akseg` from AKGROUP via [pip]:
 
     conda create –-name napari-akseg python==3.8
     conda activate napari-akseg
+    conda install -c anaconda git
     conda update --all
 
     Install from GitHub, user personal access token as password
     pip install git+https://github.com/piedrro/napari-akseg.git
-    username = your email
+    username = your email (you don't need a GitHub account if you don't have one)
     password = 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
 
 
