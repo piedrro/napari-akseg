@@ -35,7 +35,8 @@ from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cell
 
 from napari_akseg._utils_json import import_coco_json, export_coco_json
 from napari_akseg._utils_database import (read_AKSEG_directory, update_akmetadata, _get_database_paths,
-                                          read_AKSEG_images, _uploadAKGROUP, populate_upload_combos, get_usermeta)
+                                          read_AKSEG_images, _uploadAKGROUP, populate_upload_combos, get_usermeta,
+                                          check_database_access)
 from napari_akseg._utils_cellpose import export_cellpose
 from napari_akseg._utils_oufti import  export_oufti
 from napari_akseg._utils_imagej import export_imagej
@@ -481,16 +482,15 @@ class AKSEG(QWidget):
         import_mode = self.import_mode.currentText()
         import_filemode = self.import_filemode.currentText()
 
-        if import_filemode == "Import File(s)":
+        dialog_dir = check_database_access(file_path=r"\\CMDAQ4.physics.ox.ac.uk\AKGroup")
 
-            paths, filter = QFileDialog.getOpenFileNames(self, "Open Files",
-                                                    r"\\CMDAQ4.physics.ox.ac.uk\AKGroup",
-                                                    "Files (*)")
+        if import_filemode == "Import File(s)":
+            
+            paths, filter = QFileDialog.getOpenFileNames(self, "Open Files",dialog_dir,"Files (*)")
 
         if import_filemode == "Import Directory":
 
-            path = QFileDialog.getExistingDirectory(self, "Select Directory",
-                                                r"\\CMDAQ4.physics.ox.ac.uk\AKGroup")
+            path = QFileDialog.getExistingDirectory(self, "Select Directory",dialog_dir)
 
             paths = [path]
 
@@ -589,8 +589,9 @@ class AKSEG(QWidget):
 
         if self.export_location.currentText() == "Select Directory":
 
-            path = QFileDialog.getExistingDirectory(self, "Select Export Directory",
-                                                    r"\\CMDAQ4.physics.ox.ac.uk\AKGroup")
+            dialog_dir = check_database_access(file_path=r"\\CMDAQ4.physics.ox.ac.uk\AKGroup")
+
+            path = QFileDialog.getExistingDirectory(self, "Select Export Directory",dialog_dir)
 
             if path:
 
@@ -804,8 +805,9 @@ class AKSEG(QWidget):
 
                 contrast_limit, alpha, beta, gamma = autocontrast_values(image_crop, clip_hist_percent=0.1)
 
-                self.viewer.layers[str(active_layer)].contrast_limits = contrast_limit
-                self.viewer.layers[str(active_layer)].gamma = gamma
+                if contrast_limit[1] > contrast_limit[0]:
+                    self.viewer.layers[str(active_layer)].contrast_limits = contrast_limit
+                    self.viewer.layers[str(active_layer)].gamma = gamma
 
 
 
@@ -1683,9 +1685,9 @@ class AKSEG(QWidget):
 
     def _openModelFile(self):
 
-        path = QFileDialog.getOpenFileName(self, "Open File",
-                                           r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Models",
-                                           "Cellpose Models (*)")
+        file_path = check_database_access(file_path=r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Models")
+
+        path = QFileDialog.getOpenFileName(self, "Open File",file_path,"Cellpose Models (*)")
 
         if path:
             path = os.path.abspath(path[0])
@@ -1757,8 +1759,10 @@ class AKSEG(QWidget):
 
                 contrast_limit = metadata["contrast_limit"]
                 gamma = metadata["contrast_gamma"]
-                self.viewer.layers[str(active_layer)].contrast_limits = contrast_limit
-                self.viewer.layers[str(active_layer)].gamma = gamma
+
+                if contrast_limit[1] > contrast_limit[0]:
+                    self.viewer.layers[str(active_layer)].contrast_limits = contrast_limit
+                    self.viewer.layers[str(active_layer)].gamma = gamma
 
         except:
             pass

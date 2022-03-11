@@ -13,6 +13,7 @@ import json
 import matplotlib.pyplot as plt
 import hashlib
 from napari_akseg._utils_json import import_coco_json, export_coco_json
+import time
 
 def update_akmetadata(self, akmeta):
 
@@ -93,7 +94,13 @@ def get_usermeta(self):
 
     meta_path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Metadata\AKSEG Metadata.xlsx"
 
-    if os.path.isfile(meta_path):
+    if os.path.lexists(meta_path):
+        time.sleep(0.5)
+    else:
+        print("cant find database file/folder")
+        meta_path = None
+
+    if meta_path != None:
 
         try:
 
@@ -117,12 +124,32 @@ def get_usermeta(self):
         except:
             pass
 
+def check_database_access(file_path):
+
+    """checks if user has database access, else returns desktop path"""
+
+    desktop_dir = os.path.join(os.path.join(os.path.expanduser('~')), 'Desktop')
+
+    if os.path.lexists(file_path):
+        time.sleep(1)
+    else:
+        print("cant find database file/folder")
+        file_path = desktop_dir
+
+    return file_path
+
 
 def populate_upload_combos(self):
 
     meta_path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Metadata\AKSEG Metadata.xlsx"
 
-    if os.path.isfile(meta_path):
+    if os.path.lexists(meta_path):
+        time.sleep(0.5)
+    else:
+        print("cant find database file/folder")
+        meta_path = None
+
+    if meta_path != None:
 
         try:
 
