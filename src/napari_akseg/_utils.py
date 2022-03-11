@@ -59,11 +59,11 @@ def import_imagej(self, progress_callback, paths):
         paths = file_paths[i]
         paths = os.path.abspath(paths)
 
-        image, meta = read_tif(paths)
+        image, meta = read_tif(paths, self.import_precision.currentText())
 
         mask = read_imagej_file(paths, image)
 
-        contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
+        contrast_limit, alpha, beta, gamma = autocontrast_values(image)
 
         self.active_import_mode = "Dataset"
 
@@ -260,7 +260,7 @@ def get_folder(files):
 
     return folder, parent_folder
 
-def read_tif(path):
+def read_tif(path, precision="native"):
 
     with tifffile.TiffFile(path) as tif:
         try:
@@ -270,6 +270,8 @@ def read_tif(path):
             metadata = {}
 
     image = tifffile.imread(path)
+
+    image = rescale_image(image, precision=precision)
 
     folder = os.path.abspath(path).split("\\")[-2]
     parent_folder = os.path.abspath(path).split("\\")[-3]
@@ -289,6 +291,24 @@ def read_tif(path):
         metadata["crop"] = [0, image.shape[-2], 0, image.shape[-1]]
 
     return image, metadata
+
+
+def rescale_image(image, precision="int16"):
+
+    precision_dict = {"int8": np.uint8, "int16": np.uint16, "int32": np.uint32, "native": image.dtype}
+
+    dtype = precision_dict[precision]
+
+    if "int" in str(dtype):
+        max_value = np.iinfo(dtype).max - 1
+    else:
+        max_value = np.finfo(dtype).max - 1
+
+    if precision != "native":
+        image = ((image - np.min(image)) / np.max(image)) * max_value
+        image = image.astype(dtype)
+
+    return image
 
 
 def read_nim_images(self, progress_callback, measurements, channels):
@@ -330,11 +350,11 @@ def read_nim_images(self, progress_callback, measurements, channels):
                 folder = dat["folder"].item()
                 parent_folder = dat["parent_folder"].item()
 
-                image, meta = read_tif(path)
+                image, meta = read_tif(path, self.import_precision.currentText())
 
                 img = process_image(image, multiframe_mode, channel_mode)
 
-                contrast_limit, alpha, beta, gamma = autocontrast_values(img, clip_hist_percent=1)
+                contrast_limit, alpha, beta, gamma = autocontrast_values(img)
 
                 self.active_import_mode = "NIM"
 
@@ -433,6 +453,7 @@ def get_brightest_fov(image):
 
 
 def imadjust(img):
+
     v_min, v_max = np.percentile(img, (1, 99))
     img = exposure.rescale_intensity(img, in_range=(v_min, v_max))
 
@@ -583,7 +604,7 @@ def import_dataset(self, progress_callback, paths):
             image_name = image_path.split("\\")[-1]
             mask_name = mask_path.split("\\")[-1]
 
-            image, meta = read_tif(image_path)
+            image, meta = read_tif(image_path, self.import_precision.currentText())
             assert len(image.shape) < 3, "Can only import single channel images"
 
             if os.path.exists(mask_path):
@@ -596,7 +617,7 @@ def import_dataset(self, progress_callback, paths):
                 mask_path = None
                 mask = np.zeros(image.shape, dtype=np.uint16)
 
-            contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
+            contrast_limit, alpha, beta, gamma = autocontrast_values(image)
 
             self.active_import_mode = "Dataset"
 
@@ -663,7 +684,7 @@ def import_AKSEG(self, progress_callback, file_paths):
             image_path = os.path.abspath(image_paths[i])
             json_path = image_path.replace("\\images\\", "\\json\\").replace(".tif",".txt")
 
-            image, meta_stack = read_tif(image_path)
+            image, meta_stack = read_tif(image_path, self.import_precision.currentText())
 
             if os.path.exists(json_path):
 
@@ -678,7 +699,7 @@ def import_AKSEG(self, progress_callback, file_paths):
 
                 img = image[j,:,:]
 
-                contrast_limit, alpha, beta, gamma = autocontrast_values(img, clip_hist_percent=1)
+                contrast_limit, alpha, beta, gamma = autocontrast_values(img)
 
                 self.active_import_mode = "AKSEG"
 
@@ -736,9 +757,9 @@ def import_images(self, progress_callback, file_paths):
         file_path = os.path.abspath(file_paths[i])
         file_name = os.path.basename(file_path)
 
-        image, meta = read_tif(file_path)
+        image, meta = read_tif(file_path, self.import_precision.currentText())
 
-        contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
+        contrast_limit, alpha, beta, gamma = autocontrast_values(image)
 
         self.active_import_mode = "image"
 
@@ -807,9 +828,9 @@ def import_cellpose(self, progress_callback, file_paths):
 
             image_name = image_path.split("\\")[-1]
 
-            img, meta = read_tif(image_path)
+            img, meta = read_tif(image_path, self.import_precision.currentText())
 
-            contrast_limit, alpha, beta, gamma = autocontrast_values(img, clip_hist_percent=1)
+            contrast_limit, alpha, beta, gamma = autocontrast_values(img)
 
             self.active_import_mode = "cellpose"
 
@@ -830,7 +851,7 @@ def import_cellpose(self, progress_callback, file_paths):
 
             image = dat["img"]
 
-            contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
+            contrast_limit, alpha, beta, gamma = autocontrast_values(image)
 
             self.active_import_mode = "cellpose"
 
@@ -951,7 +972,7 @@ def import_oufti(self, progress_callback, file_paths):
 
             image, mask, meta = import_mat_data(image_path, mat_path)
 
-            contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
+            contrast_limit, alpha, beta, gamma = autocontrast_values(image)
 
             self.active_import_mode = "oufti"
 
@@ -1240,11 +1261,11 @@ def import_JSON(self, progress_callback, file_paths):
             image_name = image_path.split("\\")[-1]
             json_name = json_path.split("\\")[-1]
 
-            image, meta = read_tif(image_path)
+            image, meta = read_tif(image_path, self.import_precision.currentText())
 
             mask, labels = import_coco_json(json_path)
 
-            contrast_limit, alpha, beta, gamma = autocontrast_values(image, clip_hist_percent=1)
+            contrast_limit, alpha, beta, gamma = autocontrast_values(image)
 
             self.active_import_mode = "JSON"
 
@@ -1304,13 +1325,10 @@ def cumsum(a):
     return np.array(b)
 
 
-def autocontrast_values(image, clip_hist_percent=1):
+def autocontrast_values(image, clip_hist_percent=0.01):
 
     # calculate histogram
-    img = np.asarray(image)
-
-    flat = img.flatten()
-    hist = get_histogram(flat, (2 ** 16) - 1)
+    hist, bin_edges = np.histogram(image, bins=(2 ** 16) - 1)
     hist_size = len(hist)
 
     # calculate cumulative distribution from the histogram
@@ -1341,15 +1359,21 @@ def autocontrast_values(image, clip_hist_percent=1):
     alpha = 255 / (maximum_gray - minimum_gray)
     beta = -minimum_gray * alpha
 
-    img = cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
-
     # calculate gamma value
+    img = cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
     mid = 0.5
-    mean = np.mean(img).astype(np.uint8)
+    mean = np.mean(img)
     gamma = np.log(mid * 255) / np.log(mean)
-    gamma = gamma
 
-    contrast_limit = [minimum_gray, maximum_gray]
+    if gamma > 2:
+        gamma = 2
+    if gamma < 0.2:
+        gamma = 0.2
+
+    if maximum_gray > minimum_gray:
+        contrast_limit = [minimum_gray, maximum_gray]
+    else:
+        contrast_limit = [np.min(image),np.max(image)]
 
     return contrast_limit, alpha, beta, gamma
 

@@ -163,6 +163,7 @@ class AKSEG(QWidget):
         self.active_import_mode = ""
         self.import_mode = self.findChild(QComboBox, "import_mode")
         self.import_filemode = self.findChild(QComboBox, "import_filemode")
+        self.import_precision = self.findChild(QComboBox, "import_precision")
         self.import_import = self.findChild(QPushButton, "import_import")
         self.import_limit = self.findChild(QComboBox, "import_limit")
         self.clear_previous = self.findChild(QCheckBox, "import_clear_previous")
@@ -374,7 +375,6 @@ class AKSEG(QWidget):
         populate_upload_combos(self)
 
         self.threadpool = QThreadPool()
-
 
     def _downloadDatabase(self):
 
@@ -863,7 +863,6 @@ class AKSEG(QWidget):
             self.modify_classify.setEnabled(True)
 
         if mode == "classify":
-
             self.viewer.layers.selection.select_only(self.segLayer)
 
             self.modify_add.setEnabled(False)
@@ -964,6 +963,7 @@ class AKSEG(QWidget):
             self.modify_segment.setEnabled(False)
 
         if self.interface_mode == "segment":
+            self.viewer.layers.selection.select_only(self.segLayer)
 
             if self.segmentation_mode == "add":
 
@@ -1752,11 +1752,11 @@ class AKSEG(QWidget):
                 current_fov = self.viewer.dims.current_step[0]
                 active_layer = self.viewer.layers.selection.active
 
+                image = self.viewer.layers[str(active_layer)].data[current_fov]
                 metadata = self.viewer.layers[str(active_layer)].metadata[current_fov]
 
                 contrast_limit = metadata["contrast_limit"]
                 gamma = metadata["contrast_gamma"]
-
                 self.viewer.layers[str(active_layer)].contrast_limits = contrast_limit
                 self.viewer.layers[str(active_layer)].gamma = gamma
 
