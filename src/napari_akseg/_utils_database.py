@@ -355,8 +355,6 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
                 meta["folder"] = None,
                 meta["parent_folder"] = None,
                 meta["akseg_hash"] = None
-                meta["nim_laser_mode"] = None
-                meta["nim_multichannel_mode"] = None
                 meta["fov_mode"] = None
                 meta["import_mode"] = "AKSEG"
                 meta["contrast_limit"] = None
@@ -643,6 +641,8 @@ def _uploadAKGROUP(self, mode):
                                     class_mask = class_mask[y1:y2, x1:x2]
 
                                     save_dir = akgroup_dir + "\\" + user_initial
+
+                                    print(folder)
 
                                     image_dir = save_dir + "\\" + "images" + "\\" + folder + "\\"
                                     mask_dir = save_dir + "\\" + "masks" + "\\" + folder + "\\"

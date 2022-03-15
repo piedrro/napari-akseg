@@ -59,7 +59,10 @@ def import_imagej(self, progress_callback, paths):
         paths = file_paths[i]
         paths = os.path.abspath(paths)
 
-        image, meta = read_tif(paths, self.import_precision.currentText())
+        import_precision = self.import_precision.currentText()
+        multiframe_mode = self.import_multiframe_mode.currentIndex()
+        crop_mode = self.import_crop_mode.currentIndex()
+        image, meta = read_tif(paths, import_precision, multiframe_mode)
 
         mask = read_imagej_file(paths, image)
 
@@ -79,6 +82,8 @@ def import_imagej(self, progress_callback, paths):
         meta["contrast_alpha"] = alpha
         meta["contrast_beta"] = beta
         meta["contrast_gamma"] = gamma
+        meta["dims"] = [image.shape[-1], image.shape[-2]]
+        meta["crop"] = [0, image.shape[-2], 0, image.shape[-1]]
 
         images.append(image)
         masks.append(mask)
@@ -267,7 +272,7 @@ def get_folder(files):
 
     return folder, parent_folder
 
-def read_tif(path, precision="native"):
+def read_tif(path, precision="native", multiframe_mode = 0, crop_mode = 0):
 
     with tifffile.TiffFile(path) as tif:
         try:
@@ -277,6 +282,10 @@ def read_tif(path, precision="native"):
             metadata = {}
 
     image = tifffile.imread(path)
+
+    image = crop_image(image, crop_mode)
+
+    image = get_frame(image, multiframe_mode)
 
     image = rescale_image(image, precision=precision)
 
@@ -291,13 +300,56 @@ def read_tif(path, precision="native"):
         metadata["mask_path"] = None
         metadata["label_name"] = None
         metadata["label_path"] = None
+        metadata["crop_mode"] = crop_mode
+        metadata["multiframe_mode"] = multiframe_mode
         metadata["folder"] = folder
         metadata["parent_folder"] = parent_folder
-
         metadata["dims"] = [image.shape[-1], image.shape[-2]]
         metadata["crop"] = [0, image.shape[-2], 0, image.shape[-1]]
 
     return image, metadata
+
+def get_frame(img, multiframe_mode):
+
+    if len(img.shape) > 2:
+
+        if multiframe_mode == 0:
+
+            img = img[0, :, :]
+
+        elif multiframe_mode == 1:
+
+            img = np.max(img, axis=0)
+
+        elif multiframe_mode == 2:
+
+            img = np.mean(img, axis=0).astype(np.uint16)
+
+    return img
+
+def crop_image(img, crop_mode=0):
+
+    if crop_mode != 0:
+
+        if len(img.shape) > 2:
+            imgL = img[:,:, :img.shape[1] // 2]
+            imgR = img[:,:, img.shape[1] // 2:]
+        else:
+            imgL = img[:, :img.shape[1] // 2]
+            imgR = img[:, img.shape[1] // 2:]
+
+        if crop_mode == 1:
+            img = imgL
+        if crop_mode == 2:
+            img = imgR
+
+        if crop_mode == 3:
+            if np.mean(imgL) > np.mean(imgR):
+                img = imgL
+            else:
+                img = imgR
+
+    return img
 
 
 def rescale_image(image, precision="int16"):
@@ -321,7 +373,7 @@ def rescale_image(image, precision="int16"):
 def read_nim_images(self, progress_callback, measurements, channels):
 
     laser_mode = self.laser_mode.currentText()
-    multiframe_mode = self.multiframe_mode.currentIndex()
+    multiframe_mode = self.import_multiframe_mode.currentIndex()
     channel_mode = self.channel_mode.currentIndex()
 
     nim_images = {}
@@ -357,9 +409,10 @@ def read_nim_images(self, progress_callback, measurements, channels):
                 folder = dat["folder"].item()
                 parent_folder = dat["parent_folder"].item()
 
-                image, meta = read_tif(path, self.import_precision.currentText())
-
-                img = process_image(image, multiframe_mode, channel_mode)
+                import_precision = self.import_precision.currentText()
+                multiframe_mode = self.import_multiframe_mode.currentIndex()
+                crop_mode = self.import_crop_mode.currentIndex()
+                img, meta = read_tif(path,import_precision,multiframe_mode,crop_mode)
 
                 contrast_limit, alpha, beta, gamma = autocontrast_values(img)
 
@@ -367,12 +420,9 @@ def read_nim_images(self, progress_callback, measurements, channels):
 
                 meta["image_name"] = os.path.basename(path)
                 meta["image_path"] = path
-                meta["folder"] = folder,
-                meta["parent_folder"] = parent_folder,
+                meta["folder"] = folder
+                meta["parent_folder"] = parent_folder
                 meta["akseg_hash"] = get_hash(path)
-                meta["nim_laser_mode"] = laser_mode
-                meta["nim_multiframe_mode"] = multiframe_mode
-                meta["nim_channel_mode"] = channel_mode
                 meta["import_mode"] = "NIM"
                 meta["contrast_limit"] = contrast_limit
                 meta["contrast_alpha"] = alpha
@@ -422,8 +472,6 @@ def read_nim_images(self, progress_callback, measurements, channels):
                 meta["folder"] = None,
                 meta["parent_folder"] = None,
                 meta["akseg_hash"] = None
-                meta["nim_laser_mode"] = None
-                meta["nim_multichannel_mode"] = None
                 meta["fov_mode"] = None
                 meta["import_mode"] = "NIM"
                 meta["contrast_limit"] = None
@@ -468,6 +516,7 @@ def imadjust(img):
 
 
 def get_channel(img, multiframe_mode):
+
     if len(img.shape) > 2:
 
         if multiframe_mode == 0:
@@ -611,12 +660,18 @@ def import_dataset(self, progress_callback, paths):
             image_name = image_path.split("\\")[-1]
             mask_name = mask_path.split("\\")[-1]
 
-            image, meta = read_tif(image_path, self.import_precision.currentText())
-            assert len(image.shape) < 3, "Can only import single channel images"
+            import_precision = self.import_precision.currentText()
+            multiframe_mode = self.import_multiframe_mode.currentIndex()
+            crop_mode = self.import_crop_mode.currentIndex()
+            image, meta = read_tif(path, import_precision, multiframe_mode)
+
+            crop_mode = self.import_crop_mode.currentIndex()
+            image = crop_image(image,crop_mode)
 
             if os.path.exists(mask_path):
 
                 mask = tifffile.imread(mask_path)
+                mask = crop_image(mask, crop_mode)
                 assert len(mask.shape) < 3, "Can only import single channel masks"
 
             else:
@@ -640,6 +695,8 @@ def import_dataset(self, progress_callback, paths):
             meta["contrast_alpha"] = alpha
             meta["contrast_beta"] = beta
             meta["contrast_gamma"] = gamma
+            meta["dims"] = [image.shape[-1], image.shape[-2]]
+            meta["crop"] = [0, image.shape[-2], 0, image.shape[-1]]
 
             images.append(image)
             metadata[i] = meta
@@ -691,11 +748,18 @@ def import_AKSEG(self, progress_callback, file_paths):
             image_path = os.path.abspath(image_paths[i])
             json_path = image_path.replace("\\images\\", "\\json\\").replace(".tif",".txt")
 
-            image, meta_stack = read_tif(image_path, self.import_precision.currentText())
+            import_precision = self.import_precision.currentText()
+            image, meta_stack = read_tif(path, import_precision, multiframe_mode = 0)
+
+            crop_mode = self.import_crop_mode.currentIndex()
+            image = crop_image(image,crop_mode)
 
             if os.path.exists(json_path):
 
                 mask, label = import_coco_json(json_path)
+                mask = crop_image(mask, crop_mode)
+                label = crop_image(label, crop_mode)
+
 
             else:
 
@@ -764,7 +828,10 @@ def import_images(self, progress_callback, file_paths):
         file_path = os.path.abspath(file_paths[i])
         file_name = os.path.basename(file_path)
 
-        image, meta = read_tif(file_path, self.import_precision.currentText())
+        import_precision = self.import_precision.currentText()
+        multiframe_mode = self.import_multiframe_mode.currentIndex()
+        crop_mode = self.import_crop_mode.currentIndex()
+        image, meta = read_tif(file_path, import_precision, multiframe_mode, crop_mode)
 
         contrast_limit, alpha, beta, gamma = autocontrast_values(image)
 
@@ -782,6 +849,8 @@ def import_images(self, progress_callback, file_paths):
         meta["contrast_alpha"] = alpha
         meta["contrast_beta"] = beta
         meta["contrast_gamma"] = gamma
+        meta["dims"] = [image.shape[-1], image.shape[-2]]
+        meta["crop"] = [0, image.shape[-2], 0, image.shape[-1]]
 
         images.append(image)
         metadata[i] = meta
@@ -835,7 +904,13 @@ def import_cellpose(self, progress_callback, file_paths):
 
             image_name = image_path.split("\\")[-1]
 
-            img, meta = read_tif(image_path, self.import_precision.currentText())
+            import_precision = self.import_precision.currentText()
+            multiframe_mode = self.import_multiframe_mode.currentIndex()
+            img, meta = read_tif(image_path, import_precision, multiframe_mode)
+
+            crop_mode = self.import_crop_mode.currentIndex()
+            img = crop_image(img,crop_mode)
+            mask = crop_image(mask,crop_mode)
 
             contrast_limit, alpha, beta, gamma = autocontrast_values(img)
 
@@ -853,6 +928,8 @@ def import_cellpose(self, progress_callback, file_paths):
             meta["contrast_alpha"] = alpha
             meta["contrast_beta"] = beta
             meta["contrast_gamma"] = gamma
+            meta["dims"] = [img.shape[-1], img.shape[-2]]
+            meta["crop"] = [0, img.shape[-2], 0, img.shape[-1]]
 
         else:
 
@@ -979,6 +1056,10 @@ def import_oufti(self, progress_callback, file_paths):
 
             image, mask, meta = import_mat_data(image_path, mat_path)
 
+            crop_mode = self.import_crop_mode.currentIndex()
+            image = crop_image(image,crop_mode)
+            mask = crop_image(mask,crop_mode)
+
             contrast_limit, alpha, beta, gamma = autocontrast_values(image)
 
             self.active_import_mode = "oufti"
@@ -995,6 +1076,10 @@ def import_oufti(self, progress_callback, file_paths):
             meta["contrast_alpha"] = alpha
             meta["contrast_beta"] = beta
             meta["contrast_gamma"] = gamma
+            meta["dims"] = [image.shape[-1], image.shape[-2]]
+            meta["crop"] = [0, image.shape[-2], 0, image.shape[-1]]
+
+
 
             if imported_images == {}:
                 imported_images["Image"] = dict(images=[image], masks=[mask], classes=[], metadata={i: meta})
@@ -1011,9 +1096,12 @@ def import_oufti(self, progress_callback, file_paths):
     return imported_data
 
 
-def import_mat_data(image_path, mat_path):
+def import_mat_data(self, image_path, mat_path):
 
-    image, meta = read_tif(image_path)
+    import_precision = self.import_precision.currentText()
+    multiframe_mode = self.import_multiframe_mode.currentIndex()
+    crop_mode = self.import_crop_mode.currentIndex()
+    image, meta = read_tif(image_path, import_precision, multiframe_mode)
 
     mat_data = mat4py.loadmat(mat_path)
 
@@ -1268,9 +1356,17 @@ def import_JSON(self, progress_callback, file_paths):
             image_name = image_path.split("\\")[-1]
             json_name = json_path.split("\\")[-1]
 
-            image, meta = read_tif(image_path, self.import_precision.currentText())
+            import_precision = self.import_precision.currentText()
+            multiframe_mode = self.import_multiframe_mode.currentIndex()
+            crop_mode = self.import_crop_mode.currentIndex()
+            image, meta = read_tif(image_path, import_precision, multiframe_mode)
 
             mask, labels = import_coco_json(json_path)
+
+            crop_mode = self.import_crop_mode.currentIndex()
+            image = crop_image(image,crop_mode)
+            mask = crop_image(mask, crop_mode)
+            labels = crop_image(labels, crop_mode)
 
             contrast_limit, alpha, beta, gamma = autocontrast_values(image)
 
@@ -1288,6 +1384,8 @@ def import_JSON(self, progress_callback, file_paths):
             meta["contrast_alpha"] = alpha
             meta["contrast_beta"] = beta
             meta["contrast_gamma"] = gamma
+            meta["dims"] = [image.shape[-1], image.shape[-2]]
+            meta["crop"] = [0, image.shape[-2], 0, image.shape[-1]]
 
             if imported_images == {}:
                 imported_images["Image"] = dict(images=[image], masks=[mask], classes=[labels], metadata={i: meta})
@@ -1332,7 +1430,7 @@ def cumsum(a):
     return np.array(b)
 
 
-def autocontrast_values(image, clip_hist_percent=0.01):
+def autocontrast_values(image, clip_hist_percent=0.001):
 
     # calculate histogram
     hist, bin_edges = np.histogram(image, bins=(2 ** 16) - 1)
@@ -1463,6 +1561,6 @@ def import_masks(self, file_paths):
 
         if file_format == "mat":
 
-            image, mask, meta = import_mat_data(image_path, mask_path)
+            image, mask, meta = import_mat_data(self, image_path, mask_path)
             mask_stack[i, :, :][y1:y2, x1:x2] = mask
             self.segLayer.data = mask_stack.astype(np.uint16)

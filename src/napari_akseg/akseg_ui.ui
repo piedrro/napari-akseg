@@ -150,14 +150,14 @@
         </item>
        </widget>
       </item>
-      <item row="4" column="0">
+      <item row="6" column="0">
        <widget class="QLabel" name="import_limit_2">
         <property name="text">
          <string>Import File Limit</string>
         </property>
        </widget>
       </item>
-      <item row="4" column="1">
+      <item row="6" column="1">
        <widget class="QComboBox" name="import_limit">
         <item>
          <property name="text">
@@ -196,7 +196,7 @@
         </item>
        </widget>
       </item>
-      <item row="3" column="1">
+      <item row="5" column="1">
        <widget class="QComboBox" name="import_precision">
         <property name="currentIndex">
          <number>1</number>
@@ -223,10 +223,67 @@
         </item>
        </widget>
       </item>
-      <item row="3" column="0">
+      <item row="5" column="0">
        <widget class="QLabel" name="label_21">
         <property name="text">
          <string>Import Precision</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QComboBox" name="import_multiframe_mode">
+        <item>
+         <property name="text">
+          <string>Keep First Frame</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Keep Brightest Frame</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Average Frames</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="label_30">
+        <property name="text">
+         <string>Multi-Frame Mode</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1">
+       <widget class="QComboBox" name="import_crop_mode">
+        <item>
+         <property name="text">
+          <string>None</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Crop Left Half</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Crop Right Half</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Crop Brightest Half</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLabel" name="label_22">
+        <property name="text">
+         <string>Image Crop Mode</string>
         </property>
        </widget>
       </item>
@@ -287,34 +344,10 @@
       <property name="sizeConstraint">
        <enum>QLayout::SetMinimumSize</enum>
       </property>
-      <item row="3" column="1">
-       <widget class="QComboBox" name="nim_channel_mode">
-        <item>
-         <property name="text">
-          <string>Brightest Channel</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Left Channel</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Right Channel</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Both Channels</string>
-         </property>
-        </item>
-       </widget>
-      </item>
-      <item row="3" column="0">
-       <widget class="QLabel" name="label_31">
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_29">
         <property name="text">
-         <string>Channel Mode</string>
+         <string>Laser Mode</string>
         </property>
        </widget>
       </item>
@@ -353,39 +386,6 @@
           <string>BF</string>
          </property>
         </item>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="label_29">
-        <property name="text">
-         <string>Laser Mode</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QComboBox" name="nim_multiframe_mode">
-        <item>
-         <property name="text">
-          <string>Keep First Frame</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Keep Brightest Frame</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Average Frames</string>
-         </property>
-        </item>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_30">
-        <property name="text">
-         <string>Multi-Frame Mode</string>
-        </property>
        </widget>
       </item>
      </layout>
