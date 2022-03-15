@@ -140,35 +140,42 @@ def read_nim_directory(self, path):
 
         with tifffile.TiffFile(path) as tif:
 
-            metadata = tif.pages[0].tags["ImageDescription"].value
+            tif_tags = {}
+            for tag in tif.pages[0].tags.values():
+                name, value = tag.name, tag.value
+                tif_tags[name] = value
+                
+        if "ImageDescription" in tif_tags:
+            
+            metadata = tif_tags["ImageDescription"]
             metadata = json.loads(metadata)
-
-        laseractive = metadata["LaserActive"]
-        laserpowers = metadata["LaserPowerPercent"]
-        laserwavelength_nm = metadata["LaserWavelength_nm"]
-        timestamp = metadata["timestamp_us"]
-
-        posX, posY, posZ = metadata["StagePos_um"]
-
-        if True in laseractive:
-            laseractive = np.array(laseractive, dtype=bool)
-            laserpowers = np.array(laserpowers, dtype=float)
-            laserwavelength_nm = np.array(laserwavelength_nm, dtype=str)
-
-            # finds maximum active power
-            power = laserpowers[laseractive == True].max()
-
-            laser_index = np.where(laserpowers == power)
-
-            laser = laserwavelength_nm[laser_index][0]
-        else:
-            laser = "White Light"
-
-        file_name = path.split("\\")[-1]
-
-        data = [path, file_name, posX, posY, posZ, laser, timestamp]
-
-        files.loc[len(files)] = [path, file_name, folder, parent_folder, posX, posY, posZ, laser, timestamp]
+    
+            laseractive = metadata["LaserActive"]
+            laserpowers = metadata["LaserPowerPercent"]
+            laserwavelength_nm = metadata["LaserWavelength_nm"]
+            timestamp = metadata["timestamp_us"]
+    
+            posX, posY, posZ = metadata["StagePos_um"]
+    
+            if True in laseractive:
+                laseractive = np.array(laseractive, dtype=bool)
+                laserpowers = np.array(laserpowers, dtype=float)
+                laserwavelength_nm = np.array(laserwavelength_nm, dtype=str)
+    
+                # finds maximum active power
+                power = laserpowers[laseractive == True].max()
+    
+                laser_index = np.where(laserpowers == power)
+    
+                laser = laserwavelength_nm[laser_index][0]
+            else:
+                laser = "White Light"
+    
+            file_name = path.split("\\")[-1]
+    
+            data = [path, file_name, posX, posY, posZ, laser, timestamp]
+    
+            files.loc[len(files)] = [path, file_name, folder, parent_folder, posX, posY, posZ, laser, timestamp]
 
     files[["posX", "posY", "posZ"]] = files[["posX", "posY", "posZ"]].round(decimals=1)
 
