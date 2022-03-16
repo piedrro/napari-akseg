@@ -373,8 +373,6 @@ def rescale_image(image, precision="int16"):
 def read_nim_images(self, progress_callback, measurements, channels):
 
     laser_mode = self.laser_mode.currentText()
-    multiframe_mode = self.import_multiframe_mode.currentIndex()
-    channel_mode = self.channel_mode.currentIndex()
 
     nim_images = {}
     img_shape = (100,100)
@@ -1208,8 +1206,11 @@ def align_image_channels(self):
 
                 shifted_img = self.viewer.layers[layer].data[i, :, :]
 
-                shift, error, diffphase = phase_cross_correlation(img, shifted_img, upsample_factor=100)
-                shifted_img = scipy.ndimage.shift(shifted_img, shift)
+                try:
+                    shift, error, diffphase = phase_cross_correlation(img, shifted_img, upsample_factor=100)
+                    shifted_img = scipy.ndimage.shift(shifted_img, shift)
+                except:
+                    pass
 
                 self.viewer.layers[layer].data[i, :, :] = shifted_img
 

@@ -400,8 +400,24 @@ def generate_multichannel_stack(self):
     upload_labelled = self.upload_labelled.isChecked()
     upload_segcurated = self.upload_segcurated.isChecked()
     upload_classcurated = self.upload_classcurated.isChecked()
-
+    overwrite_all_metadata = self.overwrite_all_metadata.isChecked()
+    overwrite_selected_metadata = self.overwrite_selected_metadata.isChecked()
     date_uploaded = datetime.datetime.now()
+
+    metadata = dict(user_initial=user_initial,
+                    content=content,
+                    microscope=microscope,
+                    modality=modality,
+                    source=source,
+                    stains=stains,
+                    antibiotic=antibiotic,
+                    abxconcentration=abxconcentration,
+                    treatmenttime=treatmenttime,
+                    mount=mount,
+                    protocol=protocol,
+                    usermeta1=usermeta1,
+                    usermeta2=usermeta2,
+                    usermeta3=usermeta3)
 
     layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
 
@@ -438,8 +454,7 @@ def generate_multichannel_stack(self):
                 file_list.append(meta['image_name'])
                 layer_list.append(layer)
 
-
-                if meta["import_mode"] != "AKSEG":
+                if meta["import_mode"] != "AKSEG" and overwrite_all_metadata is True:
 
                     if meta["import_mode"] != "NIM":
 
@@ -464,6 +479,19 @@ def generate_multichannel_stack(self):
                     meta["layer_list"] = []
                     meta["segmentation_file"] = segmentation_file
 
+                if meta["import_mode"] == "AKSEG" and overwrite_all_metadata is True:
+
+                    metadata = {key: val for key, val in metadata.items() if val != "Required for upload"}
+
+                    for key,value in metadata.items():
+                        meta[key] = value
+
+                if overwrite_selected_metadata is True:
+
+                    metadata = {key: val for key, val in metadata.items() if val not in ["", "Required for upload"]}
+
+                    for key,value in metadata.items():
+                        meta[key] = value
 
                 meta["segmented"] = upload_segmented
                 meta["labelled"] = upload_labelled
@@ -516,6 +544,15 @@ def _uploadAKGROUP(self, mode):
             microscope = self.upload_microscope.currentText()
             modality = self.upload_modality.currentText()
             date_uploaded = datetime.datetime.now()
+            overwrite_images = self.upload_overwrite_images.isChecked()
+            overwrite_masks = self.upload_overwrite_masks.isChecked()
+            overwrite_all_metadata = self.overwrite_all_metadata.isChecked()
+            overwrite_selected_metadata = self.overwrite_selected_metadata.isChecked()
+
+            if overwrite_all_metadata is True or overwrite_selected_metadata is True:
+                overwrite_metadata = True
+            else:
+                overwrite_metadata = False
 
             user_metadata_path = akgroup_dir + "\\" + user_initial + "\\" + user_initial + "_file_metadata.txt"
 
@@ -619,16 +656,29 @@ def _uploadAKGROUP(self, mode):
                                 import_mode = meta["import_mode"]
 
                                 #stops user from overwriting AKGROUP files, unless they have opened them from AKGROUP for curation
-                                if akseg_hash in metadata_akseg_hash and import_mode != "AKSEG":
+                                if akseg_hash in metadata_akseg_hash and import_mode != "AKSEG" and overwrite_images == False and overwrite_masks == False and overwrite_metadata is False:
 
                                     print("file already exists  in AKGROUP Server:   " + file_name)
 
                                 else:
 
-                                    if import_mode != "AKSEG":
-                                        print("Uploading file to AKGROUP Server:   " + file_name)
+
+                                    if import_mode == "AKSEG":
+                                        if overwrite_selected_metadata is True:
+                                            print("Overwriting selected metadata on AKGROUP Server:   " + file_name)
+                                        elif overwrite_all_metadata is True:
+                                            print("Overwriting all metadata on AKGROUP Server:   " + file_name)
+                                        else:
+                                            print("Editing file on AKGROUP Server:   " + file_name)
+
+                                    elif overwrite_images is True and overwrite_masks is True:
+                                        print("Overwriting image + mask/label on AKGROUP Server:   " + file_name)
+                                    elif overwrite_images is True:
+                                        print("Overwriting image on AKGROUP Server:   " + file_name)
+                                    elif overwrite_masks is True:
+                                        print("Overwriting mask/label on AKGROUP Server:   " + file_name)
                                     else:
-                                        print("Editing file on AKGROUP Server:   " + file_name)
+                                        print("Uploading file to AKGROUP Server:   " + file_name)
 
                                     y1, y2, x1, x2 = meta["crop"]
 
@@ -641,8 +691,6 @@ def _uploadAKGROUP(self, mode):
                                     class_mask = class_mask[y1:y2, x1:x2]
 
                                     save_dir = akgroup_dir + "\\" + user_initial
-
-                                    print(folder)
 
                                     image_dir = save_dir + "\\" + "images" + "\\" + folder + "\\"
                                     mask_dir = save_dir + "\\" + "masks" + "\\" + folder + "\\"
@@ -669,10 +717,13 @@ def _uploadAKGROUP(self, mode):
 
                                     meta.pop("shape", None)
 
-                                    tifffile.imwrite(os.path.abspath(image_path), img, metadata=meta)
-                                    tifffile.imwrite(mask_path, mask, metadata=meta)
-                                    tifffile.imwrite(class_path, class_mask, metadata=meta)
-                                    export_coco_json(file_name, img, mask, class_mask, json_path)
+                                    if os.path.isfile(image_path) is False or import_mode == "AKSEG" or overwrite_images is True or overwrite_metadata is True:
+                                        tifffile.imwrite(os.path.abspath(image_path), img, metadata=meta)
+
+                                    if os.path.isfile(image_path) is False or import_mode == "AKSEG" or overwrite_masks is True or overwrite_metadata is True:
+                                        tifffile.imwrite(mask_path, mask, metadata=meta)
+                                        tifffile.imwrite(class_path, class_mask, metadata=meta)
+                                        export_coco_json(file_name, img, mask, class_mask, json_path)
 
                                     if "mask_path" not in meta.keys():
                                         meta["mask_path"] = None

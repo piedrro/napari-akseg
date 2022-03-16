@@ -125,6 +125,7 @@ def get_filemeta(path):
     
 paths = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images"
 paths = glob(paths + "*\**\*.tif")
+paths = [path for path in paths if "_flows.tif" not in path]
 
 if __name__ == '__main__':
 
@@ -148,6 +149,18 @@ if __name__ == '__main__':
             data = user_metadata[user_metadata["user_initial"] == user_initial]
             
             data.to_csv(user_metadata_path, sep=",", index = False)            
+
+
+
+# for path in paths:
+#     try:
+#         file_metadata = get_filemeta(path)
+#     except:
+#         print(path)
+#         break
+    
+
+
 
 
 
