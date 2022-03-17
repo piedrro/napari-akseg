@@ -259,9 +259,11 @@ def get_folder(files):
 
         for i in range(len(paths)):
 
-            if len(set(paths[i].tolist())) != 1:
+            if len(set(paths[i])) != 1:
                 folder = str(paths[i - 1][0])
                 parent_folder = str(paths[i - 2][0])
+
+                print(folder,parent_folder)
 
                 break
 
@@ -324,6 +326,10 @@ def get_frame(img, multiframe_mode):
         elif multiframe_mode == 2:
 
             img = np.mean(img, axis=0).astype(np.uint16)
+
+        elif multiframe_mode == 3:
+
+            img = np.sum(img, axis=0)
 
     return img
 
@@ -1498,7 +1504,7 @@ def import_masks(self, file_paths):
         import_folder = file_paths.replace(file_paths.split("\\")[-1], "")
 
     import_folder = os.path.abspath(import_folder)
-    mask_paths = glob(import_folder + "**\*", recursive=True)
+    mask_paths = glob(import_folder + "**\**\*", recursive=True)
 
     mask_files = [path.split("\\")[-1] for path in mask_paths]
     mask_search = [file.split(".")[0] for file in mask_files]
@@ -1546,6 +1552,8 @@ def import_masks(self, file_paths):
             self.segLayer.data = mask_stack.astype(np.uint16)
 
         if file_format == "txt":
+
+            print(mask_path)
 
             mask, labels = import_coco_json(mask_path)
             mask_stack[i, :, :][y1:y2, x1:x2] = mask

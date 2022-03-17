@@ -247,6 +247,11 @@
           <string>Average Frames</string>
          </property>
         </item>
+        <item>
+         <property name="text">
+          <string>Sum Frames</string>
+         </property>
+        </item>
        </widget>
       </item>
       <item row="3" column="0">
