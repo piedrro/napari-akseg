@@ -277,6 +277,8 @@ def read_AKSEG_directory(self, path, import_limit=1):
 
     files["path"] = files.apply(lambda x: (x['path'].replace(os.path.basename(x['path']), "") + x["file_name"]), axis=1)
 
+    files = files[files["segmentation_file"] != "missing image channel"]
+
     segmentation_files = files["segmentation_file"].unique()
     num_measurements = len(segmentation_files)
 
@@ -320,10 +322,7 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
 
                 print("loading image[" + channel + "] " + str(i + 1) + " of " + str(len(measurements)))
 
-                file_name = dat["file_name"].item()
                 path = dat["path"].item()
-
-                # path = path.replace(os.path.basename(path),"") + file_name
 
                 image_path = os.path.abspath(path)
                 mask_path = os.path.abspath(path.replace("\\images\\","\\masks\\"))

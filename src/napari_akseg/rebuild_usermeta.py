@@ -123,7 +123,7 @@ def get_filemeta(path):
     return file_metadata
                                  
     
-paths = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images"
+paths = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images\AF"
 paths = glob(paths + "*\**\*.tif")
 paths = [path for path in paths if "_flows.tif" not in path]
 

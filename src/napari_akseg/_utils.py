@@ -1492,6 +1492,7 @@ def autocontrast_values(image, clip_hist_percent=0.001):
 def import_masks(self, file_paths):
 
     mask_stack = self.segLayer.data.copy()
+    class_stack = self.classLayer.data.copy()
 
     if os.path.isdir(file_paths[0]):
 
@@ -1553,11 +1554,12 @@ def import_masks(self, file_paths):
 
         if file_format == "txt":
 
-            print(mask_path)
-
-            mask, labels = import_coco_json(mask_path)
+            mask, label = import_coco_json(mask_path)
             mask_stack[i, :, :][y1:y2, x1:x2] = mask
+            class_stack[i, :, :][y1:y2, x1:x2] = label
+
             self.segLayer.data = mask_stack.astype(np.uint16)
+            self.classLayer.data = class_stack.astype(np.uint16)
 
         if file_format == "npy":
 
