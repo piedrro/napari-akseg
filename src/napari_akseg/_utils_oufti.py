@@ -2,6 +2,10 @@ import scipy.io
 import numpy as np
 import cv2
 import os
+import shapely
+from shapely.geometry import LineString
+from shapely.geometry import Polygon
+from shapely.geometry.polygon import orient
 
 def find_contours(img):
 
@@ -135,57 +139,101 @@ def get_mesh(cnt, model, cnt_ends):
             end = i
             mesh_end = [cnt_ends[1][0], cnt_ends[1][1]]
 
-    mesh1 = []
-    mesh2 = []
-
     if start > end:
         start, end = end, start
 
-    for i in range(len(model)):
+    length = start-end
 
-        element = list(model[i])
+    model = np.roll(model,-start,0)
+    model = np.append(model,[model[0]],0)
+    
+    left_line = model[:length+1]
+    right_line = model[length:]
+    
+    right_line = np.flipud(right_line)
+    
+    mesh_length = max(len(left_line),len(right_line))
+    
+    left_line = LineString(left_line)
+    right_line = LineString(right_line)
+    
+    left_line = resize_line(left_line,mesh_length)
+    right_line = resize_line(right_line,mesh_length)
+    
+    left_line = line_to_array(left_line)
+    right_line = line_to_array(right_line)
+    
+    mid_line = (left_line + np.flipud(right_line))/2
+    mid_line = mid_line.reshape(-1,1,2).astype(int)
+    
+    q = np.vstack([left_line, right_line]).reshape(-1,2)
+    polygon = Polygon(q)
+    polygon = orient(polygon)
+    
+    mesh = np.hstack((left_line,right_line)).reshape(-1,4)
+    model = np.transpose(np.array(polygon.exterior.coords.xy))
+    
+    mesh = mesh + 1
+    model = model + 1
 
-        if i >= start and i <= end:
-            mesh1.append(element)
-        if i <= start or i >= end:
-            mesh2.append(element)
+    distances, area, volume = compute_line_metrics(left_line,right_line, mid_line)
+    
+    boundingbox = np.asarray(polygon.bounds)
+    
+    boundingbox[0:2] = np.floor( boundingbox[0:2])
+    boundingbox[2:4] = np.ceil( boundingbox[2:4])
+    boundingbox[2:4] = boundingbox[2:4] - boundingbox[0:2]
+    boundingbox = boundingbox.astype(float)
 
-    if len(mesh1) != len(mesh2):
+    return mesh, model, distances, area, volume, boundingbox
 
-        if len(mesh1) > len(mesh2):
 
-            difference = len(mesh1) - len(mesh2)
 
-            for i in range(difference):
-                mesh2.append(mesh2[0])
-
-        if len(mesh2) > len(mesh1):
-
-            difference = len(mesh2) - len(mesh1)
-
-            for i in range(difference):
-                mesh1.append(mesh1[0])
-
-    mesh1_start = 0
-    mesh2_start = 0
-
-    for i in range(len(mesh1)):
-
-        element1 = mesh1[i]
-        element2 = mesh2[i]
-
-        if element1[0] == mesh_start[0] and element1[1] == mesh_start[1]:
-            mesh1_start = i
-
-        if element2[0] == mesh_start[0] and element2[1] == mesh_start[1]:
-            mesh2_start = i
-
-    mesh1 = mesh1[mesh1_start:] + mesh1[:mesh1_start] + [mesh1[mesh1_start]]
-    mesh2 = mesh2[mesh2_start:] + mesh2[:mesh2_start] + [mesh1[mesh1_start]]
-
-    mesh = np.hstack((mesh1, mesh2))
-
+def resize_line(mesh,mesh_length):
+    
+    distances = np.linspace(0, mesh.length, mesh_length)
+    mesh = LineString([mesh.interpolate(distance) for distance in distances])
+    
     return mesh
+
+def line_to_array(mesh):
+    
+    mesh = np.array([mesh.xy[0][:],mesh.xy[1][:]]).T.reshape(-1,1,2)
+    
+    return mesh
+
+def dist(a,b):
+
+    return np.sqrt((a[0]-b[0])*(a[0]-b[0])+(a[1]-b[1])*(a[1]-b[1]))
+
+
+def compute_line_metrics(left_line,right_line, mid_line):
+    
+    divisions = mid_line.shape[0] - 2
+
+    distances = []
+    area = []
+    volume = []
+    
+    for i in range(mid_line.shape[0]-1):
+        distances.append(dist(mid_line[i,:][0],mid_line[i+1,:][0]))
+        
+    for i in range(mid_line.shape[0]-1):
+        pol = np.array([left_line[i,:][0], right_line[i,:][0], right_line[i+1,:][0],left_line[i+1,:][0]])
+        pol = shapely.geometry.Polygon(pol)
+        area.append(pol.area)
+        
+    for i in range(mid_line.shape[0]-1):
+        r1 = dist(left_line[i,:][0], right_line[i,:][0])/2
+        r2 = dist(left_line[i+1,:][0], right_line[i+1,:][0])/2
+        volume.append(np.pi * distances[i] / 3 * (r1*r1+r1*r2+r2*r2))
+        
+    distances = np.array(distances).T
+    area = np.array(area).T
+    volume = np.array(volume).T
+    
+    return distances, area, volume
+        
 
 def export_oufti(mask, file_path):
 
@@ -193,40 +241,38 @@ def export_oufti(mask, file_path):
 
     mask_ids = np.unique(mask)
 
-    cellListN = len(mask_ids - 1)
-    cellList = np.zeros((1,), dtype=object)
-    cellList_items = np.zeros((1, cellListN), dtype=object)
+    cell_data = []
 
     for i in range(len(mask_ids)):
 
         if i != 0:
-
+            
             try:
-
+                
                 cell_mask = np.zeros(mask.shape, dtype=np.uint8)
                 cell_mask[mask == i] = 255
-
+    
                 contours, hierarchy = cv2.findContours(cell_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-
+    
                 cnt = contours[0]
-
+    
                 x, y, w, h = cv2.boundingRect(cnt)
                 y1, y2, x1, x2 = y, (y + h), x, (x + w)
-
-                model = cnt.reshape((-2, 2)).astype(int)
-
-                box = [y2, x1, w, h]
-
+    
+                model = cnt.reshape((-2, 2))
+    
+                box1 = [x1, y2, w, h]
+    
                 area = cv2.contourArea(cnt)
-
+    
                 #performs pca analysis to find primary dimensions of shape (lengh,width)
                 cx, cy, lx, ly, wx, wy, data_pts = pca(cnt)
-
+    
                 #finds the ends of the contour, and its length
                 cnt_ends, length = find_cnt_ends(mask.shape, cnt, cx, cy, lx, ly, wx, wy)
-
-                mesh = get_mesh(cnt, model, cnt_ends)
-
+    
+                mesh, model, steplength, steparea, stepvolume, box = get_mesh(cnt, model, cnt_ends)
+                
                 cell_struct = {'mesh': mesh,
                                'model': model,
                                'birthframe': 1,
@@ -238,30 +284,50 @@ def export_oufti(mask, file_path):
                                'polarity': 0,
                                'stage': 1,
                                'box': box,
-                               'steplength': 0,
-                               'length': 0,
-                               'lengthvector': 0,
-                               'steparea': 0,
-                               'area': area,
-                               'stepvolume': 0,
-                               'volume': 0}
+                               'steplength': steplength,
+                               'length': np.sum(steplength),
+                               'lengthvector': steplength,
+                               'steparea': steparea,
+                               'area': np.sum(steparea),
+                               'stepvolume': stepvolume.T,
+                               'volume': np.sum(stepvolume)}
+                
 
-                cellList_items[0, i] = cell_struct
 
+                cell_data.append(cell_struct)
+                
             except:
                 pass
-
+            
+    cellListN = len(cell_data)
+    cellList = np.zeros((1,), dtype=object)
+    cellList_items = np.zeros((1, cellListN), dtype=object)
+    
+    microbeTrackerParamsString="% This file contains MicrobeTracker settings optimized for wildtype E. coli cells at 0.114 um/pixel resolution (using algorithm 4)\n\nalgorithm = 4\n\n% Pixel-based parameters\nareaMin = 120\nareaMax = 2200\nthresFactorM = 1\nthresFactorF = 1\nsplitregions = 1\nedgemode = logvalley\nedgeSigmaL = 3\nedveSigmaV = 1\nvalleythresh1 = 0\nvalleythresh2 = 1\nerodeNum = 1\nopennum = 0\nthreshminlevel = 0.02\n\n% Constraint parameters\nfmeshstep = 1\ncellwidth =6.5\nfsmooth = 18\nimageforce = 4\nwspringconst = 0.3\nrigidityRange = 2.5\nrigidity = 1\nrigidityRangeB = 8\nrigidityB = 5\nattrCoeff = 0.1\nrepCoeff = 0.3\nattrRegion = 4\nhoralign = 0.2\neqaldist = 2.5\n\n% Image force parameters\nfitqualitymax = 0.5\nforceWeights = 0.25 0.5 0.25\ndmapThres = 2\ndmapPower = 2\ngradSmoothArea = 0.5\nrepArea = 0.9\nattrPower = 4\nneighRep = 0.15\n\n% Mesh creation parameters\nroiBorder = 20.5\nnoCellBorder = 5\nmaxmesh = 1000\nmaxCellNumber = 2000\nmaxRegNumber = 10000\nmeshStep = 1\nmeshTolerance = 0.01\n\n% Fitting parameters\nfitConvLevel = 0.0001\nfitMaxIter = 500\nmoveall = 0.1\nfitStep = 0.2\nfitStepM = 0.6\n\n% Joining and splitting\nsplitThreshold = 0.35\njoindist = 5\njoinangle = 0.8\njoinWhenReuse = 0\nsplit1 = 0\n\n% Other\nbgrErodeNum = 5\nsgnResize = 1\naligndepth = 1"
+  
+    for i in range(len(cell_data)):
+        
+        cellList_items[0, i] = cell_data[i]
+            
+            
     cellList[0] = cellList_items
+    
+    p = [];
+    paramString = np.empty((len(microbeTrackerParamsString.split('\n')),1), dtype=object)
+    paramSplit = microbeTrackerParamsString.split('\n')
+    for p_index in range( len(microbeTrackerParamsString.split('\n') )):
+        paramString[p_index] = paramSplit[p_index]
 
     outdict = {'cellList': cellList,
-               'cellListN': cellListN,
-               'coefPCA': [],
-               'mCell': [],
-               'p': [],
-               'paramString': "",
-               'rawPhaseFolder': [],
-               'shiftfluo': np.zeros((2, 2)),
-               'shiftframes': [],
-               'weights': []}
+                'cellListN': cellListN,
+                'coefPCA': [],
+                'mCell': [],
+                'p': [],
+                'paramString': paramString,
+                'rawPhaseFolder': [],
+                'shiftfluo': np.zeros((2, 2)),
+                'shiftframes': [],
+                'weights': []}
 
     scipy.io.savemat(file_path, outdict)
+    
