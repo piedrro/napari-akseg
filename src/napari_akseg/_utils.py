@@ -1058,7 +1058,7 @@ def import_oufti(self, progress_callback, file_paths):
             image_name = image_path.split("\\")[-1]
             mat_name = mat_path.split("\\")[-1]
 
-            image, mask, meta = import_mat_data(image_path, mat_path)
+            image, mask, meta = import_mat_data(self, image_path, mat_path)
 
             crop_mode = self.import_crop_mode.currentIndex()
             image = crop_image(image,crop_mode)
@@ -1082,8 +1082,6 @@ def import_oufti(self, progress_callback, file_paths):
             meta["contrast_gamma"] = gamma
             meta["dims"] = [image.shape[-1], image.shape[-2]]
             meta["crop"] = [0, image.shape[-2], 0, image.shape[-1]]
-
-
 
             if imported_images == {}:
                 imported_images["Image"] = dict(images=[image], masks=[mask], classes=[], metadata={i: meta})
@@ -1229,7 +1227,7 @@ def get_export_data(self,mask_stack,label_stack,meta_stack):
     if self.export_dividing.isChecked():
         export_labels.append(2)
     if self.export_divided.isChecked():
-        export_labels.append(3)
+        export_labels.append()
     if self.export_vertical.isChecked():
         export_labels.append(4)
     if self.export_broken.isChecked():
