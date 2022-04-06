@@ -33,7 +33,7 @@ You can install `napari-akseg` from AKGROUP via [pip]:
     Install from GitHub, user personal access token as password
     pip install git+https://github.com/piedrro/napari-akseg.git
     username = your email (you don't need a GitHub account if you don't have one)
-    password = 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
+    password = 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
 
 
 ## Contributing
