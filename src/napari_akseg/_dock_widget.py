@@ -647,7 +647,7 @@ class AKSEG(QWidget):
 
             file_name, file_extension = os.path.splitext(file_name)
 
-            file_name = file_name + export_modifier + "." + file_extension
+            file_name = file_name + export_modifier + file_extension
             image_path = image_path.replace(image_path.split("\\")[-1],file_name)
 
             if self.export_location.currentText() == "Import Directory" and file_name != None and image_path != None:

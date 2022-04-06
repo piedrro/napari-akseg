@@ -1227,7 +1227,7 @@ def get_export_data(self,mask_stack,label_stack,meta_stack):
     if self.export_dividing.isChecked():
         export_labels.append(2)
     if self.export_divided.isChecked():
-        export_labels.append()
+        export_labels.append(3)
     if self.export_vertical.isChecked():
         export_labels.append(4)
     if self.export_broken.isChecked():
