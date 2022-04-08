@@ -720,7 +720,7 @@ class AKSEG(QWidget):
 
                     if self.export_mode.currentText() == "Export Oufti":
 
-                        export_oufti(mask, file_path)
+                        export_oufti(image, mask, file_path)
                         tifffile.imwrite(file_path, image, metadata=meta)
 
                     if self.export_mode.currentText() == "Export ImageJ":

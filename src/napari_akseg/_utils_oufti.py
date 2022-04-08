@@ -6,13 +6,89 @@ import shapely
 from shapely.geometry import LineString
 from shapely.geometry import Polygon
 from shapely.geometry.polygon import orient
+import math
+
+
+def refine_contour(image,cnt,refine_length=1):
+    
+    img = image.copy()
+    cell_mask = np.zeros(image.shape, dtype =np.uint8)
+    
+    cv2.drawContours(cell_mask, [cnt], contourIdx=-1, color=(1,1,1),thickness=-1) 
+    
+    img[cell_mask!=1] = 0
+    
+    img = cv2.copyMakeBorder(img,3,3,3,3,cv2.BORDER_CONSTANT)
+    cell_mask = cv2.copyMakeBorder(cell_mask,3,3,3,3,cv2.BORDER_CONSTANT)
+    
+    kernel = np.ones((3,3),np.uint8)
+    centre_mask = cv2.erode(cell_mask,kernel,iterations = 2)
+    wall_mask = cell_mask - centre_mask
+    
+    img = img[3:-3,3:-3]
+    cell_mask = cell_mask[3:-3,3:-3]
+    centre_mask = centre_mask[3:-3,3:-3]
+    wall_mask = wall_mask[3:-3,3:-3]
+    
+    wall_cnt = find_contours(wall_mask)[0]
+
+    (ymax,xmax)=img.shape
+    
+    img = image.copy()
+    
+    kernel = np.ones((5,5),np.uint8)
+    dilated_cell_mask = cv2.dilate(cell_mask,kernel,iterations = 2)
+    img[dilated_cell_mask != 1] = 0
+    
+    wall_contour = []
+    
+    for j in range(len(wall_cnt)):
+
+        x = wall_cnt[j,0,0]
+        y = wall_cnt[j,0,1]
+        
+        y1,y2,x1,x2 = y-refine_length,y+refine_length,x-refine_length,x+refine_length
+        
+        if x1 < 0:
+            x1 = 0
+        if x2 > xmax:
+            x2 = xmax
+        if y1 < 0:
+            y1 = 0
+        if y2 > ymax:
+            y2 = ymax
+        
+        box = [y1,y2,x1,x2]
+        box_values = img[box[0]:box[1],box[2]:box[3]]
+        max_box_index = np.array(np.unravel_index(box_values.argmax(), box_values.shape))
+        max_box_value = np.max(img[box[0]:box[1],box[2]:box[3]])
+        
+        wall_contour.append([box[2] + max_box_index[1],box[0] + max_box_index[0]])
+        
+    # creates cv contour, draws it
+    wall_contour = np.array(wall_contour).reshape((-1,1,2)).astype(np.int32)
+    
+    # creates cv contour, draws it
+    wall_contour = np.array(wall_contour).reshape((-1,1,2)).astype(np.int32)
+    wall_mask = np.zeros(img.shape,dtype=np.uint8)   
+    cv2.drawContours(wall_mask, [wall_contour], contourIdx=-1, color=(1,1,1),thickness=-1) 
+    
+    # opens cv mask to remove noise
+    kernel = np.ones((3,3),np.uint8)
+    wall_mask = cv2.morphologyEx(wall_mask, cv2.MORPH_OPEN, kernel)
+    
+    refined_contour = find_contours(wall_mask)[0]
+    
+    return refined_contour
+
 
 def find_contours(img):
 
     # finds contours of shapes, only returns the external contours of the shapes
     contours, hierarchy = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     contours = sorted(contours, key=cv2.contourArea, reverse=True)
-    return contours, hierarchy
+    
+    return contours
 
 
 def euclidian_distance(x1, y1, x2, y2):
@@ -119,6 +195,29 @@ def find_cnt_ends(img_shape, cnt, cx, cy, lx, ly, wx, wy):
     return pca_points, length
 
 
+def moving_average(line, padding = 5, iterations = 1):
+    
+    x, y = line[:,0], line[:,1]
+    
+    x = np.concatenate((x[-padding:] , x, x[:padding]))
+    y = np.concatenate((y[-padding:] , y, y[:padding]))
+    
+    for i in range(iterations):
+    
+        y = np.convolve(y, np.ones(padding), 'same') / padding
+        x = np.convolve(x, np.ones(padding), 'same') / padding
+    
+        x = np.array(x)
+        y = np.array(y)
+    
+    x = x[padding:-padding]
+    y = y[padding:-padding]
+    
+    line = np.stack([x,y]).T
+    
+    return line
+
+
 def get_mesh(cnt, model, cnt_ends):
 
     x, y, w, h = cv2.boundingRect(cnt)
@@ -145,6 +244,7 @@ def get_mesh(cnt, model, cnt_ends):
     length = start-end
 
     model = np.roll(model,-start,0)
+    model = moving_average(model)
     model = np.append(model,[model[0]],0)
     
     left_line = model[:length+1]
@@ -163,8 +263,8 @@ def get_mesh(cnt, model, cnt_ends):
     left_line = line_to_array(left_line)
     right_line = line_to_array(right_line)
     
-    mid_line = (left_line + np.flipud(right_line))/2
-    mid_line = mid_line.reshape(-1,1,2).astype(int)
+    mid_line = (left_line + right_line)/2
+    mid_line = mid_line.reshape(-1,1,2)
     
     q = np.vstack([left_line, right_line]).reshape(-1,2)
     polygon = Polygon(q)
@@ -173,10 +273,10 @@ def get_mesh(cnt, model, cnt_ends):
     mesh = np.hstack((left_line,right_line)).reshape(-1,4)
     model = np.transpose(np.array(polygon.exterior.coords.xy))
     
-    mesh = mesh + 1
-    model = model + 1
+    mesh = mesh + 1.5
+    model = model + 1.5
 
-    distances, area, volume = compute_line_metrics(left_line,right_line, mid_line)
+    steplength, steparea, stepvolume = compute_line_metrics(mesh)
     
     boundingbox = np.asarray(polygon.bounds)
     
@@ -184,8 +284,8 @@ def get_mesh(cnt, model, cnt_ends):
     boundingbox[2:4] = np.ceil( boundingbox[2:4])
     boundingbox[2:4] = boundingbox[2:4] - boundingbox[0:2]
     boundingbox = boundingbox.astype(float)
-
-    return mesh, model, distances, area, volume, boundingbox
+    
+    return mesh, model, steplength, steparea, stepvolume, boundingbox
 
 
 
@@ -202,40 +302,34 @@ def line_to_array(mesh):
     
     return mesh
 
-def dist(a,b):
+def euclidian_distance(x1, y1, x2, y2):
 
-    return np.sqrt((a[0]-b[0])*(a[0]-b[0])+(a[1]-b[1])*(a[1]-b[1]))
+    distance = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+
+    return distance
+
+        
+def polyarea(x,y):
+    return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))
 
 
-def compute_line_metrics(left_line,right_line, mid_line):
+def compute_line_metrics(mesh):
     
-    divisions = mid_line.shape[0] - 2
+    steplength = euclidian_distance(mesh[1:,0]+mesh[1:,2], mesh[1:,1]+mesh[1:,3], mesh[:-1,0]+mesh[:-1,2], mesh[:-1,1]+mesh[:-1,3])/2
+    
+    steparea = []
+    for i in range(len(mesh)-1):
+        steparea.append(polyarea([*mesh[i:i+2,0],*mesh[i:i+2,2][::-1]],[*mesh[i:i+2,1],*mesh[i:i+2,3][::-1]]))
 
-    distances = []
-    area = []
-    volume = []
+    steparea = np.array(steparea)
+
+    d = euclidian_distance(mesh[:,0], mesh[:,1], mesh[:,2], mesh[:,3])
+    stepvolume = (d[:-1]*d[1:] + (d[:-1]-d[1:])**2/3)*steplength*math.pi/4
     
-    for i in range(mid_line.shape[0]-1):
-        distances.append(dist(mid_line[i,:][0],mid_line[i+1,:][0]))
-        
-    for i in range(mid_line.shape[0]-1):
-        pol = np.array([left_line[i,:][0], right_line[i,:][0], right_line[i+1,:][0],left_line[i+1,:][0]])
-        pol = shapely.geometry.Polygon(pol)
-        area.append(pol.area)
-        
-    for i in range(mid_line.shape[0]-1):
-        r1 = dist(left_line[i,:][0], right_line[i,:][0])/2
-        r2 = dist(left_line[i+1,:][0], right_line[i+1,:][0])/2
-        volume.append(np.pi * distances[i] / 3 * (r1*r1+r1*r2+r2*r2))
-        
-    distances = np.array(distances).T
-    area = np.array(area).T
-    volume = np.array(volume).T
-    
-    return distances, area, volume
+    return steplength, steparea, stepvolume
         
 
-def export_oufti(mask, file_path):
+def export_oufti(image, mask, file_path):
 
     file_path = os.path.splitext(file_path)[0] + ".mat"
 
@@ -255,6 +349,8 @@ def export_oufti(mask, file_path):
                 contours, hierarchy = cv2.findContours(cell_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     
                 cnt = contours[0]
+                
+                cnt = refine_contour(image,cnt,refine_length=1)
     
                 x, y, w, h = cv2.boundingRect(cnt)
                 y1, y2, x1, x2 = y, (y + h), x, (x + w)
