@@ -31,15 +31,13 @@ import matplotlib.pyplot as plt
 from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
                                  import_dataset, import_AKSEG, import_JSON, get_export_data, import_masks,
-                                 import_imagej,autocontrast_values, align_image_channels)
+                                 import_imagej,autocontrast_values, align_image_channels, export_files)
 
-from napari_akseg._utils_json import import_coco_json, export_coco_json
+
 from napari_akseg._utils_database import (read_AKSEG_directory, update_akmetadata, _get_database_paths,
                                           read_AKSEG_images, _uploadAKGROUP, populate_upload_combos, get_usermeta,
                                           check_database_access)
-from napari_akseg._utils_cellpose import export_cellpose
-from napari_akseg._utils_oufti import  export_oufti
-from napari_akseg._utils_imagej import export_imagej
+
 from napari_akseg.akseg_ui import Ui_tab_widget
 import torch
 
@@ -141,6 +139,7 @@ class AKSEG(QWidget):
         self.read_AKSEG_images = partial(read_AKSEG_images, self)
         self._uploadAKGROUP = partial(_uploadAKGROUP, self)
         self._get_database_paths = partial(_get_database_paths,self)
+        self.export_files = partial(export_files, self)
 
         application_path = os.path.dirname(sys.executable)
         self.viewer = viewer
@@ -475,9 +474,19 @@ class AKSEG(QWidget):
                 self._autoClassify()
 
 
-    def _aksegProgresbar(self, progress):
+    def _aksegProgresbar(self, progress, progressbar):
 
-        self.import_progressbar.setValue(progress)
+        if progressbar == "import":
+            self.import_progressbar.setValue(progress)
+        if progressbar == "export":
+            self.export_progressbar.setValue(progress)
+
+        if progress == 100:
+            self.import_progressbar.setValue(0)
+            self.export_progressbar.setValue(0)
+
+
+
 
     def _uploadProgresbar(self, progress):
 
@@ -505,7 +514,7 @@ class AKSEG(QWidget):
 
             worker = Worker(self.import_images, file_paths = paths)
             worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(self._aksegProgresbar)
+            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "import"))
             self.threadpool.start(worker)
 
         if import_mode == "Import NanoImager Data":
@@ -514,7 +523,7 @@ class AKSEG(QWidget):
 
             worker = Worker(self.read_nim_images, measurements = measurements, channels = channels)
             worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(self._aksegProgresbar)
+            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "import"))
             self.threadpool.start(worker)
 
         if import_mode == "Import Masks":
@@ -525,35 +534,35 @@ class AKSEG(QWidget):
 
             worker = Worker(self.import_cellpose, file_paths = paths)
             worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(self._aksegProgresbar)
+            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "import"))
             self.threadpool.start(worker)
 
         if import_mode == "Import Oufti .mat file(s)":
 
             worker = Worker(self.import_oufti, file_paths = paths)
             worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(self._aksegProgresbar)
+            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "import"))
             self.threadpool.start(worker)
 
         if import_mode == "Import JSON .txt file(s)":
 
             worker = Worker(self.import_JSON, file_paths = paths)
             worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(self._aksegProgresbar)
+            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "import"))
             self.threadpool.start(worker)
 
         if import_mode == "Import ImageJ files(s)":
 
             worker = Worker(self.import_imagej, paths = paths)
             worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(self._aksegProgresbar)
+            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "import"))
             self.threadpool.start(worker)
 
         if import_mode == "Import Images + Masks Dataset":
 
             worker = Worker(self.import_dataset, file_paths = paths)
             worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(self._aksegProgresbar)
+            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "import"))
             self.threadpool.start(worker)
 
 
@@ -564,7 +573,7 @@ class AKSEG(QWidget):
 
             worker = Worker(self.read_AKSEG_images, measurements=measurements, channels=channels)
             worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(self._aksegProgresbar)
+            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "import"))
             self.threadpool.start(worker)
 
 
@@ -607,132 +616,9 @@ class AKSEG(QWidget):
 
     def _export(self, mode):
 
-        export_channel = self.export_channel.currentText()
-        export_modifier = self.export_modifier.text()
-
-        image_stack = self.viewer.layers[export_channel].data.copy()
-        mask_stack = self.segLayer.data.copy()
-        meta_stack = self.segLayer.metadata.copy()
-        label_stack = self.classLayer.data.copy()
-
-
-        if mode == "active":
-
-            current_step = self.viewer.dims.current_step[0]
-
-            image_stack = np.expand_dims(image_stack[current_step], axis=0)
-            mask_stack = np.expand_dims(mask_stack[current_step], axis=0)
-            label_stack = np.expand_dims(label_stack[current_step], axis=0)
-            meta_stack = np.expand_dims(meta_stack[current_step], axis=0)
-
-        mask_stack, label_stack, export_contours = get_export_data(self,mask_stack, label_stack, meta_stack)
-
-        for i in range(len(image_stack)):
-
-            progress = int(((i + 1) / len(image_stack)) * 100)
-            self.export_progressbar.setValue(progress)
-
-            image = image_stack[i, :, :]
-            mask = mask_stack[i, :, :]
-            label = label_stack[i, :, :]
-            meta = meta_stack[i]
-            contours = export_contours[i]
-
-            if "shape" in meta.keys():
-                meta.pop("shape")
-
-            file_name = meta["image_name"]
-
-            image_path = meta["image_path"]
-
-            file_name, file_extension = os.path.splitext(file_name)
-
-            file_name = file_name + export_modifier + file_extension
-            image_path = image_path.replace(image_path.split("\\")[-1],file_name)
-
-            if self.export_location.currentText() == "Import Directory" and file_name != None and image_path != None:
-
-                export_path = os.path.abspath(image_path.replace(file_name,""))
-
-            elif self.export_location.currentText() == "Select Directory":
-
-                export_path = os.path.abspath(self.export_directory.toPlainText())
-
-            else:
-                export_path = None
-
-            if os.path.isdir(export_path) != True:
-
-                print("Directory does not exist, try selecting a directory instead!")
-
-            else:
-
-                y1, y2, x1, x2 = meta["crop"]
-
-                if len(image.shape) > 2:
-                    image = image[:, y1:y2, x1:x2]
-                else:
-                    image = image[y1:y2, x1:x2]
-
-                mask = mask[y1:y2, x1:x2]
-                label = label[y1:y2, x1:x2]
-
-                if os.path.isdir(export_path) == False:
-                    os.makedirs(file_path)
-
-                file_path = export_path + "\\" + file_name
-
-                if os.path.isfile(file_path) == True:
-
-                    print(file_name + " already exists, AKSEG will not overwrite files!")
-
-                else:
-
-                    if self.export_mode.currentText() == "Export .tif Images":
-
-                        tifffile.imwrite(file_path, image, metadata = meta)
-
-                    if self.export_mode.currentText() == "Export .tif Masks":
-
-                        tifffile.imwrite(file_path, mask, metadata = meta)
-
-                    if self.export_mode.currentText() == "Export .tif Images and Masks":
-
-                        image_path = os.path.abspath(export_path + "\\images")
-                        mask_path = os.path.abspath(export_path + "\\masks")
-
-                        if not os.path.exists(image_path):
-                            os.makedirs(image_path)
-
-                        if not os.path.exists(mask_path):
-                            os.makedirs(mask_path)
-
-                        image_path = os.path.abspath(image_path + "\\" + file_name)
-                        mask_path = os.path.abspath(mask_path + "\\" + file_name)
-
-                        tifffile.imwrite(image_path, image, metadata=meta)
-                        tifffile.imwrite(mask_path, mask, metadata=meta)
-
-                    if self.export_mode.currentText() == "Export Cellpose":
-
-                        export_cellpose(file_path, image, mask)
-                        tifffile.imwrite(file_path, image, metadata=meta)
-
-                    if self.export_mode.currentText() == "Export Oufti":
-
-                        export_oufti(image, mask, file_path)
-                        tifffile.imwrite(file_path, image, metadata=meta)
-
-                    if self.export_mode.currentText() == "Export ImageJ":
-
-                        export_imagej(image, contours, meta, file_path)
-
-                    if self.export_mode.currentText() == "Export JSON":
-
-                        export_coco_json(file_name, image, mask, label, file_path)
-                        tifffile.imwrite(file_path, image, metadata=meta)
-
-                self.export_progressbar.setValue(0)
+        worker = Worker(self.export_files, mode=mode)
+        worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "export"))
+        self.threadpool.start(worker)
 
     def _imageControls(self, key, viewer=None):
 
@@ -1797,6 +1683,8 @@ class AKSEG(QWidget):
 
 
     def _process_import(self, imported_data, rearrange = True):
+
+        print("processing import?")
 
         layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
 

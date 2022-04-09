@@ -12,15 +12,16 @@ import datetime
 import json
 import matplotlib.pyplot as plt
 import hashlib
-from napari_akseg._utils_json import import_coco_json, export_coco_json
 from napari_akseg._utils_imagej import read_imagej_file
 from skimage import data
 from skimage.registration import phase_cross_correlation
 from skimage.registration._phase_cross_correlation import _upsampled_dft
 from scipy.ndimage import fourier_shift
 import scipy
-
-
+from napari_akseg._utils_cellpose import export_cellpose
+from napari_akseg._utils_oufti import  export_oufti
+from napari_akseg._utils_imagej import export_imagej
+from napari_akseg._utils_json import import_coco_json, export_coco_json
 
 
 
@@ -1573,3 +1574,124 @@ def import_masks(self, file_paths):
             image, mask, meta = import_mat_data(self, image_path, mask_path)
             mask_stack[i, :, :][y1:y2, x1:x2] = mask
             self.segLayer.data = mask_stack.astype(np.uint16)
+
+def export_files(self, progress_callback, mode):
+
+    export_channel = self.export_channel.currentText()
+    export_modifier = self.export_modifier.text()
+
+    image_stack = self.viewer.layers[export_channel].data.copy()
+    mask_stack = self.segLayer.data.copy()
+    meta_stack = self.segLayer.metadata.copy()
+    label_stack = self.classLayer.data.copy()
+
+    if mode == "active":
+
+        current_step = self.viewer.dims.current_step[0]
+
+        image_stack = np.expand_dims(image_stack[current_step], axis=0)
+        mask_stack = np.expand_dims(mask_stack[current_step], axis=0)
+        label_stack = np.expand_dims(label_stack[current_step], axis=0)
+        meta_stack = np.expand_dims(meta_stack[current_step], axis=0)
+
+    mask_stack, label_stack, export_contours = get_export_data(self, mask_stack, label_stack, meta_stack)
+
+    for i in range(len(image_stack)):
+
+        progress = int(((i + 1) / len(image_stack)) * 100)
+        progress_callback.emit(progress)
+
+        image = image_stack[i, :, :]
+        mask = mask_stack[i, :, :]
+        label = label_stack[i, :, :]
+        meta = meta_stack[i]
+        contours = export_contours[i]
+
+        if "shape" in meta.keys():
+            meta.pop("shape")
+
+        file_name = meta["image_name"]
+
+        image_path = meta["image_path"]
+
+        file_name, file_extension = os.path.splitext(file_name)
+
+        file_name = file_name + export_modifier + file_extension
+        image_path = image_path.replace(image_path.split("\\")[-1], file_name)
+
+        if self.export_location.currentText() == "Import Directory" and file_name != None and image_path != None:
+
+            export_path = os.path.abspath(image_path.replace(file_name, ""))
+
+        elif self.export_location.currentText() == "Select Directory":
+
+            export_path = os.path.abspath(self.export_directory.toPlainText())
+
+        else:
+            export_path = None
+
+        if os.path.isdir(export_path) != True:
+
+            print("Directory does not exist, try selecting a directory instead!")
+
+        else:
+
+            y1, y2, x1, x2 = meta["crop"]
+
+            if len(image.shape) > 2:
+                image = image[:, y1:y2, x1:x2]
+            else:
+                image = image[y1:y2, x1:x2]
+
+            mask = mask[y1:y2, x1:x2]
+            label = label[y1:y2, x1:x2]
+
+            if os.path.isdir(export_path) == False:
+                os.makedirs(file_path)
+
+            file_path = export_path + "\\" + file_name
+
+            if os.path.isfile(file_path) == True:
+
+                print(file_name + " already exists, AKSEG will not overwrite files!")
+
+            else:
+
+                if self.export_mode.currentText() == "Export .tif Images":
+                    tifffile.imwrite(file_path, image, metadata=meta)
+
+                if self.export_mode.currentText() == "Export .tif Masks":
+                    tifffile.imwrite(file_path, mask, metadata=meta)
+
+                if self.export_mode.currentText() == "Export .tif Images and Masks":
+
+                    image_path = os.path.abspath(export_path + "\\images")
+                    mask_path = os.path.abspath(export_path + "\\masks")
+
+                    if not os.path.exists(image_path):
+                        os.makedirs(image_path)
+
+                    if not os.path.exists(mask_path):
+                        os.makedirs(mask_path)
+
+                    image_path = os.path.abspath(image_path + "\\" + file_name)
+                    mask_path = os.path.abspath(mask_path + "\\" + file_name)
+
+                    tifffile.imwrite(image_path, image, metadata=meta)
+                    tifffile.imwrite(mask_path, mask, metadata=meta)
+
+                if self.export_mode.currentText() == "Export Cellpose":
+                    export_cellpose(file_path, image, mask)
+                    tifffile.imwrite(file_path, image, metadata=meta)
+
+                if self.export_mode.currentText() == "Export Oufti":
+                    export_oufti(image, mask, file_path)
+                    tifffile.imwrite(file_path, image, metadata=meta)
+
+                if self.export_mode.currentText() == "Export ImageJ":
+                    export_imagej(image, contours, meta, file_path)
+
+                if self.export_mode.currentText() == "Export JSON":
+                    export_coco_json(file_name, image, mask, label, file_path)
+                    tifffile.imwrite(file_path, image, metadata=meta)
+
