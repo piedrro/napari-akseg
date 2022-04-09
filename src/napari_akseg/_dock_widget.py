@@ -30,16 +30,17 @@ import json
 import matplotlib.pyplot as plt
 from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
-                                 import_dataset, import_AKSEG, import_JSON, get_export_data, import_masks,
-                                 import_imagej,autocontrast_values, align_image_channels, export_files, _manualImport)
+                                 import_dataset, import_AKSEG, import_JSON, import_masks,
+                                 import_imagej, align_image_channels, export_files, _manualImport)
 
 
 from napari_akseg._utils_database import (read_AKSEG_directory, update_akmetadata, _get_database_paths,
-                                          read_AKSEG_images, _uploadAKGROUP, populate_upload_combos, get_usermeta,
+                                          read_AKSEG_images, _uploadAKGROUP, populate_upload_combos, _populateUSERMETA,
                                           check_database_access)
 from napari_akseg._utils_cellpose import _run_cellpose, _process_cellpose, _open_cellpose_model
 from napari_akseg.akseg_ui import Ui_tab_widget
-from napari_akseg._utils_iterface_events import  _segmentationEvents, _modifyMode, _newSegColour, _viewerControls
+from napari_akseg._utils_iterface_events import (_segmentationEvents, _modifyMode, _newSegColour, _viewerControls,
+                                                 _clear_images, _imageControls)
 import torch
 
 
@@ -149,6 +150,9 @@ class AKSEG(QWidget):
         self._modifyMode = partial(_modifyMode, self)
         self._manualImport = partial(_manualImport, self)
         self._viewerControls = partial(_viewerControls, self)
+        self._clear_images = partial(_clear_images,self)
+        self._imageControls = partial(_imageControls, self)
+        self._populateUSERMETA = partial(_populateUSERMETA, self)
 
         application_path = os.path.dirname(sys.executable)
         self.viewer = viewer
@@ -522,27 +526,6 @@ class AKSEG(QWidget):
             worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "import"))
             self.threadpool.start(worker)
 
-
-    def _populateUSERMETA(self):
-
-        usermeta = get_usermeta(self)
-
-        user_initial = self.upload_initial.currentText()
-
-        self.upload_usermeta1.clear()
-        self.upload_usermeta2.clear()
-        self.upload_usermeta3.clear()
-
-        if user_initial in usermeta.keys():
-
-            meta1 = usermeta[user_initial]["meta1"]
-            meta2 = usermeta[user_initial]["meta2"]
-            meta3 = usermeta[user_initial]["meta3"]
-
-            self.upload_usermeta1.addItems([""] + meta1)
-            self.upload_usermeta2.addItems([""] + meta2)
-            self.upload_usermeta3.addItems([""] + meta3)
-
     def _getExportDirectory(self):
 
         if self.export_location.currentText() == "Import Directory":
@@ -565,28 +548,6 @@ class AKSEG(QWidget):
         worker = Worker(self.export_files, mode=mode)
         worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "export"))
         self.threadpool.start(worker)
-
-    def _imageControls(self, key, viewer=None):
-
-        current_step = self.viewer.dims.current_step[0]
-        dim_range = int(self.viewer.dims.range[0][1])
-
-        if key == "Upload":
-            self._uploadAKGROUP("active")
-
-        if dim_range != 1:
-
-            if key == "Right" or "Upload":
-                next_step = current_step + 1
-            if key == "Left":
-                next_step = current_step - 1
-
-            if next_step < 0:
-                next_step = 0
-            if next_step > dim_range:
-                next_step = dim_range
-
-            self.viewer.dims.current_step = (next_step, 0, 0)
 
     def _segmentActive(self):
 
@@ -646,21 +607,6 @@ class AKSEG(QWidget):
 
         self._updateFileName()
         self._autoContrast()
-
-    def _updateakmetadata(self):
-
-        try:
-
-            current_fov = self.viewer.dims.current_step[0]
-            active_layer = self.viewer.layers.selection.active
-
-            metadata = self.viewer.layers[str(active_layer)].metadata[current_fov]
-
-            if metadata["import_mode"] == "AKSEG":
-                update_akmetadata(self, metadata)
-
-        except:
-            pass
 
 
     def _autoContrast(self):
@@ -859,17 +805,6 @@ class AKSEG(QWidget):
 
         self.classLayer.data = label_stack
 
-
-
-    def _clear_images(self):
-
-        self.segLayer.data = np.zeros((1, 100, 100), dtype=np.uint16)
-
-        layer_names = [layer.name for layer in self.viewer.layers]
-
-        for layer_name in layer_names:
-            if layer_name not in ["Segmentations", "Classes"]:
-                self.viewer.layers.remove(self.viewer.layers[layer_name])
 
 @napari_hook_implementation
 def napari_experimental_provide_dock_widget():

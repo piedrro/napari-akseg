@@ -832,3 +832,38 @@ def _get_database_paths(self):
 
         return paths, import_limit
 
+
+def _populateUSERMETA(self):
+
+    usermeta = get_usermeta(self)
+
+    user_initial = self.upload_initial.currentText()
+
+    self.upload_usermeta1.clear()
+    self.upload_usermeta2.clear()
+    self.upload_usermeta3.clear()
+
+    if user_initial in usermeta.keys():
+
+        meta1 = usermeta[user_initial]["meta1"]
+        meta2 = usermeta[user_initial]["meta2"]
+        meta3 = usermeta[user_initial]["meta3"]
+
+        self.upload_usermeta1.addItems([""] + meta1)
+        self.upload_usermeta2.addItems([""] + meta2)
+        self.upload_usermeta3.addItems([""] + meta3)
+
+def _updateakmetadata(self):
+
+    try:
+
+        current_fov = self.viewer.dims.current_step[0]
+        active_layer = self.viewer.layers.selection.active
+
+        metadata = self.viewer.layers[str(active_layer)].metadata[current_fov]
+
+        if metadata["import_mode"] == "AKSEG":
+            update_akmetadata(self, metadata)
+
+    except:
+        pass

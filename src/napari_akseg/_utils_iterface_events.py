@@ -878,3 +878,37 @@ def _viewerControls(self, key, viewer=None):
             if contrast_limit[1] > contrast_limit[0]:
                 self.viewer.layers[str(active_layer)].contrast_limits = contrast_limit
                 self.viewer.layers[str(active_layer)].gamma = gamma
+
+def _imageControls(self, key, viewer=None):
+
+    current_step = self.viewer.dims.current_step[0]
+    dim_range = int(self.viewer.dims.range[0][1])
+
+    if key == "Upload":
+        self._uploadAKGROUP("active")
+
+    if dim_range != 1:
+
+        if key == "Right" or "Upload":
+            next_step = current_step + 1
+        if key == "Left":
+            next_step = current_step - 1
+
+        if next_step < 0:
+            next_step = 0
+        if next_step > dim_range:
+            next_step = dim_range
+
+        self.viewer.dims.current_step = (next_step, 0, 0)
+
+def _clear_images(self):
+
+    self.segLayer.data = np.zeros((1, 100, 100), dtype=np.uint16)
+
+    layer_names = [layer.name for layer in self.viewer.layers]
+
+    for layer_name in layer_names:
+        if layer_name not in ["Segmentations", "Classes"]:
+            self.viewer.layers.remove(self.viewer.layers[layer_name])
+
+
