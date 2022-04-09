@@ -300,6 +300,7 @@ def read_tif(path, precision="native", multiframe_mode = 0, crop_mode = 0):
         metadata["image_name"] = os.path.basename(path)
         metadata["channel"] = None
         metadata["segmentation_file"] = None
+        metadata["segmentation_channel"] = None
         metadata["image_path"] = path
         metadata["mask_name"] = None
         metadata["mask_path"] = None

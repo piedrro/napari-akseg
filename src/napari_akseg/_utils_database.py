@@ -453,7 +453,7 @@ def generate_multichannel_stack(self):
                 file_list.append(meta['image_name'])
                 layer_list.append(layer)
 
-                if meta["import_mode"] != "AKSEG" and overwrite_all_metadata is True:
+                if meta["import_mode"] != "AKSEG" or overwrite_all_metadata is True:
 
                     if meta["import_mode"] != "NIM":
 
