@@ -335,8 +335,8 @@ class AKSEG(QWidget):
         self.export_location.currentTextChanged.connect(self._getExportDirectory)
 
         # upload tab events
-        self.upload_all.clicked.connect(partial(self._uploadAKGROUP, "all"))
-        self.upload_active.clicked.connect(partial(self._uploadAKGROUP, "active"))
+        self.upload_all.clicked.connect(partial(self._uploadDatabase, "all"))
+        self.upload_active.clicked.connect(partial(self._uploadDatabase, "active"))
         self.database_download.clicked.connect(self._downloadDatabase)
         self.upload_initial.currentTextChanged.connect(self._populateUSERMETA)
 
@@ -395,6 +395,13 @@ class AKSEG(QWidget):
         populate_upload_combos(self)
 
         self.threadpool = QThreadPool()
+
+
+    def _uploadDatabase(self, mode):
+
+        worker = Worker(self._uploadAKGROUP, mode=mode)
+        worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="database"))
+        self.threadpool.start(worker)
 
     def _downloadDatabase(self):
 

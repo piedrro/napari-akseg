@@ -527,7 +527,7 @@ def generate_multichannel_stack(self):
     return multi_image_stack, multi_meta_stack, layer_names
 
 
-def _uploadAKGROUP(self, mode):
+def _uploadAKGROUP(self, progress_callback, mode):
 
     try:
         akgroup_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images"
@@ -635,7 +635,7 @@ def _uploadAKGROUP(self, mode):
                         for i in range(len(image_stack)):
 
                             progress = int(((i + 1) / len(image_stack)) * 100)
-                            self.upload_progressbar.setValue(progress)
+                            progress_callback.emit(progress)
 
                             image = image_stack[i]
                             image_meta = meta_stack[i]
@@ -777,9 +777,6 @@ def _uploadAKGROUP(self, mode):
                             user_metadata.drop_duplicates(subset=['akseg_hash'], keep="first", inplace=True)
 
                             user_metadata.to_csv(user_metadata_path, sep=",", index = False)
-
-        # reset progressbar
-        self.upload_progressbar.setValue(0)
 
     except:
         print(traceback.format_exc())

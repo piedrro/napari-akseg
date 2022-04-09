@@ -298,6 +298,8 @@ def read_tif(path, precision="native", multiframe_mode = 0, crop_mode = 0):
     if "image_name" not in metadata.keys():
 
         metadata["image_name"] = os.path.basename(path)
+        metadata["channel"] = None
+        metadata["segmentation_file"] = None
         metadata["image_path"] = path
         metadata["mask_name"] = None
         metadata["mask_path"] = None
