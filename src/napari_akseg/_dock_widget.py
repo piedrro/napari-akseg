@@ -37,7 +37,7 @@ from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cell
 from napari_akseg._utils_database import (read_AKSEG_directory, update_akmetadata, _get_database_paths,
                                           read_AKSEG_images, _uploadAKGROUP, populate_upload_combos, get_usermeta,
                                           check_database_access)
-
+from napari_akseg._utils_cellpose import _run_cellpose, _process_cellpose, _open_cellpose_model
 from napari_akseg.akseg_ui import Ui_tab_widget
 import torch
 
@@ -140,6 +140,9 @@ class AKSEG(QWidget):
         self._uploadAKGROUP = partial(_uploadAKGROUP, self)
         self._get_database_paths = partial(_get_database_paths,self)
         self.export_files = partial(export_files, self)
+        self._run_cellpose = partial(_run_cellpose, self)
+        self._process_cellpose = partial(_process_cellpose, self)
+        self._open_cellpose_model = partial(_open_cellpose_model, self)
 
         application_path = os.path.dirname(sys.executable)
         self.viewer = viewer
@@ -284,7 +287,7 @@ class AKSEG(QWidget):
         self.import_import.clicked.connect(self._importDialog)
 
         # cellpose events
-        self.cellpose_load_model.clicked.connect(self._openModelFile)
+        self.cellpose_load_model.clicked.connect(self._open_cellpose_model)
         self.cellpose_flowthresh.valueChanged.connect(lambda: self._updateSliderLabel("cellpose_flowthresh",
                                                                                       "cellpose_flowthresh_label"))
         self.cellpose_maskthresh.valueChanged.connect(lambda: self._updateSliderLabel("cellpose_maskthresh"
@@ -480,12 +483,13 @@ class AKSEG(QWidget):
             self.import_progressbar.setValue(progress)
         if progressbar == "export":
             self.export_progressbar.setValue(progress)
+        if progressbar == 'cellpose':
+            self.cellpose_progressbar.setValue(progress)
 
         if progress == 100:
             self.import_progressbar.setValue(0)
             self.export_progressbar.setValue(0)
-
-
+            self.cellpose_progressbar.setValue(0)
 
 
     def _uploadProgresbar(self, progress):
@@ -1448,151 +1452,24 @@ class AKSEG(QWidget):
 
         image = [images[current_fov, :, :]]
 
-        cellpose_worker = self._run_cellpose(image)
-        cellpose_worker.yielded.connect(self._update_cellpose_progress)
-        cellpose_worker.returned.connect(self._process_cellpose)
-
-        self.cellpose_stop.clicked.connect(cellpose_worker.quit)
-        cellpose_worker.finished.connect(self._stop_cellpose)
-
-        cellpose_worker.start()
+        worker = Worker(self._run_cellpose, images = image)
+        worker.signals.result.connect(self._process_cellpose)
+        worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="cellpose"))
+        self.threadpool.start(worker)
 
 
     def _segmentAll(self):
 
-        chanel = self.cellpose_segchannel.currentText()
+        channel = self.cellpose_segchannel.currentText()
 
-        images = self.viewer.layers[chanel].data
+        images = self.viewer.layers[channel].data
 
         images = unstack_images(images)
 
-        cellpose_worker = self._run_cellpose(images)
-        cellpose_worker.yielded.connect(self._update_cellpose_progress)
-        cellpose_worker.returned.connect(self._process_cellpose)
-
-        self.cellpose_stop.clicked.connect(cellpose_worker.quit)
-        cellpose_worker.finished.connect(self._stop_cellpose)
-
-        cellpose_worker.start()
-
-    def _process_cellpose(self, segmentation_data):
-
-        masks = segmentation_data
-
-        if self.segLayer.data.shape != masks.shape:
-
-            current_fov = self.viewer.dims.current_step[0]
-            self.segLayer.data[current_fov,:,:] = masks
-
-        else:
-            self.segLayer.data = masks
-
-        self.segLayer.contour = 1
-        self.segLayer.opacity = 1
-
-        self.cellpose_segmentation = True
-        self.cellpose_progressbar.setValue(0)
-        self._autoClassify(reset=True)
-        self._autoContrast()
-
-        if self.cellpose_resetimage.isChecked() == True:
-            self.viewer.reset_view()
-
-        layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
-
-        # ensures segmentation and classes is in correct order in the viewer
-        for layer in layer_names:
-            layer_index = self.viewer.layers.index(layer)
-            self.viewer.layers.move(layer_index, 0)
-
-
-    def _update_cellpose_progress(self, progress):
-
-        self.cellpose_progressbar.setValue(progress)
-
-    def _stop_cellpose(self):
-
-        self.cellpose_stop.clicked.disconnect
-        self.cellpose_progressbar.setValue(0)
-
-    @thread_worker
-    def _run_cellpose(self, images):
-
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=DeprecationWarning)
-
-            flow_threshold = float(self.cellpose_flowthresh_label.text())
-            mask_threshold = float(self.cellpose_maskthresh_label.text())
-            min_size = int(self.cellpose_minsize_label.text())
-            diameter = int(self.cellpose_diameter_label.text())
-
-            if torch.cuda.is_available() and self.cellpose_usegpu.isChecked():
-                gpu = True
-                print("Segmenting images on GPU")
-            else:
-                gpu = False
-                print("Segmenting images on CPU")
-
-            cellpose_model = self.cellpose_model.currentText()
-            custom_model = self.cellpose_custom_model_path
-
-            if cellpose_model == "custom":
-
-                model = models.CellposeModel(pretrained_model=custom_model,
-                                             diam_mean=diameter,
-                                             model_type=None,
-                                             gpu=gpu,
-                                             torch=True,
-                                             net_avg=False,
-                                             )
-            else:
-
-                model = models.CellposeModel(diam_mean=diameter,
-                                             model_type=cellpose_model,
-                                             gpu=gpu,
-                                             torch=True,
-                                             net_avg=False,
-                                             )
-
-            print("Loaded Cellpose Model: " + cellpose_model)
-
-            masks = []
-
-            for i in range(len(images)):
-
-                mask, flow, diam = model.eval(images[i],
-                                              diameter=diameter,
-                                              channels=[0, 0],
-                                              flow_threshold=flow_threshold,
-                                              mask_threshold=mask_threshold,
-                                              min_size=min_size,
-                                              batch_size = 3)
-
-                masks.append(mask)
-
-                progress = int(((i + 1) / len(images)) * 100)
-
-                yield progress
-
-            mask_stack = np.stack(masks, axis=0)
-
-            return mask_stack
-
-    def _openModelFile(self):
-
-        file_path = check_database_access(file_path=r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Models")
-
-        path = QFileDialog.getOpenFileName(self, "Open File",file_path,"Cellpose Models (*)")
-
-        if path:
-            path = os.path.abspath(path[0])
-            model_name = path.split("\\")[-1]
-
-            print("Loaded Model: " + model_name)
-
-            self.cellpose_custom_model_path = path
-            self.cellpose_custom_model.setText(model_name)
-            self.cellpose_model.setCurrentIndex(3)
+        worker = Worker(self._run_cellpose, images = images)
+        worker.signals.result.connect(self._process_cellpose)
+        worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="cellpose"))
+        self.threadpool.start(worker)
 
     def _updateSliderLabel(self, slider_name, label_name):
 
