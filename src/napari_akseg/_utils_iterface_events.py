@@ -399,6 +399,51 @@ def _segmentationEvents(self, viewer, event):
             self.segLayer.metadata = meta
             self.segLayer.mode = "pan_zoom"
 
+
+
+        if self.segmentation_mode == "refine":
+
+            self.segLayer.mode == "pan_zoom"
+            self.segLayer.brush_size = 1
+
+            data_coordinates = self.segLayer.world_to_data(event.position)
+            coord = np.round(data_coordinates).astype(int)
+            mask_id = self.segLayer.get_value(coord).copy()
+
+            self.segLayer.selected_label = mask_id
+
+            if mask_id != 0:
+
+                current_fov = self.viewer.dims.current_step[0]
+                channel = self.cellpose_segchannel.currentText()
+
+                image_stack = self.viewer.layers[channel].data
+                label_stack = self.classLayer.data
+                mask_stack = self.segLayer.data
+
+                image = image_stack[current_fov, :, :].copy()
+                mask = mask_stack[current_fov, :, :].copy()
+                label = label_stack[current_fov, :, :].copy()
+
+                new_mask = self.refine_mask(image, mask, mask_id)
+
+                current_label = np.unique(label[mask==mask_id])
+
+                label[mask == mask_id] = 0
+                mask[mask==mask_id] = 0
+
+                new_mask[mask!=0] = 0
+                mask[new_mask == 1] = mask_id
+                label[new_mask == 1] = current_label
+
+                mask_stack[current_fov, :, :] = mask
+                label_stack[current_fov, :, :] = label
+
+                self.segLayer.data = mask_stack
+                self.classLayer.data = label_stack
+
+
+
     # classify segmentations
     if self.interface_mode == "classify":
 
@@ -478,6 +523,7 @@ def _modifyMode(self, mode, viewer=None):
         self.modify_join.setEnabled(False)
         self.modify_split.setEnabled(False)
         self.modify_delete.setEnabled(False)
+        self.modify_refine.setEnabled(False)
 
         self.classify_single.setEnabled(False)
         self.classify_dividing.setEnabled(False)
@@ -499,6 +545,7 @@ def _modifyMode(self, mode, viewer=None):
         self.modify_join.setEnabled(True)
         self.modify_split.setEnabled(True)
         self.modify_delete.setEnabled(True)
+        self.modify_refine.setEnabled(True)
 
         self.classify_single.setEnabled(True)
         self.classify_dividing.setEnabled(False)
@@ -506,6 +553,7 @@ def _modifyMode(self, mode, viewer=None):
         self.classify_vertical.setEnabled(False)
         self.classify_broken.setEnabled(False)
         self.classify_edge.setEnabled(False)
+
 
         self.interface_mode = "segment"
         self.segmentation_mode = "add"
@@ -521,6 +569,7 @@ def _modifyMode(self, mode, viewer=None):
         self.modify_join.setEnabled(False)
         self.modify_split.setEnabled(False)
         self.modify_delete.setEnabled(False)
+        self.modify_refine.setEnabled(False)
 
         self.classify_single.setEnabled(False)
         self.classify_dividing.setEnabled(True)
@@ -544,6 +593,7 @@ def _modifyMode(self, mode, viewer=None):
         self.modify_join.setEnabled(True)
         self.modify_split.setEnabled(True)
         self.modify_delete.setEnabled(True)
+        self.modify_refine.setEnabled(True)
 
         self.classify_single.setEnabled(False)
         self.classify_dividing.setEnabled(True)
@@ -565,6 +615,7 @@ def _modifyMode(self, mode, viewer=None):
         self.modify_join.setEnabled(True)
         self.modify_split.setEnabled(True)
         self.modify_delete.setEnabled(True)
+        self.modify_refine.setEnabled(True)
 
         self.interface_mode = "segment"
         self.segmentation_mode = "extend"
@@ -579,6 +630,7 @@ def _modifyMode(self, mode, viewer=None):
         self.modify_join.setEnabled(False)
         self.modify_split.setEnabled(True)
         self.modify_delete.setEnabled(True)
+        self.modify_refine.setEnabled(True)
 
         self.interface_mode = "segment"
         self.segmentation_mode = "join"
@@ -593,6 +645,7 @@ def _modifyMode(self, mode, viewer=None):
         self.modify_join.setEnabled(True)
         self.modify_split.setEnabled(False)
         self.modify_delete.setEnabled(True)
+        self.modify_refine.setEnabled(True)
 
         self.interface_mode = "segment"
         self.segmentation_mode = "split"
@@ -607,9 +660,25 @@ def _modifyMode(self, mode, viewer=None):
         self.modify_join.setEnabled(True)
         self.modify_split.setEnabled(True)
         self.modify_delete.setEnabled(False)
+        self.modify_refine.setEnabled(True)
 
         self.interface_mode = "segment"
         self.segmentation_mode = "delete"
+        self.modify_panzoom.setEnabled(True)
+        self.modify_segment.setEnabled(False)
+
+    if mode == "refine":
+        self.viewer.layers.selection.select_only(self.segLayer)
+
+        self.modify_add.setEnabled(True)
+        self.modify_extend.setEnabled(True)
+        self.modify_join.setEnabled(True)
+        self.modify_split.setEnabled(True)
+        self.modify_delete.setEnabled(True)
+        self.modify_refine.setEnabled(False)
+
+        self.interface_mode = "segment"
+        self.segmentation_mode = "refine"
         self.modify_panzoom.setEnabled(True)
         self.modify_segment.setEnabled(False)
 

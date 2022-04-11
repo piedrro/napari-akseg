@@ -41,6 +41,9 @@ from napari_akseg._utils_cellpose import _run_cellpose, _process_cellpose, _open
 from napari_akseg.akseg_ui import Ui_tab_widget
 from napari_akseg._utils_iterface_events import (_segmentationEvents, _modifyMode, _newSegColour, _viewerControls,
                                                  _clear_images, _imageControls)
+
+from napari_akseg._utils_refine import refine_mask
+
 import torch
 
 
@@ -153,6 +156,7 @@ class AKSEG(QWidget):
         self._clear_images = partial(_clear_images,self)
         self._imageControls = partial(_imageControls, self)
         self._populateUSERMETA = partial(_populateUSERMETA, self)
+        self.refine_mask = partial(refine_mask, self)
 
         application_path = os.path.dirname(sys.executable)
         self.viewer = viewer
@@ -219,6 +223,15 @@ class AKSEG(QWidget):
         self.modify_panzoom = self.findChild(QPushButton, "modify_panzoom")
         self.modify_segment = self.findChild(QPushButton, "modify_segment")
         self.modify_classify = self.findChild(QPushButton, "modify_classify")
+        self.modify_refine = self.findChild(QPushButton, "modify_refine")
+        self.refine_mode = self.findChild(QComboBox, "refine_mode")
+
+        self.refine_length_slider = self.findChild(QSlider, "refine_length_slider")
+        self.refine_length_label = self.findChild(QLabel, "refine_length_label")
+        self.refine_iterations_slider = self.findChild(QSlider, "refine_iterations_slider")
+        self.refine_iterations_label = self.findChild(QLabel, "refine_iterations_label")
+        self.refine_all = self.findChild(QPushButton, "refine_all")
+
         self.modify_auto_panzoom = self.findChild(QCheckBox, "modify_auto_panzoom")
         self.modify_add = self.findChild(QPushButton, "modify_add")
         self.modify_extend = self.findChild(QPushButton, "modify_extend")
@@ -233,6 +246,7 @@ class AKSEG(QWidget):
         self.classify_edge = self.findChild(QPushButton, "classify_edge")
         self.modify_viewmasks = self.findChild(QCheckBox, "modify_viewmasks")
         self.modify_viewlabels = self.findChild(QCheckBox, "modify_viewlabels")
+
         self.modify_panzoom.setEnabled(False)
         self.modify_add.setEnabled(False)
         self.modify_extend.setEnabled(False)
@@ -315,6 +329,7 @@ class AKSEG(QWidget):
         self.modify_panzoom.clicked.connect(partial(self._modifyMode, "panzoom"))
         self.modify_segment.clicked.connect(partial(self._modifyMode, "segment"))
         self.modify_classify.clicked.connect(partial(self._modifyMode, "classify"))
+        self.modify_refine.clicked.connect(partial(self._modifyMode, "refine"))
         self.modify_add.clicked.connect(partial(self._modifyMode, "add"))
         self.modify_extend.clicked.connect(partial(self._modifyMode, "extend"))
         self.modify_join.clicked.connect(partial(self._modifyMode, "join"))
@@ -328,6 +343,9 @@ class AKSEG(QWidget):
         self.classify_edge.clicked.connect(partial(self._modifyMode, "edge"))
         self.modify_viewmasks.stateChanged.connect(partial(self._viewerControls, "viewmasks"))
         self.modify_viewlabels.stateChanged.connect(partial(self._viewerControls, "viewlabels"))
+        self.refine_all.clicked.connect(self._refine_akseg)
+        self.refine_length_slider.valueChanged.connect(lambda: self._updateSliderLabel("refine_length_slider","refine_length_label"))
+        self.refine_iterations_slider.valueChanged.connect(lambda: self._updateSliderLabel("refine_iterations_slider", "refine_iterations_label"))
 
         #export events
         self.export_active.clicked.connect(partial(self._export, "active"))
@@ -395,6 +413,47 @@ class AKSEG(QWidget):
         populate_upload_combos(self)
 
         self.threadpool = QThreadPool()
+
+
+    def _refine_akseg(self, mask_ids = None):
+
+        current_fov = self.viewer.dims.current_step[0]
+        channel = self.cellpose_segchannel.currentText()
+
+        image_stack = self.viewer.layers[channel].data
+        label_stack = self.classLayer.data
+        mask_stack = self.segLayer.data
+
+        image = image_stack[current_fov, :, :].copy()
+        mask = mask_stack[current_fov, :, :].copy()
+        label = label_stack[current_fov, :, :].copy()
+
+        if mask_ids == False:
+
+            mask_ids = np.unique(mask)
+
+        for i in range(len(mask_ids)):
+
+            mask_id = mask_ids[i]
+
+            if mask_id != 0:
+
+                new_mask = self.refine_mask(image, mask, mask_id)
+
+                current_label = np.unique(label[mask==mask_id])
+
+                label[mask == mask_id] = 0
+                mask[mask==mask_id] = 0
+
+                new_mask[mask!=0] = 0
+                mask[new_mask == 1] = mask_id
+                label[new_mask == 1] = current_label
+
+                mask_stack[current_fov, :, :] = mask
+                label_stack[current_fov, :, :] = label
+
+                self.segLayer.data = mask_stack
+                self.classLayer.data = label_stack
 
 
     def _uploadDatabase(self, mode):
@@ -591,10 +650,10 @@ class AKSEG(QWidget):
 
         slider_value = self.slider.value()
 
-        if slider_name == "cellpose_minsize" or slider_name == "cellpose_diameter":
-            self.label.setText(str(slider_value))
-        else:
+        if slider_name == "cellpose_flowthresh" or slider_name == "cellpose_maskthresh":
             self.label.setText(str(slider_value / 100))
+        else:
+            self.label.setText(str(slider_value))
 
     def _updateSegmentationCombo(self):
 
