@@ -349,9 +349,7 @@ def export_oufti(image, mask, file_path):
                 contours, hierarchy = cv2.findContours(cell_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     
                 cnt = contours[0]
-                
-                cnt = refine_contour(image,cnt,refine_length=1)
-    
+
                 x, y, w, h = cv2.boundingRect(cnt)
                 y1, y2, x1, x2 = y, (y + h), x, (x + w)
     
