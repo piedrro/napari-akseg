@@ -342,11 +342,11 @@ def crop_image(img, crop_mode=0):
     if crop_mode != 0:
 
         if len(img.shape) > 2:
-            imgL = img[:,:, :img.shape[1] // 2]
-            imgR = img[:,:, img.shape[1] // 2:]
+            imgL = img[:,:, :img.shape[-1] // 2]
+            imgR = img[:,:, img.shape[-1] // 2:]
         else:
-            imgL = img[:, :img.shape[1] // 2]
-            imgR = img[:, img.shape[1] // 2:]
+            imgL = img[:, :img.shape[-1] // 2]
+            imgR = img[:, img.shape[-1] // 2:]
 
         if crop_mode == 1:
             img = imgL
