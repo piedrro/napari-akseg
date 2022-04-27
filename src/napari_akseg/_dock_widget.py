@@ -301,6 +301,9 @@ class AKSEG(QWidget):
         self.export_edge = self.findChild(QCheckBox, "export_edge")
         self.export_active = self.findChild(QPushButton, "export_active")
         self.export_all = self.findChild(QPushButton, "export_all")
+        self.export_statistics_active = self.findChild(QPushButton, "export_statistics_active")
+        self.export_statistics_all = self.findChild(QPushButton, "export_statistics_all")
+        self.statistics_colicoords = self.findChild(QCheckBox, "statistics_colicoords")
         self.export_progressbar = self.findChild(QProgressBar, "export_progressbar")
         self.export_directory.setText("Data will be exported in same folder(s) that the images/masks were originally imported from. Not Recomeneded for Nanoimager Data")
 
@@ -346,6 +349,8 @@ class AKSEG(QWidget):
         #export events
         self.export_active.clicked.connect(partial(self._export, "active"))
         self.export_all.clicked.connect(partial(self._export, "all"))
+        self.export_statistics_active.clicked.connect(partial(self._export_statistics, "active"))
+        self.export_statistics_all.clicked.connect(partial(self._export_statistics, "all"))
         self.export_location.currentTextChanged.connect(self._getExportDirectory)
 
         # upload tab events
@@ -411,6 +416,11 @@ class AKSEG(QWidget):
 
         self.threadpool = QThreadPool()
 
+    def _export_statistics(self, mode = 'active'):
+
+        print(mode)
+
+
 
     def _refine_akseg(self, mask_ids = None):
 
@@ -435,35 +445,6 @@ class AKSEG(QWidget):
         worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="modify"))
         worker.signals.result.connect(self.process_colicoords)
         self.threadpool.start(worker)
-
-
-
-        # if mask_ids == False:
-        #
-        #     mask_ids = np.unique(mask)
-        #
-        # for i in range(len(mask_ids)):
-        #
-        #     mask_id = mask_ids[i]
-        #
-        #     if mask_id != 0:
-        #
-        #         new_mask = self.refine_mask(image, mask, mask_id)
-        #
-        #         current_label = np.unique(label[mask==mask_id])
-        #
-        #         label[mask == mask_id] = 0
-        #         mask[mask==mask_id] = 0
-        #
-        #         new_mask[mask!=0] = 0
-        #         mask[new_mask == 1] = mask_id
-        #         label[new_mask == 1] = current_label
-        #
-        #         mask_stack[current_fov, :, :] = mask
-        #         label_stack[current_fov, :, :] = label
-        #
-        #         self.segLayer.data = mask_stack
-        #         self.classLayer.data = label_stack
 
 
     def _uploadDatabase(self, mode):

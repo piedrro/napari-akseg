@@ -2107,18 +2107,59 @@ color: rgb(0, 255, 0);</string>
      </widget>
     </item>
     <item>
+     <widget class="QLabel" name="label_46">
+      <property name="font">
+       <font>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="text">
+       <string>Export Cell Statistics</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="export_statistics_active">
+      <property name="text">
+       <string>Export Cell Statistics From Active Image</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="export_statistics_all">
+      <property name="text">
+       <string>Export Cell Statistics From All Images</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QCheckBox" name="statistics_colicoords">
+      <property name="text">
+       <string>Use ColiCoords</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="Line" name="line_3">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
+    <item>
      <layout class="QFormLayout" name="formLayout_11">
-      <item row="0" column="1">
-       <widget class="QProgressBar" name="export_progressbar">
-        <property name="value">
-         <number>0</number>
-        </property>
-       </widget>
-      </item>
       <item row="0" column="0">
        <widget class="QLabel" name="label_33">
         <property name="text">
          <string>Progress </string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QProgressBar" name="export_progressbar">
+        <property name="value">
+         <number>0</number>
         </property>
        </widget>
       </item>

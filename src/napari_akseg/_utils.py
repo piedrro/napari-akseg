@@ -22,7 +22,7 @@ from napari_akseg._utils_cellpose import export_cellpose
 from napari_akseg._utils_oufti import  export_oufti
 from napari_akseg._utils_imagej import export_imagej
 from napari_akseg._utils_json import import_coco_json, export_coco_json
-
+import pickle
 
 
 def import_imagej(self, progress_callback, paths):
@@ -1697,6 +1697,16 @@ def export_files(self, progress_callback, mode):
                 if self.export_mode.currentText() == "Export JSON":
                     export_coco_json(file_name, image, mask, label, file_path)
                     tifffile.imwrite(file_path, image, metadata=meta)
+
+                if self.export_mode.currentText() == "Export Cell Statistics":
+
+                    with open('statistics.pickle', 'wb') as handle:
+                        pickle.dump([image_stack,mask_stack,label_stack,meta_stack], handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+                    break
+
+
+
 
 def _manualImport(self):
 

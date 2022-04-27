@@ -84,3 +84,4 @@ venv/
 # written by setuptools_scm
 **/_version.py
 
+/src/napari_akseg/_statistics_dev/
