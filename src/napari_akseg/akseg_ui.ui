@@ -1063,7 +1063,7 @@ color: rgb(0, 255, 0);</string>
        </font>
       </property>
       <property name="text">
-       <string>Refine Settings</string>
+       <string>Refine Settings (ColiCoords)</string>
       </property>
      </widget>
     </item>
@@ -1072,80 +1072,17 @@ color: rgb(0, 255, 0);</string>
       <item row="0" column="0">
        <widget class="QLabel" name="label_53">
         <property name="text">
-         <string>Refine Target</string>
+         <string>Refine Channel</string>
         </property>
        </widget>
       </item>
       <item row="0" column="1">
-       <widget class="QComboBox" name="refine_mode">
+       <widget class="QComboBox" name="refine_channel">
         <item>
          <property name="text">
-          <string>Nearest Bright Pixels</string>
+          <string>Mask</string>
          </property>
         </item>
-        <item>
-         <property name="text">
-          <string>Nearest Dark Pixels</string>
-         </property>
-        </item>
-       </widget>
-      </item>
-     </layout>
-    </item>
-    <item>
-     <layout class="QGridLayout" name="gridLayout_11">
-      <item row="0" column="2">
-       <widget class="QLabel" name="refine_length_label">
-        <property name="text">
-         <string>1</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_52">
-        <property name="text">
-         <string>Refine Iterations</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_46">
-        <property name="text">
-         <string>Refine Length</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="2">
-       <widget class="QLabel" name="refine_iterations_label">
-        <property name="text">
-         <string>1</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QSlider" name="refine_iterations_slider">
-        <property name="minimum">
-         <number>1</number>
-        </property>
-        <property name="maximum">
-         <number>5</number>
-        </property>
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QSlider" name="refine_length_slider">
-        <property name="minimum">
-         <number>1</number>
-        </property>
-        <property name="maximum">
-         <number>5</number>
-        </property>
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
        </widget>
       </item>
      </layout>
@@ -1201,6 +1138,27 @@ color: rgb(0, 255, 0);</string>
        <enum>Qt::Horizontal</enum>
       </property>
      </widget>
+    </item>
+    <item>
+     <layout class="QFormLayout" name="formLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_17">
+        <property name="text">
+         <string>Progress</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QProgressBar" name="modify_progressbar">
+        <property name="value">
+         <number>0</number>
+        </property>
+        <property name="textVisible">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </item>
     <item>
      <spacer name="verticalSpacer_3">

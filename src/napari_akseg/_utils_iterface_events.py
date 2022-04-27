@@ -2,6 +2,7 @@
 
 import numpy as np
 import cv2
+from colicoords import Data, Cell, CellPlot, data_to_cells
 
 def _segmentationEvents(self, viewer, event):
 
@@ -415,32 +416,54 @@ def _segmentationEvents(self, viewer, event):
             if mask_id != 0:
 
                 current_fov = self.viewer.dims.current_step[0]
-                channel = self.cellpose_segchannel.currentText()
 
-                image_stack = self.viewer.layers[channel].data
+                channel = self.refine_channel.currentText()
+                channel = channel.replace("Mask + ", "")
+
                 label_stack = self.classLayer.data
                 mask_stack = self.segLayer.data
 
-                image = image_stack[current_fov, :, :].copy()
                 mask = mask_stack[current_fov, :, :].copy()
                 label = label_stack[current_fov, :, :].copy()
 
-                new_mask = self.refine_mask(image, mask, mask_id)
+                if channel != 'Mask':
+                    image_stack = self.viewer.layers[channel].data
+                    image = image_stack[current_fov, :, :].copy()
+                else:
+                    image = np.zeros_like(mask)
 
-                current_label = np.unique(label[mask==mask_id])
+                cell_data = self.get_cell_images(image,mask,[mask_id])
 
-                label[mask == mask_id] = 0
-                mask[mask==mask_id] = 0
+                colicoords_data = self.run_colicoords(cell_data=[cell_data[0]], channel=channel)
 
-                new_mask[mask!=0] = 0
-                mask[new_mask == 1] = mask_id
-                label[new_mask == 1] = current_label
+                self.process_colicoords(colicoords_data)
 
-                mask_stack[current_fov, :, :] = mask
-                label_stack[current_fov, :, :] = label
 
-                self.segLayer.data = mask_stack
-                self.classLayer.data = label_stack
+
+
+
+
+
+
+
+
+
+                # new_mask = self.refine_mask(image, mask, mask_id)
+                #
+                # current_label = np.unique(label[mask==mask_id])
+                #
+                # label[mask == mask_id] = 0
+                # mask[mask==mask_id] = 0
+                #
+                # new_mask[mask!=0] = 0
+                # mask[new_mask == 1] = mask_id
+                # label[new_mask == 1] = current_label
+                #
+                # mask_stack[current_fov, :, :] = mask
+                # label_stack[current_fov, :, :] = label
+                #
+                # self.segLayer.data = mask_stack
+                # self.classLayer.data = label_stack
 
 
 

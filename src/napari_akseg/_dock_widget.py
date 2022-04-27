@@ -10,7 +10,6 @@ import sys
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
-
 from napari_plugin_engine import napari_hook_implementation
 import time
 from glob2 import glob
@@ -42,7 +41,7 @@ from napari_akseg.akseg_ui import Ui_tab_widget
 from napari_akseg._utils_iterface_events import (_segmentationEvents, _modifyMode, _newSegColour, _viewerControls,
                                                  _clear_images, _imageControls)
 
-from napari_akseg._utils_refine import refine_mask
+from napari_akseg._utils_colicoords import get_cell_images, run_colicoords, process_colicoords
 
 import torch
 
@@ -156,7 +155,9 @@ class AKSEG(QWidget):
         self._clear_images = partial(_clear_images,self)
         self._imageControls = partial(_imageControls, self)
         self._populateUSERMETA = partial(_populateUSERMETA, self)
-        self.refine_mask = partial(refine_mask, self)
+        self.run_colicoords = partial(run_colicoords, self)
+        self.process_colicoords = partial(process_colicoords, self)
+        self.get_cell_images = partial(get_cell_images, self)
 
         application_path = os.path.dirname(sys.executable)
         self.viewer = viewer
@@ -224,13 +225,9 @@ class AKSEG(QWidget):
         self.modify_segment = self.findChild(QPushButton, "modify_segment")
         self.modify_classify = self.findChild(QPushButton, "modify_classify")
         self.modify_refine = self.findChild(QPushButton, "modify_refine")
-        self.refine_mode = self.findChild(QComboBox, "refine_mode")
-
-        self.refine_length_slider = self.findChild(QSlider, "refine_length_slider")
-        self.refine_length_label = self.findChild(QLabel, "refine_length_label")
-        self.refine_iterations_slider = self.findChild(QSlider, "refine_iterations_slider")
-        self.refine_iterations_label = self.findChild(QLabel, "refine_iterations_label")
+        self.refine_channel = self.findChild(QComboBox, "refine_channel")
         self.refine_all = self.findChild(QPushButton, "refine_all")
+        self.modify_progressbar = self.findChild(QProgressBar, "modify_progressbar")
 
         self.modify_auto_panzoom = self.findChild(QCheckBox, "modify_auto_panzoom")
         self.modify_add = self.findChild(QPushButton, "modify_add")
@@ -253,6 +250,7 @@ class AKSEG(QWidget):
         self.modify_join.setEnabled(False)
         self.modify_split.setEnabled(False)
         self.modify_delete.setEnabled(False)
+        self.modify_refine.setEnabled(False)
         self.classify_single.setEnabled(False)
         self.classify_dividing.setEnabled(False)
         self.classify_divided.setEnabled(False)
@@ -344,8 +342,6 @@ class AKSEG(QWidget):
         self.modify_viewmasks.stateChanged.connect(partial(self._viewerControls, "viewmasks"))
         self.modify_viewlabels.stateChanged.connect(partial(self._viewerControls, "viewlabels"))
         self.refine_all.clicked.connect(self._refine_akseg)
-        self.refine_length_slider.valueChanged.connect(lambda: self._updateSliderLabel("refine_length_slider","refine_length_label"))
-        self.refine_iterations_slider.valueChanged.connect(lambda: self._updateSliderLabel("refine_iterations_slider", "refine_iterations_label"))
 
         #export events
         self.export_active.clicked.connect(partial(self._export, "active"))
@@ -383,6 +379,7 @@ class AKSEG(QWidget):
         self.viewer.bind_key(key="j", func=partial(self._modifyMode, "join"), overwrite=True)
         self.viewer.bind_key(key="s", func=partial(self._modifyMode, "split"), overwrite=True)
         self.viewer.bind_key(key="d", func=partial(self._modifyMode, "delete"), overwrite=True)
+        self.viewer.bind_key(key="r", func=partial(self._modifyMode, "refine"), overwrite=True)
         self.viewer.bind_key(key="Control-1", func=partial(self._modifyMode, "single"), overwrite=True)
         self.viewer.bind_key(key="Control-2", func=partial(self._modifyMode, "dividing"), overwrite=True)
         self.viewer.bind_key(key="Control-3", func=partial(self._modifyMode, "divided"), overwrite=True)
@@ -418,42 +415,55 @@ class AKSEG(QWidget):
     def _refine_akseg(self, mask_ids = None):
 
         current_fov = self.viewer.dims.current_step[0]
-        channel = self.cellpose_segchannel.currentText()
 
-        image_stack = self.viewer.layers[channel].data
-        label_stack = self.classLayer.data
+        channel = self.refine_channel.currentText()
+        channel = channel.replace("Mask + ","")
+
         mask_stack = self.segLayer.data
-
-        image = image_stack[current_fov, :, :].copy()
         mask = mask_stack[current_fov, :, :].copy()
-        label = label_stack[current_fov, :, :].copy()
 
-        if mask_ids == False:
+        if channel != 'Mask':
+            image_stack = self.viewer.layers[channel].data
+            image = image_stack[current_fov, :, :].copy()
+        else:
+            image = np.zeros_like(mask)
 
-            mask_ids = np.unique(mask)
+        cell_data = self.get_cell_images(image,mask)
+        cell_data = list(cell_data.values())
 
-        for i in range(len(mask_ids)):
+        worker = Worker(self.run_colicoords, cell_data=cell_data, channel=channel)
+        worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="modify"))
+        worker.signals.result.connect(self.process_colicoords)
+        self.threadpool.start(worker)
 
-            mask_id = mask_ids[i]
 
-            if mask_id != 0:
 
-                new_mask = self.refine_mask(image, mask, mask_id)
-
-                current_label = np.unique(label[mask==mask_id])
-
-                label[mask == mask_id] = 0
-                mask[mask==mask_id] = 0
-
-                new_mask[mask!=0] = 0
-                mask[new_mask == 1] = mask_id
-                label[new_mask == 1] = current_label
-
-                mask_stack[current_fov, :, :] = mask
-                label_stack[current_fov, :, :] = label
-
-                self.segLayer.data = mask_stack
-                self.classLayer.data = label_stack
+        # if mask_ids == False:
+        #
+        #     mask_ids = np.unique(mask)
+        #
+        # for i in range(len(mask_ids)):
+        #
+        #     mask_id = mask_ids[i]
+        #
+        #     if mask_id != 0:
+        #
+        #         new_mask = self.refine_mask(image, mask, mask_id)
+        #
+        #         current_label = np.unique(label[mask==mask_id])
+        #
+        #         label[mask == mask_id] = 0
+        #         mask[mask==mask_id] = 0
+        #
+        #         new_mask[mask!=0] = 0
+        #         mask[new_mask == 1] = mask_id
+        #         label[new_mask == 1] = current_label
+        #
+        #         mask_stack[current_fov, :, :] = mask
+        #         label_stack[current_fov, :, :] = label
+        #
+        #         self.segLayer.data = mask_stack
+        #         self.classLayer.data = label_stack
 
 
     def _uploadDatabase(self, mode):
@@ -501,12 +511,15 @@ class AKSEG(QWidget):
             self.cellpose_progressbar.setValue(progress)
         if progressbar == "database":
             self.upload_progressbar.setValue(progress)
+        if progressbar == 'modify':
+            self.modify_progressbar.setValue(progress)
 
         if progress == 100:
             self.import_progressbar.setValue(0)
             self.export_progressbar.setValue(0)
             self.cellpose_progressbar.setValue(0)
             self.upload_progressbar.setValue(0)
+            self.modify_progressbar.setValue(0)
 
 
     def _importDialog(self):
@@ -664,6 +677,10 @@ class AKSEG(QWidget):
 
         self.export_channel.clear()
         self.export_channel.addItems(layer_names)
+
+        self.refine_channel.clear()
+        refine_layers = ["Mask + " + layer for layer in layer_names]
+        self.refine_channel.addItems(['Mask'] + refine_layers)
 
         if "532" in layer_names:
             index532 = layer_names.index("532")
