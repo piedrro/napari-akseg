@@ -1698,12 +1698,6 @@ def export_files(self, progress_callback, mode):
                     export_coco_json(file_name, image, mask, label, file_path)
                     tifffile.imwrite(file_path, image, metadata=meta)
 
-                if self.export_mode.currentText() == "Export Cell Statistics":
-
-                    with open('statistics.pickle', 'wb') as handle:
-                        pickle.dump([image_stack,mask_stack,label_stack,meta_stack], handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-                    break
 
 
 

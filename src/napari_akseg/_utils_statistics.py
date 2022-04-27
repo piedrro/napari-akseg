@@ -9,7 +9,8 @@ import numpy as np
 import cv2
 import math
 from skimage import exposure
-
+import pandas as pd
+import os
 
 def normalize99(X):
     """ normalize image so 0.0 is 0.01st percentile and 1.0 is 99.99th percentile """
@@ -361,12 +362,32 @@ def get_cell_images(image, mask, cell_mask, mask_id):
     return cell_images
 
 
-def get_cell_statistics(image_stack, mask_stack, label_stack, meta_stack):
+def get_cell_statistics(self, mode, progress_callback=None):
+
+    export_channel = self.export_channel.currentText()
+    export_modifier = self.export_modifier.text()
+
+    image_stack = self.viewer.layers[export_channel].data.copy()
+    mask_stack = self.segLayer.data.copy()
+    meta_stack = self.segLayer.metadata.copy()
+    label_stack = self.classLayer.data.copy()
+
+    if mode == "active":
+        current_step = self.viewer.dims.current_step[0]
+
+        image_stack = np.expand_dims(image_stack[current_step], axis=0)
+        mask_stack = np.expand_dims(mask_stack[current_step], axis=0)
+        label_stack = np.expand_dims(label_stack[current_step], axis=0)
+        meta_stack = np.expand_dims(meta_stack[current_step], axis=0)
+
     cell_statistics = []
 
     cell_dict = {1: "Single", 2: "Dividing", 3: "Divided", 4: "Broken", 5: "Vertical", 6: "Edge"}
 
     for i in range(len(image_stack)):
+
+        progress = int(((i + 1) / len(image_stack)) * 100)
+        progress_callback.emit(progress)
 
         image = image_stack[i]
         mask = mask_stack[i]
@@ -461,6 +482,12 @@ def get_cell_statistics(image_stack, mask_stack, label_stack, meta_stack):
 
 
 
+def process_cell_statistics(self,cell_statistics,path):
 
+    export_path = os.path.join(path,'statistics.txt')
+
+    cell_statistics = pd.DataFrame(cell_statistics).drop(columns=['cell_image', 'cell_mask','offset', 'shift_xy','edge','vertical','mask_id','contour'])
+
+    cell_statistics.to_csv(export_path, sep = ",")
 
 

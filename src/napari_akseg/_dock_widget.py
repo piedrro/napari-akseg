@@ -26,6 +26,7 @@ import pandas as pd
 import warnings
 import traceback
 import json
+import pathlib
 import matplotlib.pyplot as plt
 from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
@@ -42,7 +43,7 @@ from napari_akseg._utils_iterface_events import (_segmentationEvents, _modifyMod
                                                  _clear_images, _imageControls)
 
 from napari_akseg._utils_colicoords import get_cell_images, run_colicoords, process_colicoords
-
+from napari_akseg._utils_statistics import get_cell_statistics, process_cell_statistics
 import torch
 
 
@@ -158,6 +159,8 @@ class AKSEG(QWidget):
         self.run_colicoords = partial(run_colicoords, self)
         self.process_colicoords = partial(process_colicoords, self)
         self.get_cell_images = partial(get_cell_images, self)
+        self.get_cell_statistics = partial(get_cell_statistics, self)
+        self.process_cell_statistics = partial(process_cell_statistics, self)
 
         application_path = os.path.dirname(sys.executable)
         self.viewer = viewer
@@ -416,10 +419,19 @@ class AKSEG(QWidget):
 
         self.threadpool = QThreadPool()
 
+
     def _export_statistics(self, mode = 'active'):
 
-        print(mode)
+        desktop = os.path.expanduser("~/Desktop")
 
+        path = QFileDialog.getExistingDirectory(self, "Select Directory",desktop)
+
+        if path:
+
+            worker = Worker(self.get_cell_statistics, mode = mode)
+            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="export"))
+            worker.signals.result.connect(partial(self.process_cell_statistics, path = path))
+            self.threadpool.start(worker)
 
 
     def _refine_akseg(self, mask_ids = None):
