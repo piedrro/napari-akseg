@@ -72,12 +72,10 @@ def determine_overlap(cnt_num, contours, image):
 
 
 def get_contour_statistics(cnt, image):
-    pixel_size = 0.116999998688698
 
     # cell area
     try:
         area = cv2.contourArea(cnt)
-        area = area * (pixel_size ** 2)
     except:
         area = None
 
@@ -92,7 +90,6 @@ def get_contour_statistics(cnt, image):
     # perimiter
     try:
         perimeter = cv2.arcLength(cnt, True)
-        perimeter = perimeter * pixel_size
     except:
         perimeter = None
 
@@ -125,7 +122,7 @@ def get_contour_statistics(cnt, image):
     # cell length and width from PCA analysis
     try:
         cx, cy, lx, ly, wx, wy, data_pts = pca(cnt)
-        length, width, angle = get_pca_points(image, cnt, pixel_size, cx, cy, lx, ly, wx, wy)
+        length, width, angle = get_pca_points(image, cnt, cx, cy, lx, ly, wx, wy)
     except:
         length = None
         width = None
@@ -146,7 +143,7 @@ def get_contour_statistics(cnt, image):
                               cell_width=width,
                               cell_angle=angle,
                               aspect_ratio=aspect_ratio,
-                              cell_perimeter=perimeter,
+                              circumference=perimeter,
                               solidity=solidity,
                               aOp=aOp)
 
@@ -192,7 +189,7 @@ def pca(pts):
     return cx, cy, lx, ly, wx, wy, data_pts
 
 
-def get_pca_points(img, cnt, pixel_size, cx, cy, lx, ly, wx, wy):
+def get_pca_points(img, cnt, cx, cy, lx, ly, wx, wy):
     if (lx - cx) == 0 or (wx - cx) == 0:
 
         pca_error = True
@@ -463,15 +460,18 @@ def get_cell_statistics(self, mode, progress_callback=None):
             cell_laplacian = int(cv2.Laplacian(image[y1:y2, x1:x2], cv2.CV_64F).var())
 
             stats = dict(file_name=file_name,
-                         channel=channel,
+                         colicoords=False,
                          cell_type=cell_type,
                          pixel_size_um=pixel_size,
-                         cell_area=contour_statistics["cell_area"] * pixel_size**2,
-                         cell_length=contour_statistics["cell_length"] * pixel_size,
-                         cell_width=contour_statistics["cell_width"] * pixel_size,
+                         length=contour_statistics["cell_length"] * pixel_size,
+                         radius=(contour_statistics["cell_width"])/2 * pixel_size,
+                         area=contour_statistics["cell_area"] * pixel_size ** 2,
+                         circumference=contour_statistics["circumference"] * pixel_size,
                          aspect_ratio=contour_statistics["aspect_ratio"],
                          cell_angle=contour_statistics["cell_angle"],
                          overlap_percentage=overlap_percentage,
+                         box = [y1,y2,x1,x2],
+                         image_channel=channel,
                          cell_brightness=cell_brightness,
                          cell_contrast=cell_contrast,
                          image_brightness=image_brightness,
@@ -482,6 +482,16 @@ def get_cell_statistics(self, mode, progress_callback=None):
 
             cell_statistics.append(stats)
 
+    if self.export_colicoords_mode.currentIndex() != 0:
+
+        colicoords_channel = self.export_colicoords_mode.currentText()
+        colicoords_channel = colicoords_channel.replace("Mask + ","")
+
+        cell_statistics = self.run_colicoords(cell_data=cell_statistics,
+                                              colicoords_channel=colicoords_channel,
+                                              statistics=True,
+                                              pixel_size=pixel_size)
+
     return cell_statistics
 
 
@@ -491,7 +501,13 @@ def process_cell_statistics(self,cell_statistics,path):
 
     export_path = os.path.join(path,'statistics.csv')
 
-    cell_statistics = pd.DataFrame(cell_statistics).drop(columns=['cell_image', 'cell_mask','offset', 'shift_xy','edge','vertical','mask_id','contour'])
+    drop_columns = ['cell_image', 'cell_mask','offset', 'shift_xy','edge',
+                    'vertical','mask_id','contour','edge','vertical','mask_id','cell','refined_cnt',
+                    'oufti','statistics','colicoords_channel']
+
+    cell_statistics = pd.DataFrame(cell_statistics)
+
+    cell_statistics =  cell_statistics.drop(columns=[col for col in cell_statistics if col in drop_columns])
 
     cell_statistics.to_csv(export_path, index=False)
 

@@ -28,6 +28,7 @@ import traceback
 import json
 import pathlib
 import matplotlib.pyplot as plt
+import time
 from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
                                  import_dataset, import_AKSEG, import_JSON, import_masks,
@@ -307,7 +308,7 @@ class AKSEG(QWidget):
         self.export_statistics_pixelsize = self.findChild(QLineEdit, 'export_statistics_pixelsize')
         self.export_statistics_active = self.findChild(QPushButton, "export_statistics_active")
         self.export_statistics_all = self.findChild(QPushButton, "export_statistics_all")
-        self.statistics_colicoords = self.findChild(QCheckBox, "statistics_colicoords")
+        self.export_colicoords_mode = self.findChild(QComboBox, "export_colicoords_mode")
         self.export_progressbar = self.findChild(QProgressBar, "export_progressbar")
         self.export_directory.setText("Data will be exported in same folder(s) that the images/masks were originally imported from. Not Recomeneded for Nanoimager Data")
 
@@ -456,7 +457,7 @@ class AKSEG(QWidget):
         cell_data = self.get_cell_images(image,mask)
         cell_data = list(cell_data.values())
 
-        worker = Worker(self.run_colicoords, cell_data=cell_data, channel=channel)
+        worker = Worker(self.run_colicoords, cell_data=cell_data, colicoords_channel=channel)
         worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="modify"))
         worker.signals.result.connect(self.process_colicoords)
         self.threadpool.start(worker)
@@ -511,6 +512,7 @@ class AKSEG(QWidget):
             self.modify_progressbar.setValue(progress)
 
         if progress == 100:
+            time.sleep(1)
             self.import_progressbar.setValue(0)
             self.export_progressbar.setValue(0)
             self.cellpose_progressbar.setValue(0)
@@ -677,6 +679,10 @@ class AKSEG(QWidget):
         self.refine_channel.clear()
         refine_layers = ["Mask + " + layer for layer in layer_names]
         self.refine_channel.addItems(['Mask'] + refine_layers)
+
+        self.export_colicoords_mode.clear()
+        refine_layers = ["Mask + " + layer for layer in layer_names]
+        self.export_colicoords_mode.addItems(['None (OpenCV Stats)','Mask'] + refine_layers)
 
         if "532" in layer_names:
             index532 = layer_names.index("532")

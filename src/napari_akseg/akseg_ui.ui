@@ -2141,6 +2141,27 @@ color: rgb(0, 255, 0);</string>
         </property>
        </widget>
       </item>
+      <item row="1" column="1">
+       <widget class="QComboBox" name="export_colicoords_mode">
+        <item>
+         <property name="text">
+          <string>None (OpenCV Stats)</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Mask</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_54">
+        <property name="text">
+         <string>ColiCoords Fit Mode</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </item>
     <item>
@@ -2154,13 +2175,6 @@ color: rgb(0, 255, 0);</string>
      <widget class="QPushButton" name="export_statistics_all">
       <property name="text">
        <string>Export Cell Statistics From All Images</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QCheckBox" name="statistics_colicoords">
-      <property name="text">
-       <string>Use ColiCoords</string>
       </property>
      </widget>
     </item>

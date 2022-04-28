@@ -7,7 +7,7 @@ from shapely.geometry import LineString
 from shapely.geometry import Polygon
 from shapely.geometry.polygon import orient
 import math
-from colicoords import Data, Cell, CellPlot, data_to_cells
+from colicoords import Data, Cell, CellPlot, data_to_cells, config
 from multiprocessing import Pool
 from skimage import exposure
 import psutil
@@ -235,7 +235,7 @@ def compute_line_metrics(mesh):
     return steplength, steparea, stepvolume
 
 
-def get_colicoords_mesh(cell, dat):
+def get_colicoords_mesh(cell, dat, statistics = False, pixel_size = 1):
 
     offset, vertical, shift_xy = dat["offset"], dat["vertical"], dat["shift_xy"]
 
@@ -315,22 +315,29 @@ def get_colicoords_mesh(cell, dat):
     boundingbox[2:4] = np.ceil(boundingbox[2:4])
     boundingbox[2:4] = boundingbox[2:4] - boundingbox[0:2]
 
-    results = {}
+    dat["statistics"] = dict(colicoords=True,
+                             length = cell.length * pixel_size,
+                             radius = cell.radius * pixel_size,
+                             area = cell.area * pixel_size**2,
+                             circumference = cell.circumference * pixel_size,
+                             aspect_ratio = cell.length/(cell.radius*2))
 
-    results["mask_id"] =  dat["mask_id"]
+    dat["mask_id"] =  dat["mask_id"]
 
-    results["oufti"] = dict(mesh=mesh,
+    dat["oufti"] = dict(mesh=mesh,
                         model=model,
                         boundingbox=boundingbox,
                         distances=distances,
                         area=area,
                         volume=volume)
 
-    results["refined_cnt"] = model.reshape(-1, 1, 2).astype(int)
+    dat["refined_cnt"] = model.reshape(-1, 1, 2).astype(int)
 
-    return results
+    return dat
 
-def colicoords_fit(dat,channel='Mask'):
+def colicoords_fit(dat,colicoords_channel='Mask', statistics=False, pixel_size = 1):
+
+    config.cfg.IMG_PIXELSIZE = 1000 * pixel_size
 
     results = {}
 
@@ -341,20 +348,22 @@ def colicoords_fit(dat,channel='Mask'):
             data = Data()
             data.add_data(dat['cell_mask'], 'binary')
 
-            if channel != 'Mask':
-                data.add_data(dat['cell_image'], 'fluorescence', name=channel)
+            if colicoords_channel != 'Mask':
+                data.add_data(dat['cell_image'], 'fluorescence', name=colicoords_channel)
 
             cell = Cell(data)
 
             cell.optimize()
 
-            if channel != 'Mask':
-                cell.optimize(channel)
-                cell.measure_r(channel, mode='mid')
+            if colicoords_channel != 'Mask':
+                cell.optimize(colicoords_channel)
+                cell.measure_r(colicoords_channel, mode='mid')
 
-            results = get_colicoords_mesh(cell, dat)
+            results = get_colicoords_mesh(cell, dat, statistics, pixel_size)
             results["cell"] = True
-            results["channel"] = channel
+            results["colicoords_channel"] = colicoords_channel
+
+            results = {**dat, **results["statistics"]}
 
         else:
             results["cell"] = None
@@ -366,7 +375,7 @@ def colicoords_fit(dat,channel='Mask'):
     return results
 
 
-def run_colicoords(self, cell_data, channel, progress_callback=None):
+def run_colicoords(self, cell_data, colicoords_channel, statistics = False, pixel_size=1, progress_callback=None):
 
     processes = multiprocessing.cpu_count()
 
@@ -389,7 +398,9 @@ def run_colicoords(self, cell_data, channel, progress_callback=None):
 
             return
 
-        results = [pool.apply_async(colicoords_fit, args=(i,), kwds={'channel': channel}, callback=callback) for i in cell_data]
+        results = [pool.apply_async(colicoords_fit, args=(i,), kwds={'colicoords_channel': colicoords_channel,
+                                                                     'statistics': statistics,
+                                                                     'pixel_size': pixel_size}, callback=callback) for i in cell_data]
 
         try:
             results[-1].get()
@@ -400,14 +411,17 @@ def run_colicoords(self, cell_data, channel, progress_callback=None):
             pool.close()
             pool.join()
 
+    if statistics:
+        colicoords_data = [dat for dat in colicoords_data if dat["cell"] != None]
+
     return colicoords_data
 
 def process_colicoords(self, colicoords_data):
 
     current_fov = self.viewer.dims.current_step[0]
-    channel = self.cellpose_segchannel.currentText()
+    colicoords_channel = self.cellpose_segchannel.currentText()
 
-    image_stack = self.viewer.layers[channel].data
+    image_stack = self.viewer.layers[colicoords_channel].data
     label_stack = self.classLayer.data
     mask_stack = self.segLayer.data
 
