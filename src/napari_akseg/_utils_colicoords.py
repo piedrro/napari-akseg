@@ -1,3 +1,4 @@
+import multiprocessing
 import traceback
 
 import numpy as np
@@ -9,6 +10,7 @@ import math
 from colicoords import Data, Cell, CellPlot, data_to_cells
 from multiprocessing import Pool
 from skimage import exposure
+import psutil
 
 def normalize99(X):
     """ normalize image so 0.0 is 0.01st percentile and 1.0 is 99.99th percentile """
@@ -366,7 +368,15 @@ def colicoords_fit(dat,channel='Mask'):
 
 def run_colicoords(self, cell_data, channel, progress_callback=None):
 
-    with Pool(4) as pool:
+    processes = multiprocessing.cpu_count()
+
+    free_memory = psutil.virtual_memory().available / 1e6
+
+    #assumes spawned python processes use 500mb of RAM
+    if processes > free_memory//500:
+        processes = int(free_memory//500)
+
+    with Pool(processes=processes) as pool:
 
         iter = []
 
@@ -380,10 +390,15 @@ def run_colicoords(self, cell_data, channel, progress_callback=None):
             return
 
         results = [pool.apply_async(colicoords_fit, args=(i,), kwds={'channel': channel}, callback=callback) for i in cell_data]
-        colicoords_data = [r.get() for r in results]
-        pool.close()
-        pool.join()
 
+        try:
+            results[-1].get()
+        except:
+            print(traceback.format_exc())
+        else:
+            colicoords_data = [r.get() for r in results]
+            pool.close()
+            pool.join()
 
     return colicoords_data
 
