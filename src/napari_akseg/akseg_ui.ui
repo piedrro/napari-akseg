@@ -2120,6 +2120,30 @@ color: rgb(0, 255, 0);</string>
      </widget>
     </item>
     <item>
+     <layout class="QGridLayout" name="gridLayout_11">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_52">
+        <property name="text">
+         <string>Pixel Size (um)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="export_statistics_pixelsize">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>0.116999998688698</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
      <widget class="QPushButton" name="export_statistics_active">
       <property name="text">
        <string>Export Cell Statistics From Active Image</string>

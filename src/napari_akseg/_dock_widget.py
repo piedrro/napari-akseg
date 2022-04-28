@@ -304,6 +304,7 @@ class AKSEG(QWidget):
         self.export_edge = self.findChild(QCheckBox, "export_edge")
         self.export_active = self.findChild(QPushButton, "export_active")
         self.export_all = self.findChild(QPushButton, "export_all")
+        self.export_statistics_pixelsize = self.findChild(QLineEdit, 'export_statistics_pixelsize')
         self.export_statistics_active = self.findChild(QPushButton, "export_statistics_active")
         self.export_statistics_all = self.findChild(QPushButton, "export_statistics_all")
         self.statistics_colicoords = self.findChild(QCheckBox, "statistics_colicoords")
@@ -427,6 +428,8 @@ class AKSEG(QWidget):
         path = QFileDialog.getExistingDirectory(self, "Select Directory",desktop)
 
         if path:
+
+            path = os.path.abspath(path)
 
             worker = Worker(self.get_cell_statistics, mode = mode)
             worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="export"))

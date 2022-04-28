@@ -365,7 +365,11 @@ def get_cell_images(image, mask, cell_mask, mask_id):
 def get_cell_statistics(self, mode, progress_callback=None):
 
     export_channel = self.export_channel.currentText()
-    export_modifier = self.export_modifier.text()
+
+    pixel_size = float(self.export_statistics_pixelsize.text())
+
+    if pixel_size <= 0:
+        pixel_size = 1
 
     image_stack = self.viewer.layers[export_channel].data.copy()
     mask_stack = self.segLayer.data.copy()
@@ -461,9 +465,10 @@ def get_cell_statistics(self, mode, progress_callback=None):
             stats = dict(file_name=file_name,
                          channel=channel,
                          cell_type=cell_type,
-                         cell_area=contour_statistics["cell_area"],
-                         cell_length=contour_statistics["cell_length"],
-                         cell_width=contour_statistics["cell_width"],
+                         pixel_size_um=pixel_size,
+                         cell_area=contour_statistics["cell_area"] * pixel_size**2,
+                         cell_length=contour_statistics["cell_length"] * pixel_size,
+                         cell_width=contour_statistics["cell_width"] * pixel_size,
                          aspect_ratio=contour_statistics["aspect_ratio"],
                          cell_angle=contour_statistics["cell_angle"],
                          overlap_percentage=overlap_percentage,
@@ -484,10 +489,10 @@ def get_cell_statistics(self, mode, progress_callback=None):
 
 def process_cell_statistics(self,cell_statistics,path):
 
-    export_path = os.path.join(path,'statistics.txt')
+    export_path = os.path.join(path,'statistics.csv')
 
     cell_statistics = pd.DataFrame(cell_statistics).drop(columns=['cell_image', 'cell_mask','offset', 'shift_xy','edge','vertical','mask_id','contour'])
 
-    cell_statistics.to_csv(export_path, sep = ",")
+    cell_statistics.to_csv(export_path, index=False)
 
 
