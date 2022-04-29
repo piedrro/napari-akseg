@@ -119,6 +119,10 @@ class Worker(QRunnable):
         finally:
             self.signals.finished.emit()  # Done
 
+    def result(self):
+
+        return self.fn(*self.args, **self.kwargs)
+
 
 
 class AKSEG(QWidget):
@@ -424,6 +428,14 @@ class AKSEG(QWidget):
 
     def _export_statistics(self, mode = 'active'):
 
+        pixel_size = float(self.export_statistics_pixelsize.text())
+
+        colicoords_channel = self.export_colicoords_mode.currentText()
+        colicoords_channel = colicoords_channel.replace("Mask + ","")
+
+        if pixel_size <= 0:
+            pixel_size = 1
+
         desktop = os.path.expanduser("~/Desktop")
 
         path = QFileDialog.getExistingDirectory(self, "Select Directory",desktop)
@@ -436,7 +448,14 @@ class AKSEG(QWidget):
             worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="export"))
             worker.signals.result.connect(partial(self.process_cell_statistics, path = path))
             self.threadpool.start(worker)
+            cell_data = worker.result()
 
+            if self.export_colicoords_mode.currentIndex() != 0:
+
+                worker = Worker(self.run_colicoords, cell_data=cell_data, colicoords_channel=colicoords_channel)
+                worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="export"))
+                worker.signals.result.connect(partial(self.process_cell_statistics, path = path))
+                self.threadpool.start(worker)
 
     def _refine_akseg(self, mask_ids = None):
 

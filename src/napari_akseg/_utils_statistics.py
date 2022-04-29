@@ -71,11 +71,11 @@ def determine_overlap(cnt_num, contours, image):
     return overlap_percentage
 
 
-def get_contour_statistics(cnt, image):
+def get_contour_statistics(cnt, image, pixel_size):
 
     # cell area
     try:
-        area = cv2.contourArea(cnt)
+        area = cv2.contourArea(cnt) * pixel_size
     except:
         area = None
 
@@ -89,7 +89,7 @@ def get_contour_statistics(cnt, image):
 
     # perimiter
     try:
-        perimeter = cv2.arcLength(cnt, True)
+        perimeter = cv2.arcLength(cnt, True) * pixel_size
     except:
         perimeter = None
 
@@ -123,10 +123,15 @@ def get_contour_statistics(cnt, image):
     try:
         cx, cy, lx, ly, wx, wy, data_pts = pca(cnt)
         length, width, angle = get_pca_points(image, cnt, cx, cy, lx, ly, wx, wy)
+        radius = width/2
+        length = length * pixel_size
+        width = width * pixel_size
+        radius = radius * pixel_size
     except:
         length = None
         width = None
         angle = None
+        radius = None
 
     # asepct ratio
     try:
@@ -141,6 +146,7 @@ def get_contour_statistics(cnt, image):
                               cell_area=area,
                               cell_length=length,
                               cell_width=width,
+                              cell_radius = radius,
                               cell_angle=angle,
                               aspect_ratio=aspect_ratio,
                               circumference=perimeter,
@@ -438,7 +444,7 @@ def get_cell_statistics(self, mode, progress_callback=None):
 
             overlap_percentage = determine_overlap(j, contours, image)
 
-            contour_statistics = get_contour_statistics(cnt, image)
+            contour_statistics = get_contour_statistics(cnt, image, pixel_size)
 
             img = image.copy()
             img[mask != 1] = 0
@@ -463,12 +469,13 @@ def get_cell_statistics(self, mode, progress_callback=None):
                          colicoords=False,
                          cell_type=cell_type,
                          pixel_size_um=pixel_size,
-                         length=contour_statistics["cell_length"] * pixel_size,
-                         radius=(contour_statistics["cell_width"])/2 * pixel_size,
-                         area=contour_statistics["cell_area"] * pixel_size ** 2,
-                         circumference=contour_statistics["circumference"] * pixel_size,
+                         length=contour_statistics["cell_length"],
+                         radius=(contour_statistics["cell_width"]),
+                         area=contour_statistics["cell_area"],
+                         circumference=contour_statistics["circumference"],
                          aspect_ratio=contour_statistics["aspect_ratio"],
                          cell_angle=contour_statistics["cell_angle"],
+                         solidity=contour_statistics["solidity"],
                          overlap_percentage=overlap_percentage,
                          box = [y1,y2,x1,x2],
                          image_channel=channel,
@@ -482,15 +489,15 @@ def get_cell_statistics(self, mode, progress_callback=None):
 
             cell_statistics.append(stats)
 
-    if self.export_colicoords_mode.currentIndex() != 0:
-
-        colicoords_channel = self.export_colicoords_mode.currentText()
-        colicoords_channel = colicoords_channel.replace("Mask + ","")
-
-        cell_statistics = self.run_colicoords(cell_data=cell_statistics,
-                                              colicoords_channel=colicoords_channel,
-                                              statistics=True,
-                                              pixel_size=pixel_size)
+    # if self.export_colicoords_mode.currentIndex() != 0:
+    #
+    #     colicoords_channel = self.export_colicoords_mode.currentText()
+    #     colicoords_channel = colicoords_channel.replace("Mask + ","")
+    #
+    #     cell_statistics = self.run_colicoords(cell_data=cell_statistics,
+    #                                           colicoords_channel=colicoords_channel,
+    #                                           statistics=True,
+    #                                           pixel_size=pixel_size)
 
     return cell_statistics
 
@@ -510,5 +517,7 @@ def process_cell_statistics(self,cell_statistics,path):
     cell_statistics =  cell_statistics.drop(columns=[col for col in cell_statistics if col in drop_columns])
 
     cell_statistics.to_csv(export_path, index=False)
+
+    return cell_statistics
 
 

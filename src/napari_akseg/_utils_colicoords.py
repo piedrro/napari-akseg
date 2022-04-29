@@ -377,7 +377,7 @@ def colicoords_fit(dat,colicoords_channel='Mask', statistics=False, pixel_size =
 
 def run_colicoords(self, cell_data, colicoords_channel, statistics = False, pixel_size=1, progress_callback=None):
 
-    processes = multiprocessing.cpu_count()
+    processes = multiprocessing.cpu_count() - 1
 
     free_memory = psutil.virtual_memory().available / 1e6
 
