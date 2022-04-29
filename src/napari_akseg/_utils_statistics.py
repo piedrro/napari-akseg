@@ -405,7 +405,7 @@ def get_cell_statistics(self, mode, progress_callback=None):
         cell_types = []
         mask_ids = np.unique(mask)
 
-        file_name = meta["file_name"]
+        image_name = meta["image_name"]
         channel = meta["channel"]
 
         image_brightness = int(np.mean(image))
@@ -465,7 +465,7 @@ def get_cell_statistics(self, mode, progress_callback=None):
 
             cell_laplacian = int(cv2.Laplacian(image[y1:y2, x1:x2], cv2.CV_64F).var())
 
-            stats = dict(file_name=file_name,
+            stats = dict(file_name=image_name,
                          colicoords=False,
                          cell_type=cell_type,
                          pixel_size_um=pixel_size,
@@ -488,16 +488,6 @@ def get_cell_statistics(self, mode, progress_callback=None):
             stats = {**stats, **cell_images}
 
             cell_statistics.append(stats)
-
-    # if self.export_colicoords_mode.currentIndex() != 0:
-    #
-    #     colicoords_channel = self.export_colicoords_mode.currentText()
-    #     colicoords_channel = colicoords_channel.replace("Mask + ","")
-    #
-    #     cell_statistics = self.run_colicoords(cell_data=cell_statistics,
-    #                                           colicoords_channel=colicoords_channel,
-    #                                           statistics=True,
-    #                                           pixel_size=pixel_size)
 
     return cell_statistics
 
