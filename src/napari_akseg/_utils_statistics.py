@@ -75,7 +75,7 @@ def get_contour_statistics(cnt, image, pixel_size):
 
     # cell area
     try:
-        area = cv2.contourArea(cnt) * pixel_size
+        area = cv2.contourArea(cnt) * pixel_size**2
     except:
         area = None
 
@@ -127,10 +127,10 @@ def get_contour_statistics(cnt, image, pixel_size):
         length = length * pixel_size
         width = width * pixel_size
         radius = radius * pixel_size
+
     except:
         length = None
         width = None
-        angle = None
         radius = None
 
     # asepct ratio
@@ -146,8 +146,7 @@ def get_contour_statistics(cnt, image, pixel_size):
                               cell_area=area,
                               cell_length=length,
                               cell_width=width,
-                              cell_radius = radius,
-                              cell_angle=angle,
+                              cell_radius=radius,
                               aspect_ratio=aspect_ratio,
                               circumference=perimeter,
                               solidity=solidity,
@@ -365,14 +364,9 @@ def get_cell_images(image, mask, cell_mask, mask_id):
     return cell_images
 
 
-def get_cell_statistics(self, mode, progress_callback=None):
+def get_cell_statistics(self, mode, pixel_size, progress_callback=None):
 
     export_channel = self.export_channel.currentText()
-
-    pixel_size = float(self.export_statistics_pixelsize.text())
-
-    if pixel_size <= 0:
-        pixel_size = 1
 
     image_stack = self.viewer.layers[export_channel].data.copy()
     mask_stack = self.segLayer.data.copy()
@@ -470,11 +464,10 @@ def get_cell_statistics(self, mode, progress_callback=None):
                          cell_type=cell_type,
                          pixel_size_um=pixel_size,
                          length=contour_statistics["cell_length"],
-                         radius=(contour_statistics["cell_width"]),
+                         radius=(contour_statistics["cell_radius"]),
                          area=contour_statistics["cell_area"],
                          circumference=contour_statistics["circumference"],
                          aspect_ratio=contour_statistics["aspect_ratio"],
-                         cell_angle=contour_statistics["cell_angle"],
                          solidity=contour_statistics["solidity"],
                          overlap_percentage=overlap_percentage,
                          box = [y1,y2,x1,x2],

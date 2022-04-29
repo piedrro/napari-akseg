@@ -444,7 +444,7 @@ class AKSEG(QWidget):
 
             path = os.path.abspath(path)
 
-            worker = Worker(self.get_cell_statistics, mode = mode)
+            worker = Worker(self.get_cell_statistics, mode = mode, pixel_size = pixel_size)
             worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="export"))
             worker.signals.result.connect(partial(self.process_cell_statistics, path = path))
             self.threadpool.start(worker)
@@ -452,7 +452,9 @@ class AKSEG(QWidget):
 
             if self.export_colicoords_mode.currentIndex() != 0:
 
-                worker = Worker(self.run_colicoords, cell_data=cell_data, colicoords_channel=colicoords_channel)
+                worker = Worker(self.run_colicoords, cell_data=cell_data,
+                                colicoords_channel=colicoords_channel,
+                                pixel_size = pixel_size)
                 worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="export"))
                 worker.signals.result.connect(partial(self.process_cell_statistics, path = path))
                 self.threadpool.start(worker)

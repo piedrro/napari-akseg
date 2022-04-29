@@ -322,7 +322,7 @@ def get_colicoords_mesh(cell, dat, statistics = False, pixel_size = 1):
                              circumference = cell.circumference * pixel_size,
                              aspect_ratio = cell.length/(cell.radius*2))
 
-    dat["mask_id"] =  dat["mask_id"]
+    dat["mask_id"] = dat["mask_id"]
 
     dat["oufti"] = dict(mesh=mesh,
                         model=model,
