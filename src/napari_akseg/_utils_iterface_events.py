@@ -991,3 +991,22 @@ def _copymasktoall(self):
 
         self.segLayer.data[i] = mask
         self.classLayer.data[i] = label
+
+def _deleteallmasks(self):
+
+    mask = self.segLayer.data[0]
+
+    dim_range = int(self.viewer.dims.range[0][1])
+
+    for i in range(dim_range):
+        self.segLayer.data[i] = np.zeros(mask.shape,dtype=np.uint16)
+        self.classLayer.data[i] = np.zeros(mask.shape,dtype=np.uint16)
+
+    if self.segLayer.visible == True:
+        self.segLayer.visible = False
+        self.segLayer.visible = True
+
+    if self.classLayer.visible==True:
+        self.classLayer.visible = False
+        self.classLayer.visible = True
+

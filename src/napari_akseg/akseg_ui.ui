@@ -1115,6 +1115,13 @@ color: rgb(0, 255, 0);</string>
      </widget>
     </item>
     <item>
+     <widget class="QPushButton" name="modify_deleteallmasks">
+      <property name="text">
+       <string>Delete All Masks</string>
+      </property>
+     </widget>
+    </item>
+    <item>
      <widget class="QPushButton" name="modify_copymasktoall">
       <property name="text">
        <string>Copy Mask From Active Image to All Images</string>
