@@ -41,7 +41,7 @@ from napari_akseg._utils_database import (read_AKSEG_directory, update_akmetadat
 from napari_akseg._utils_cellpose import _run_cellpose, _process_cellpose, _open_cellpose_model
 from napari_akseg.akseg_ui import Ui_tab_widget
 from napari_akseg._utils_iterface_events import (_segmentationEvents, _modifyMode, _newSegColour, _viewerControls,
-                                                 _clear_images, _imageControls)
+                                                 _clear_images, _imageControls, _copymasktoall)
 
 from napari_akseg._utils_colicoords import run_colicoords, process_colicoords
 from napari_akseg._utils_statistics import get_cell_statistics, process_cell_statistics, get_cell_images
@@ -166,6 +166,7 @@ class AKSEG(QWidget):
         self.get_cell_images = partial(get_cell_images, self)
         self.get_cell_statistics = partial(get_cell_statistics, self)
         self.process_cell_statistics = partial(process_cell_statistics, self)
+        self._copymasktoall = partial(_copymasktoall, self)
 
         application_path = os.path.dirname(sys.executable)
         self.viewer = viewer
@@ -235,6 +236,7 @@ class AKSEG(QWidget):
         self.modify_refine = self.findChild(QPushButton, "modify_refine")
         self.refine_channel = self.findChild(QComboBox, "refine_channel")
         self.refine_all = self.findChild(QPushButton, "refine_all")
+        self.modify_copymasktoall = self.findChild(QPushButton, "modify_copymasktoall")
         self.modify_progressbar = self.findChild(QProgressBar, "modify_progressbar")
 
         self.modify_auto_panzoom = self.findChild(QCheckBox, "modify_auto_panzoom")
@@ -354,6 +356,7 @@ class AKSEG(QWidget):
         self.modify_viewmasks.stateChanged.connect(partial(self._viewerControls, "viewmasks"))
         self.modify_viewlabels.stateChanged.connect(partial(self._viewerControls, "viewlabels"))
         self.refine_all.clicked.connect(self._refine_akseg)
+        self.modify_copymasktoall.clicked.connect(self._copymasktoall)
 
         #export events
         self.export_active.clicked.connect(partial(self._export, "active"))
@@ -424,7 +427,6 @@ class AKSEG(QWidget):
         populate_upload_combos(self)
 
         self.threadpool = QThreadPool()
-
 
     def _export_statistics(self, mode = 'active'):
 

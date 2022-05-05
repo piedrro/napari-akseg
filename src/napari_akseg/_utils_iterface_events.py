@@ -978,3 +978,16 @@ def _clear_images(self):
             self.viewer.layers.remove(self.viewer.layers[layer_name])
 
 
+def _copymasktoall(self):
+
+    current_fov = self.viewer.dims.current_step[0]
+
+    mask = self.segLayer.data[current_fov]
+    label = self.classLayer.data[current_fov]
+
+    dim_range = int(self.viewer.dims.range[0][1])
+
+    for i in range(dim_range):
+
+        self.segLayer.data[i] = mask
+        self.classLayer.data[i] = label
