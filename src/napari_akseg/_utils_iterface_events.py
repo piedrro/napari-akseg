@@ -401,8 +401,9 @@ def _segmentationEvents(self, viewer, event):
             self.segLayer.mode = "pan_zoom"
 
 
-
         if self.segmentation_mode == "refine":
+
+            layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
 
             self.segLayer.mode == "pan_zoom"
             self.segLayer.brush_size = 1
@@ -426,46 +427,19 @@ def _segmentationEvents(self, viewer, event):
                 mask = mask_stack[current_fov, :, :].copy()
                 label = label_stack[current_fov, :, :].copy()
 
-                if channel != 'Mask':
-                    image_stack = self.viewer.layers[channel].data
-                    image = image_stack[current_fov, :, :].copy()
-                else:
-                    image = np.zeros_like(mask)
+                image = []
+                for layer in layer_names:
+                    image.append(self.viewer.layers[layer].data[current_fov])
+                image = np.stack(image,axis=0)
 
-                cell_data = self.get_cell_images(image,mask,[mask_id])
+                cell_mask = np.zeros(mask.shape, dtype=np.uint8)
+                cell_mask[mask == mask_id] = 1
 
-                colicoords_data = self.run_colicoords(cell_data=[cell_data[0]], channel=channel)
+                cell_data = self.get_cell_images(image, mask, cell_mask, mask_id, layer_names)
+
+                colicoords_data = self.run_colicoords(cell_data=[cell_data], colicoords_channel=channel)
 
                 self.process_colicoords(colicoords_data)
-
-
-
-
-
-
-
-
-
-
-
-                # new_mask = self.refine_mask(image, mask, mask_id)
-                #
-                # current_label = np.unique(label[mask==mask_id])
-                #
-                # label[mask == mask_id] = 0
-                # mask[mask==mask_id] = 0
-                #
-                # new_mask[mask!=0] = 0
-                # mask[new_mask == 1] = mask_id
-                # label[new_mask == 1] = current_label
-                #
-                # mask_stack[current_fov, :, :] = mask
-                # label_stack[current_fov, :, :] = label
-                #
-                # self.segLayer.data = mask_stack
-                # self.classLayer.data = label_stack
-
-
 
     # classify segmentations
     if self.interface_mode == "classify":

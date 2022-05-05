@@ -43,8 +43,8 @@ from napari_akseg.akseg_ui import Ui_tab_widget
 from napari_akseg._utils_iterface_events import (_segmentationEvents, _modifyMode, _newSegColour, _viewerControls,
                                                  _clear_images, _imageControls)
 
-from napari_akseg._utils_colicoords import get_cell_images, run_colicoords, process_colicoords
-from napari_akseg._utils_statistics import get_cell_statistics, process_cell_statistics
+from napari_akseg._utils_colicoords import run_colicoords, process_colicoords
+from napari_akseg._utils_statistics import get_cell_statistics, process_cell_statistics, get_cell_images
 import torch
 
 
@@ -454,31 +454,32 @@ class AKSEG(QWidget):
 
                 worker = Worker(self.run_colicoords, cell_data=cell_data,
                                 colicoords_channel=colicoords_channel,
-                                pixel_size = pixel_size)
+                                pixel_size = pixel_size,
+                                statistics = True)
+
                 worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="export"))
                 worker.signals.result.connect(partial(self.process_cell_statistics, path = path))
                 self.threadpool.start(worker)
 
-    def _refine_akseg(self, mask_ids = None):
+    def _refine_akseg(self):
+
+        pixel_size = float(self.export_statistics_pixelsize.text())
+
+        if pixel_size <= 0:
+            pixel_size = 1
 
         current_fov = self.viewer.dims.current_step[0]
 
         channel = self.refine_channel.currentText()
-        channel = channel.replace("Mask + ","")
+        colicoords_channel = channel.replace("Mask + ","")
 
         mask_stack = self.segLayer.data
         mask = mask_stack[current_fov, :, :].copy()
 
-        if channel != 'Mask':
-            image_stack = self.viewer.layers[channel].data
-            image = image_stack[current_fov, :, :].copy()
-        else:
-            image = np.zeros_like(mask)
-
-        cell_data = self.get_cell_images(image,mask)
-        cell_data = list(cell_data.values())
-
-        worker = Worker(self.run_colicoords, cell_data=cell_data, colicoords_channel=channel)
+        worker = Worker(self.get_cell_statistics, mode='active', pixel_size=pixel_size)
+        self.threadpool.start(worker)
+        cell_data = worker.result()
+        worker = Worker(self.run_colicoords, cell_data=cell_data, colicoords_channel=colicoords_channel, pixel_size=pixel_size)
         worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="modify"))
         worker.signals.result.connect(self.process_colicoords)
         self.threadpool.start(worker)

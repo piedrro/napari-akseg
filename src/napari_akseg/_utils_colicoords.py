@@ -12,7 +12,7 @@ from multiprocessing import Pool
 from skimage import exposure
 import psutil
 import warnings
-
+import pickle
 
 def normalize99(X):
     """ normalize image so 0.0 is 0.01st percentile and 1.0 is 99.99th percentile """
@@ -356,6 +356,10 @@ def colicoords_fit(dat,colicoords_channel='Mask', statistics=False, pixel_size =
                 for i in range(len(dat["cell_image"])):
                     data.add_data(dat['cell_image'][i], 'fluorescence', name=dat["channels"][i])
 
+                with open('cell_image.pickle', 'wb') as handle:
+                    pickle.dump([dat["cell_image"],dat["channels"]], handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+
                 cell = Cell(data)
 
                 cell.optimize()
@@ -412,60 +416,66 @@ def run_colicoords(self, cell_data, colicoords_channel, statistics = False, pixe
         except:
             print(traceback.format_exc())
         else:
-            colicoords_data = [r.get() for r in results]
+            cell_statistics = [r.get() for r in results]
             pool.close()
             pool.join()
 
-    if statistics:
-        colicoords_data = [dat for dat in colicoords_data if dat["cell"] != None]
+    ldist_data = {}
 
-    # cell_list = [dat["cell"] for dat in colicoords_data if dat["cell"] != None]
+    if statistics is True:
 
-    # cell_list = CellList(cell_list)
-    # ldist = get_l_dist(cell_list, colicoords_channel)
-    #
-    # print(ldist)
+        cell_list = [dat["cell"] for dat in cell_statistics if dat["cell"] != None]
+
+        channel_list = sorted(list(cell_list[0].data.data_dict.keys()))
+        cell_list = CellList(cell_list)
+
+        for channel in channel_list:
+            if channel != 'binary':
+                ldist_mean, ldist_std = get_l_dist(cell_list, channel)
+                channel_dat = {channel + " mean": ldist_mean,
+                               channel + " std": ldist_std}
+                ldist_data = {**ldist_data, **channel_dat}
+
+    colicoords_data = dict(cell_statistics=cell_statistics,
+                           ldist_data=ldist_data)
 
     return colicoords_data
 
 
-def get_l_dist(cell_list, colicoords_channel =''):
+def get_l_dist(cell_list, channel):
 
-    ldist_mean = None
-    ldist_std = None
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="RuntimeWarning: invalid value encountered in true_divide!")
+        warnings.filterwarnings("ignore", message="Warning: removed 7 curves with maximum zero")
 
-    if colicoords_channel != 'Mask':
+        nbins = config.cfg.L_DIST_NBINS
+        sigma = config.cfg.L_DIST_SIGMA
+        sigma_arr = sigma / cell_list.length
 
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message = "RuntimeWarning: invalid value encountered in true_divide!")
+        x_arr, out_arr = cell_list.l_dist(nbins, data_name=channel, norm_x=True, sigma=sigma_arr)
 
-            nbins = config.cfg.L_DIST_NBINS
-            sigma = config.cfg.L_DIST_SIGMA
-            sigma_arr = sigma / cell_list.length
+        x = x_arr[0]
 
-            x_arr, out_arr = cell_list.l_dist(nbins, data_name=colicoords_channel, norm_x=True, sigma=sigma_arr)
+        maxes = np.max(out_arr, axis=1)
+        bools = maxes != 0
+        n = np.sum(~bools)
+        if n > 0:
+            print("Warning: removed {} curves with maximum zero".format(n))
 
-            x = x_arr[0]
+        out_arr = out_arr[bools]
+        a_max = np.max(out_arr, axis=1)
+        out_arr = out_arr / a_max[:, np.newaxis]
 
-            maxes = np.max(out_arr, axis=1)
-            bools = maxes != 0
-            n = np.sum(~bools)
-            if n > 0:
-                print("Warning: removed {} curves with maximum zero".format(n))
+        ldist_mean = np.nanmean(out_arr, axis=0)
+        ldist_std = np.std(out_arr, axis=0)
 
-            out_arr = out_arr[bools]
-            a_max = np.max(out_arr, axis=1)
-            out_arr = out_arr / a_max[:, np.newaxis]
-
-            ldist_mean = np.nanmean(out_arr, axis=0)
-
-            ldist_std = np.std(out_arr, axis=0)
-
-    return ldist_mean
+    return ldist_mean, ldist_std
 
 
 
 def process_colicoords(self, colicoords_data):
+
+    colicoords_data = colicoords_data["cell_statistics"]
 
     current_fov = self.viewer.dims.current_step[0]
     colicoords_channel = self.cellpose_segchannel.currentText()
