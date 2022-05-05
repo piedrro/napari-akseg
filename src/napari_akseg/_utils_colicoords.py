@@ -7,10 +7,12 @@ from shapely.geometry import LineString
 from shapely.geometry import Polygon
 from shapely.geometry.polygon import orient
 import math
-from colicoords import Data, Cell, CellPlot, data_to_cells, config
+from colicoords import Data, Cell, CellPlot, data_to_cells, config, CellList
 from multiprocessing import Pool
 from skimage import exposure
 import psutil
+import warnings
+
 
 def normalize99(X):
     """ normalize image so 0.0 is 0.01st percentile and 1.0 is 99.99th percentile """
@@ -345,25 +347,28 @@ def colicoords_fit(dat,colicoords_channel='Mask', statistics=False, pixel_size =
 
         if dat['edge'] == False:
 
-            data = Data()
-            data.add_data(dat['cell_mask'], 'binary')
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message = "IntegrationWarning: The occurrence of roundoff error is detected, which prevents the requested tolerance from being achieved.  The error may be underestimated.")
 
-            if colicoords_channel != 'Mask':
-                data.add_data(dat['cell_image'], 'fluorescence', name=colicoords_channel)
+                data = Data()
+                data.add_data(dat['cell_mask'], 'binary')
 
-            cell = Cell(data)
+                for i in range(len(dat["cell_image"])):
+                    data.add_data(dat['cell_image'][i], 'fluorescence', name=dat["channels"][i])
 
-            cell.optimize()
+                cell = Cell(data)
 
-            if colicoords_channel != 'Mask':
-                cell.optimize(colicoords_channel)
-                cell.measure_r(colicoords_channel, mode='mid')
+                cell.optimize()
 
-            results = get_colicoords_mesh(cell, dat, statistics, pixel_size)
-            results["cell"] = True
-            results["colicoords_channel"] = colicoords_channel
+                if colicoords_channel != 'Mask':
+                    cell.optimize(colicoords_channel)
+                    cell.measure_r(colicoords_channel, mode='mid')
 
-            results = {**dat, **results["statistics"]}
+                results = get_colicoords_mesh(cell, dat, statistics, pixel_size)
+                results["cell"] = cell
+                results["colicoords_channel"] = colicoords_channel
+
+                results = {**dat, **results["statistics"]}
 
         else:
             results["cell"] = None
@@ -414,7 +419,51 @@ def run_colicoords(self, cell_data, colicoords_channel, statistics = False, pixe
     if statistics:
         colicoords_data = [dat for dat in colicoords_data if dat["cell"] != None]
 
+    # cell_list = [dat["cell"] for dat in colicoords_data if dat["cell"] != None]
+
+    # cell_list = CellList(cell_list)
+    # ldist = get_l_dist(cell_list, colicoords_channel)
+    #
+    # print(ldist)
+
     return colicoords_data
+
+
+def get_l_dist(cell_list, colicoords_channel =''):
+
+    ldist_mean = None
+    ldist_std = None
+
+    if colicoords_channel != 'Mask':
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message = "RuntimeWarning: invalid value encountered in true_divide!")
+
+            nbins = config.cfg.L_DIST_NBINS
+            sigma = config.cfg.L_DIST_SIGMA
+            sigma_arr = sigma / cell_list.length
+
+            x_arr, out_arr = cell_list.l_dist(nbins, data_name=colicoords_channel, norm_x=True, sigma=sigma_arr)
+
+            x = x_arr[0]
+
+            maxes = np.max(out_arr, axis=1)
+            bools = maxes != 0
+            n = np.sum(~bools)
+            if n > 0:
+                print("Warning: removed {} curves with maximum zero".format(n))
+
+            out_arr = out_arr[bools]
+            a_max = np.max(out_arr, axis=1)
+            out_arr = out_arr / a_max[:, np.newaxis]
+
+            ldist_mean = np.nanmean(out_arr, axis=0)
+
+            ldist_std = np.std(out_arr, axis=0)
+
+    return ldist_mean
+
+
 
 def process_colicoords(self, colicoords_data):
 

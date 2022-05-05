@@ -286,7 +286,8 @@ def rotate_image(image, shift_xy, angle=90):
     return image, shift_xy
 
 
-def get_cell_images(image, mask, cell_mask, mask_id):
+def get_cell_images(image, mask, cell_mask, mask_id, layer_names):
+
     cell_image = image.copy()
 
     inverted_cell_mask = np.zeros(mask.shape, dtype=np.uint8)
@@ -343,16 +344,21 @@ def get_cell_images(image, mask, cell_mask, mask_id):
 
     inverted_cell_mask = inverted_cell_mask[y1:y2, x1:x2]
     cell_mask = cell_mask[y1:y2, x1:x2]
-    cell_image = cell_image[y1:y2, x1:x2]
+    cell_image = cell_image[:,y1:y2, x1:x2]
 
-    cell_image[inverted_cell_mask == 1] = 0
-    cell_image = normalize99(cell_image)
+    for i in range(len(cell_image)):
+
+        cell_img = cell_image[i].copy()
+        cell_img[inverted_cell_mask == 1] = 0
+        cell_img = normalize99(cell_img)
+        cell_image[i] = cell_img
 
     offset = [y1, x1]
     box = [y1, y2, x1, x2]
 
     cell_images = dict(cell_image=cell_image,
                        cell_mask=cell_mask,
+                       channels=layer_names,
                        offset=offset,
                        shift_xy=shift_xy,
                        box=box,
@@ -364,11 +370,190 @@ def get_cell_images(image, mask, cell_mask, mask_id):
     return cell_images
 
 
+def get_layer_statistics(image, cell_mask, box, layer_names):
+
+    layer_statistics = {}
+
+    for i in range(len(image)):
+
+        layer = layer_names[i]
+
+        x1, x2, y1, y2 = box
+
+        cell_image_crop = image[i][y1:y2, x1:x2].copy()
+        cell_mask_crop = cell_mask[y1:y2, x1:x2].copy()
+
+        try:
+            cell_brightness = int(np.mean(cell_image_crop[cell_mask_crop != 0]))
+            cell_background_brightness = int(np.mean(cell_image_crop[cell_mask_crop == 0]))
+            cell_contrast = cell_brightness / cell_background_brightness
+            cell_laplacian = int(cv2.Laplacian(cell_image_crop, cv2.CV_64F).var())
+        except:
+            cell_brightness = None
+            cell_contrast = None
+            cell_laplacian = None
+
+        stats = {"cell_brightness[" + layer + "]": cell_brightness,
+                 "cell_contrast[" + layer + "]": cell_contrast,
+                 "cell_laplacian[" + layer + "]": cell_laplacian}
+
+        layer_statistics = {**layer_statistics, **stats}
+
+    layer_statistics = {key: value for key, value in sorted(layer_statistics.items())}
+
+    return layer_statistics
+
+
+
 def get_cell_statistics(self, mode, pixel_size, progress_callback=None):
+
+    layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
+
+    if mode == "active":
+        dims = [self.viewer.dims.current_step[0]]
+    else:
+        dim_range = int(self.viewer.dims.range[0][1])
+        dims = np.arange(0, dim_range)
+
+    image_stack = []
+    file_name_stack = []
+
+    for i in dims:
+
+        image = []
+        file_names = []
+
+        for layer in layer_names:
+
+            image.append(self.viewer.layers[layer].data[i])
+            file_names.append(self.viewer.layers[layer].metadata[i]["image_name"])
+
+        image = np.stack(image, axis=0)
+        image_stack.append(image)
+        file_name_stack.append(file_names)
+
+    image_stack = np.stack(image_stack, axis=0)
+
+    mask_stack = self.segLayer.data.copy()
+    meta_stack = self.segLayer.metadata.copy()
+    label_stack = self.classLayer.data.copy()
+
+    if mode == "active":
+
+        current_step = self.viewer.dims.current_step[0]
+
+        mask_stack = np.expand_dims(mask_stack[current_step], axis=0)
+        label_stack = np.expand_dims(label_stack[current_step], axis=0)
+        meta_stack = np.expand_dims(meta_stack[current_step], axis=0)
+
+    size_statistics = []
+    image_statistics = []
+
+    cell_dict = {1: "Single", 2: "Dividing", 3: "Divided", 4: "Broken", 5: "Vertical", 6: "Edge"}
+
+    for i in range(len(image_stack)):
+
+        progress = int(((i + 1) / len(image_stack)) * 100)
+        progress_callback.emit(progress)
+
+        image = image_stack[i]
+        mask = mask_stack[i]
+        meta = meta_stack[i]
+        label = label_stack[i]
+        file_names = file_name_stack[i]
+
+        image_brightness = [int(np.mean(img)) for img in image]
+        image_laplacian = [int(cv2.Laplacian(img, cv2.CV_64F).var()) for img in image]
+
+        contours = []
+        cell_types = []
+        mask_ids = np.unique(mask)
+
+        for j in range(len(mask_ids)):
+
+            mask_id = mask_ids[j]
+
+            if mask_id != 0:
+
+                cell_mask = np.zeros(mask.shape, dtype=np.uint8)
+                cell_mask[mask == mask_id] = 1
+
+                cnt = find_contours(cell_mask)[0]
+                contours.append(cnt)
+
+                cell_label = np.unique(label[mask == mask_id])[0]
+                cell_types.append(cell_dict[cell_label])
+
+                try:
+                    background = np.zeros(mask.shape, dtype=np.uint8)
+                    cv2.drawContours(background, contours, contourIdx=-1, color=(1, 1, 1), thickness=-1)
+                except:
+                    background = None
+
+        for j in range(len(contours)):
+
+            cnt = contours[j]
+            cell_type = cell_types[j]
+
+            cell_mask = np.zeros(mask.shape, dtype=np.uint8)
+            cv2.drawContours(cell_mask, [cnt], contourIdx=-1, color=(1, 1, 1), thickness=-1)
+
+            overlap_percentage = determine_overlap(j, contours, mask)
+
+            contour_statistics = get_contour_statistics(cnt, mask, pixel_size)
+
+            box = contour_statistics["numpy_BBOX"]
+
+            cell_images = get_cell_images(image, mask, cell_mask, mask_id, layer_names)
+
+            layer_stats = get_layer_statistics(image, cell_mask, box, layer_names)
+
+            morphology_stats = dict(file_names=file_names,
+                                    colicoords=False,
+                                    cell_type=cell_type,
+                                    pixel_size_um=pixel_size,
+                                    length=contour_statistics["cell_length"],
+                                    radius=(contour_statistics["cell_radius"]),
+                                    area=contour_statistics["cell_area"],
+                                    circumference=contour_statistics["circumference"],
+                                    aspect_ratio=contour_statistics["aspect_ratio"],
+                                    solidity=contour_statistics["solidity"],
+                                    overlap_percentage=overlap_percentage,
+                                    box=box)
+
+            stats = {**morphology_stats, **layer_stats, **cell_images}
+
+            size_statistics.append(stats)
+
+    return size_statistics
+
+
+def get_cell_statistics_old(self, mode, pixel_size, progress_callback=None):
+
+    layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
+
+    if mode == "active":
+        dims = [self.viewer.dims.current_step[0]]
+    else:
+        dim_range = int(self.viewer.dims.range[0][1])
+        dims = np.arange(0, dim_range)
+
+    image_stack = []
+
+    for i in dims:
+
+        image = []
+
+        for layer in layer_names:
+            image.append(self.viewer.layers[layer].data[i])
+
+        image = np.stack(image, axis=-1)
+        image_stack.append(image)
+
+    image_stack = np.stack(image_stack, axis=0)
 
     export_channel = self.export_channel.currentText()
 
-    image_stack = self.viewer.layers[export_channel].data.copy()
     mask_stack = self.segLayer.data.copy()
     meta_stack = self.segLayer.metadata.copy()
     label_stack = self.classLayer.data.copy()
@@ -376,7 +561,6 @@ def get_cell_statistics(self, mode, pixel_size, progress_callback=None):
     if mode == "active":
         current_step = self.viewer.dims.current_step[0]
 
-        image_stack = np.expand_dims(image_stack[current_step], axis=0)
         mask_stack = np.expand_dims(mask_stack[current_step], axis=0)
         label_stack = np.expand_dims(label_stack[current_step], axis=0)
         meta_stack = np.expand_dims(meta_stack[current_step], axis=0)
@@ -390,10 +574,12 @@ def get_cell_statistics(self, mode, pixel_size, progress_callback=None):
         progress = int(((i + 1) / len(image_stack)) * 100)
         progress_callback.emit(progress)
 
-        image = image_stack[i]
+        image = image_stack[i][:,:,0]
         mask = mask_stack[i]
         meta = meta_stack[i]
         label = label_stack[i]
+
+        print(image.shape)
 
         contours = []
         cell_types = []
@@ -485,22 +671,25 @@ def get_cell_statistics(self, mode, pixel_size, progress_callback=None):
     return cell_statistics
 
 
-
-
 def process_cell_statistics(self,cell_statistics,path):
+
+    # cell_statistics = [dat for dat in cell_statistics if 'ldist' not in dat.keys()]
+    # ldist = [dat for dat in cell_statistics if 'ldist' in dat.keys()]
 
     export_path = os.path.join(path,'statistics.csv')
 
     drop_columns = ['cell_image', 'cell_mask','offset', 'shift_xy','edge',
                     'vertical','mask_id','contour','edge','vertical','mask_id','cell','refined_cnt',
-                    'oufti','statistics','colicoords_channel']
+                    'oufti','statistics','colicoords_channel','channels']
 
     cell_statistics = pd.DataFrame(cell_statistics)
 
-    cell_statistics =  cell_statistics.drop(columns=[col for col in cell_statistics if col in drop_columns])
+    cell_statistics = cell_statistics.drop(columns=[col for col in cell_statistics if col in drop_columns])
+
+    cell_statistics = cell_statistics.dropna(how='all')
 
     cell_statistics.to_csv(export_path, index=False)
 
-    return cell_statistics
+    return
 
 
