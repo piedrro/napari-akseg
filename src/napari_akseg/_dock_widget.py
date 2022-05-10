@@ -410,7 +410,6 @@ class AKSEG(QWidget):
         self.viewer.bind_key(key="F2", func=partial(self._modifyMode, "segment"), overwrite=True)
         self.viewer.bind_key(key="F3", func=partial(self._modifyMode, "classify"), overwrite=True)
         self.viewer.bind_key(key="Control", func=partial(self._modifyMode, "segment"), overwrite=True)
-        self.viewer.bind_key(key="Shift", func=partial(self._modifyMode, "segment"), overwrite=True)
         self.viewer.bind_key(key="h", func=partial(self._viewerControls, "h"), overwrite=True)
         self.viewer.bind_key(key="i", func=partial(self._viewerControls, "i"), overwrite=True)
         self.viewer.bind_key(key="o", func=partial(self._viewerControls, "o"), overwrite=True)
@@ -430,7 +429,6 @@ class AKSEG(QWidget):
         populate_upload_combos(self)
 
         self.threadpool = QThreadPool()
-
 
     def _export_statistics(self, mode = 'active'):
 
