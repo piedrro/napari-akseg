@@ -36,8 +36,9 @@ from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cell
 
 
 from napari_akseg._utils_database import (read_AKSEG_directory, update_akmetadata, _get_database_paths,
-                                          read_AKSEG_images, _uploadAKGROUP, populate_upload_combos, _populateUSERMETA,
-                                          check_database_access)
+                                          read_AKSEG_images, _upload_AKSEG_database, populate_upload_combos, _populateUSERMETA,
+                                          check_database_access, _upload_akseg_metadata)
+
 from napari_akseg._utils_cellpose import _run_cellpose, _process_cellpose, _open_cellpose_model
 from napari_akseg.akseg_ui import Ui_tab_widget
 from napari_akseg._utils_iterface_events import (_segmentationEvents, _modifyMode, _newSegColour, _viewerControls,
@@ -126,6 +127,7 @@ class Worker(QRunnable):
 
 
 class AKSEG(QWidget):
+
     """Widget allows selection of two labels layers and returns a new layer
     highlighing pixels whose values differ between the two layers."""
 
@@ -147,7 +149,7 @@ class AKSEG(QWidget):
         self.import_AKSEG = partial(import_AKSEG, self)
         self.import_imagej = partial(import_imagej, self)
         self.read_AKSEG_images = partial(read_AKSEG_images, self)
-        self._uploadAKGROUP = partial(_uploadAKGROUP, self)
+        self._upload_AKSEG_database = partial(_upload_AKSEG_database, self)
         self._get_database_paths = partial(_get_database_paths,self)
         self.export_files = partial(export_files, self)
         self._run_cellpose = partial(_run_cellpose, self)
@@ -168,6 +170,7 @@ class AKSEG(QWidget):
         self.process_cell_statistics = partial(process_cell_statistics, self)
         self._copymasktoall = partial(_copymasktoall, self)
         self._deleteallmasks = partial(_deleteallmasks, self)
+        self._upload_akseg_metadata = partial(_upload_akseg_metadata, self)
 
         application_path = os.path.dirname(sys.executable)
         self.viewer = viewer
@@ -271,6 +274,9 @@ class AKSEG(QWidget):
         self.classify_edge.setEnabled(False)
 
         # upload tab controls from Qt Desinger References
+
+        self.database_path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG"
+
         self.upload_segmented = self.findChild(QCheckBox, "upload_segmented")
         self.upload_labelled = self.findChild(QCheckBox, "upload_labelled")
         self.upload_segcurated = self.findChild(QCheckBox, "upload_segcurated")
@@ -297,6 +303,8 @@ class AKSEG(QWidget):
         self.upload_active = self.findChild(QPushButton, "upload_active")
         self.database_download = self.findChild(QPushButton, "database_download")
         self.database_download_limit = self.findChild(QComboBox, "database_download_limit")
+        self.create_database = self.findChild(QPushButton, "create_database")
+        self.load_database = self.findChild(QPushButton, "load_database")
         self.upload_progressbar = self.findChild(QProgressBar, "upload_progressbar")
 
         # export tab controls from Qt Desinger References
@@ -372,6 +380,8 @@ class AKSEG(QWidget):
         self.upload_all.clicked.connect(partial(self._uploadDatabase, "all"))
         self.upload_active.clicked.connect(partial(self._uploadDatabase, "active"))
         self.database_download.clicked.connect(self._downloadDatabase)
+        self.create_database.clicked.connect(self._create_AKSEG_database)
+        self.load_database.clicked.connect(self._load_AKSEG_database)
         self.upload_initial.currentTextChanged.connect(self._populateUSERMETA)
 
         # viewer event that call updateFileName when the slider is modified
@@ -426,9 +436,71 @@ class AKSEG(QWidget):
         #viewer events
         self.viewer.layers.events.inserted.connect(self._manualImport)
 
-        populate_upload_combos(self)
-
         self.threadpool = QThreadPool()
+
+
+    def _create_AKSEG_database(self):
+
+        desktop = os.path.expanduser("~/Desktop")
+        path = QFileDialog.getExistingDirectory(self, "Select Directory",desktop)
+
+        if path:
+            folders = ["Images","Metadata","Models"]
+
+            path = os.path.abspath(path)
+            path = os.path.join(path,"AKSEG_Database")
+
+            if os.path.isdir(path) is False:
+                os.mkdir(path)
+
+            folders = [os.path.join(path,folder) for folder in folders if os.path.isdir(os.path.join(path,folder)) is False]
+
+            for folder in folders:
+
+                os.mkdir(folder)
+
+            akseg_metadata = pd.DataFrame(columns = ["User Initial",
+                                                     "Image Content",
+                                                     "Microscope",
+                                                     "Modality",
+                                                     "Light Source",
+                                                     "Stains",
+                                                     "Antibiotic",
+                                                     "Antibiotic Concentration",
+                                                     "Treatment Time (mins)",
+                                                     "Mounting Method",
+                                                     "Protocol"])
+
+            user_metadata = pd.DataFrame(columns=["User Initial",
+                                                  "User Meta #1",
+                                                  "User Meta #2",
+                                                  "User Meta #3"])
+
+            metadata_path = os.path.join(path,"Metadata","AKSEG Metadata.xlsx")
+
+            with pd.ExcelWriter(metadata_path) as writer:
+                akseg_metadata.to_excel(writer, sheet_name='AKSEG Metadata', index=False, startrow=2, startcol=1)
+                user_metadata.to_excel(writer, sheet_name='User Metadata', index=False, startrow=2, startcol=1)
+
+    def _load_AKSEG_database(self):
+
+        desktop = os.path.expanduser("~/Desktop")
+        path = QFileDialog.getExistingDirectory(self, "Select Directory",desktop)
+
+        if "AKSEG" in path:
+
+            AKSEG_folders = ["Images","Metadata","Models"]
+            dir_folders = [folder.split("\\")[-1] for folder in glob(path + "*/*")]
+
+            if set(AKSEG_folders).issubset(dir_folders):
+
+                self.database_path = os.path.abspath(path)
+                populate_upload_combos(self)
+                self._populateUSERMETA
+
+
+
+
 
     def _export_statistics(self, mode = 'active'):
 
@@ -441,7 +513,6 @@ class AKSEG(QWidget):
             pixel_size = 1
 
         desktop = os.path.expanduser("~/Desktop")
-
         path = QFileDialog.getExistingDirectory(self, "Select Directory",desktop)
 
         if path:
@@ -491,9 +562,13 @@ class AKSEG(QWidget):
 
     def _uploadDatabase(self, mode):
 
-        worker = Worker(self._uploadAKGROUP, mode=mode)
+        worker = Worker(self._upload_AKSEG_database, mode=mode)
         worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="database"))
         self.threadpool.start(worker)
+
+        self._upload_akseg_metadata()
+        populate_upload_combos(self)
+        self._populateUSERMETA
 
     def _downloadDatabase(self):
 
@@ -501,9 +576,9 @@ class AKSEG(QWidget):
 
         paths, import_limit = self._get_database_paths()
 
-        if len(paths) == 0:
+        if len(paths) == 0 or paths is None:
 
-            print("no matching database files found")
+            print("No matching database files found")
 
         else:
 
@@ -551,7 +626,7 @@ class AKSEG(QWidget):
         import_mode = self.import_mode.currentText()
         import_filemode = self.import_filemode.currentText()
 
-        dialog_dir = check_database_access(file_path=r"\\CMDAQ4.physics.ox.ac.uk\AKGroup")
+        dialog_dir = check_database_access(file_path=self.database_path)
 
         if import_filemode == "Import File(s)":
             
@@ -637,7 +712,8 @@ class AKSEG(QWidget):
 
         if self.export_location.currentText() == "Select Directory":
 
-            dialog_dir = check_database_access(file_path=r"\\CMDAQ4.physics.ox.ac.uk\AKGroup")
+            desktop = os.path.expanduser("~/Desktop")
+            dialog_dir = check_database_access(file_path=desktop)
 
             path = QFileDialog.getExistingDirectory(self, "Select Export Directory",dialog_dir)
 

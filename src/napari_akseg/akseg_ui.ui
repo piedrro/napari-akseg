@@ -1218,6 +1218,44 @@ color: rgb(0, 255, 0);</string>
    </attribute>
    <layout class="QVBoxLayout" name="verticalLayout_4">
     <item>
+     <widget class="Line" name="line_24">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QLabel" name="label_56">
+      <property name="font">
+       <font>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="text">
+       <string>Database I/O</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <layout class="QGridLayout" name="gridLayout_13">
+      <item row="0" column="0">
+       <widget class="QPushButton" name="create_database">
+        <property name="text">
+         <string>Create Database</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QPushButton" name="load_database">
+        <property name="text">
+         <string>Load Database</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
      <widget class="Line" name="line_13">
       <property name="orientation">
        <enum>Qt::Horizontal</enum>
@@ -1252,7 +1290,7 @@ color: rgb(0, 255, 0);</string>
          <string notr="true">background-color: rgb(191, 0, 0);</string>
         </property>
         <property name="editable">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <item>
          <property name="text">
@@ -1294,7 +1332,7 @@ color: rgb(0, 255, 0);</string>
          <string notr="true">background-color: rgb(191, 0, 0);</string>
         </property>
         <property name="editable">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <item>
          <property name="text">
@@ -1351,7 +1389,7 @@ color: rgb(0, 255, 0);</string>
          <string notr="true">background-color: rgb(191, 0, 0);</string>
         </property>
         <property name="editable">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <item>
          <property name="text">
@@ -1457,7 +1495,7 @@ color: rgb(0, 255, 0);</string>
       <item row="4" column="1">
        <widget class="QComboBox" name="upload_illumination">
         <property name="editable">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <item>
          <property name="text">
@@ -1496,7 +1534,7 @@ color: rgb(0, 255, 0);</string>
       <item row="5" column="1">
        <widget class="QComboBox" name="upload_stain">
         <property name="editable">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <item>
          <property name="text">
@@ -1518,7 +1556,7 @@ color: rgb(0, 255, 0);</string>
       <item row="11" column="1">
        <widget class="QComboBox" name="upload_protocol">
         <property name="editable">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <item>
          <property name="text">
@@ -1537,7 +1575,7 @@ color: rgb(0, 255, 0);</string>
       <item row="7" column="1">
        <widget class="QComboBox" name="upload_antibiotic">
         <property name="editable">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
        </widget>
       </item>
@@ -1551,7 +1589,7 @@ color: rgb(0, 255, 0);</string>
       <item row="10" column="1">
        <widget class="QComboBox" name="upload_mount">
         <property name="editable">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <item>
          <property name="text">
@@ -1578,7 +1616,11 @@ color: rgb(0, 255, 0);</string>
        </widget>
       </item>
       <item row="9" column="1">
-       <widget class="QComboBox" name="upload_abxconcentration"/>
+       <widget class="QComboBox" name="upload_abxconcentration">
+        <property name="editable">
+         <bool>true</bool>
+        </property>
+       </widget>
       </item>
       <item row="9" column="0">
        <widget class="QLabel" name="label_47">
@@ -1589,6 +1631,9 @@ color: rgb(0, 255, 0);</string>
       </item>
       <item row="8" column="1">
        <widget class="QComboBox" name="upload_treatmenttime">
+        <property name="editable">
+         <bool>true</bool>
+        </property>
         <item>
          <property name="text">
           <string/>
@@ -1660,13 +1705,25 @@ color: rgb(0, 255, 0);</string>
        </widget>
       </item>
       <item row="12" column="1">
-       <widget class="QComboBox" name="upload_usermeta1"/>
+       <widget class="QComboBox" name="upload_usermeta1">
+        <property name="editable">
+         <bool>true</bool>
+        </property>
+       </widget>
       </item>
       <item row="13" column="1">
-       <widget class="QComboBox" name="upload_usermeta2"/>
+       <widget class="QComboBox" name="upload_usermeta2">
+        <property name="editable">
+         <bool>true</bool>
+        </property>
+       </widget>
       </item>
       <item row="14" column="1">
-       <widget class="QComboBox" name="upload_usermeta3"/>
+       <widget class="QComboBox" name="upload_usermeta3">
+        <property name="editable">
+         <bool>true</bool>
+        </property>
+       </widget>
       </item>
      </layout>
     </item>
