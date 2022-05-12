@@ -5,7 +5,5 @@ except ImportError:
     __version__ = "unknown"
 
 
-
-
-from ._dock_widget import napari_experimental_provide_dock_widget, AKSEG
+from ._dock_widget import AKSEG
 

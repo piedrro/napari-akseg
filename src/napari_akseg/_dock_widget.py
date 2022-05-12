@@ -10,7 +10,7 @@ import sys
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
-from napari_plugin_engine import napari_hook_implementation
+# from napari_plugin_engine import napari_hook_implementation
 import time
 from glob2 import glob
 import napari
@@ -1014,10 +1014,10 @@ class AKSEG(QWidget):
         self.classLayer.data = label_stack
 
 
-@napari_hook_implementation
-def napari_experimental_provide_dock_widget():
-    # you can return either a single widget, or a sequence of widgets
-    return [AKSEG]
+# @napari_hook_implementation
+# def napari_experimental_provide_dock_widget():
+#     # you can return either a single widget, or a sequence of widgets
+#     return [AKSEG]
 
 
 # from napari_akseg.akseg_ui import Ui_tab_widget
