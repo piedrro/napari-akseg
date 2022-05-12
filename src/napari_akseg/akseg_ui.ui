@@ -1389,7 +1389,7 @@ color: rgb(0, 255, 0);</string>
       <item row="3" column="1">
        <widget class="QComboBox" name="upload_modality">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <property name="styleSheet">
          <string notr="true">background-color: rgb(191, 0, 0);</string>

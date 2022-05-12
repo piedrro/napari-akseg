@@ -623,7 +623,7 @@ class Ui_tab_widget(object):
         self.label_11.setObjectName("label_11")
         self.database_image_metadata.setWidget(3, QtWidgets.QFormLayout.LabelRole, self.label_11)
         self.upload_modality = QtWidgets.QComboBox(self.upload_tab)
-        self.upload_modality.setEnabled(False)
+        self.upload_modality.setEnabled(True)
         self.upload_modality.setStyleSheet("background-color: rgb(191, 0, 0);")
         self.upload_modality.setEditable(True)
         self.upload_modality.setObjectName("upload_modality")
