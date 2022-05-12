@@ -399,7 +399,7 @@ class AKSEG(QWidget):
                               6: (255 / 255, 0 / 255, 0 / 255, 1), }
 
         self.classLayer = self.viewer.add_labels(np.zeros((1, 100, 100), dtype=np.uint16), opacity=0.25, name="Classes",
-                                                 color=self.class_colours,metadata = {0:{"image_name":""}})
+                                                 color=self.class_colours,metadata = {0:{"image_name":""}}, visible=False)
         self.segLayer = self.viewer.add_labels(np.zeros((1, 100, 100), dtype=np.uint16), opacity=1,
                                                name="Segmentations",metadata = {0:{"image_name":""}})
         self.segLayer.contour = 1
@@ -483,6 +483,13 @@ class AKSEG(QWidget):
             with pd.ExcelWriter(metadata_path) as writer:
                 akseg_metadata.to_excel(writer, sheet_name='AKSEG Metadata', index=False, startrow=2, startcol=1)
                 user_metadata.to_excel(writer, sheet_name='User Metadata', index=False, startrow=2, startcol=1)
+
+            self.database_path = os.path.abspath(path)
+            populate_upload_combos(self)
+            self._populateUSERMETA
+
+            self.display_database_path.setText(path)
+            self._show_database_controls(True)
 
     def _load_AKSEG_database(self):
 
