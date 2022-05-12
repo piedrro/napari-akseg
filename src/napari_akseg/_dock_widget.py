@@ -274,10 +274,7 @@ class AKSEG(QWidget):
         self.classify_edge.setEnabled(False)
 
         # upload tab controls from Qt Desinger References
-
-        self.database_path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG"
         self.database_path = ""
-
         self.upload_segmented = self.findChild(QCheckBox, "upload_segmented")
         self.upload_labelled = self.findChild(QCheckBox, "upload_labelled")
         self.upload_segcurated = self.findChild(QCheckBox, "upload_segcurated")

@@ -140,7 +140,10 @@ def _process_cellpose(self, segmentation_data):
 
 def _open_cellpose_model(self):
 
-    file_path = check_database_access(file_path=r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Models")
+    if self.database_path != "":
+        file_path = os.path.join(self.database_path, "Models")
+    else:
+        file_path = os.path.expanduser("~/Desktop")
 
     path = QFileDialog.getOpenFileName(self, "Open File",file_path,"Cellpose Models (*)")
 

@@ -1169,11 +1169,11 @@ def append_metadata(current_metadata, new_metadata):
         return appended_metadata
 
 
-def read_ak_metadata():
+def read_ak_metadata(self):
 
-    excel_path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AK-SEG\AK-SEG Metadata.xlsx"
+    meta_path = os.path.join(self.database_path, "Metadata", "AKSEG Metadata.xlsx")
 
-    ak_meta = pd.read_excel(excel_path)
+    ak_meta = pd.read_excel(meta_path)
 
     user_initials = list(ak_meta["User Initials"].dropna())
     microscope = list(ak_meta["Microscope"].dropna())

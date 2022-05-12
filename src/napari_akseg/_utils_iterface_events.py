@@ -951,7 +951,7 @@ def _imageControls(self, key, viewer=None):
     dim_range = int(self.viewer.dims.range[0][1])
 
     if key == "Upload":
-        self._uploadAKGROUP("active")
+        self._uploadDatabase("active")
 
     if dim_range != 1:
 
