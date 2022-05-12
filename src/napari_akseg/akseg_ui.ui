@@ -1225,7 +1225,7 @@ color: rgb(0, 255, 0);</string>
      </widget>
     </item>
     <item>
-     <widget class="QLabel" name="label_56">
+     <widget class="QLabel" name="database_io_title">
       <property name="font">
        <font>
         <weight>75</weight>
@@ -1256,6 +1256,33 @@ color: rgb(0, 255, 0);</string>
      </layout>
     </item>
     <item>
+     <layout class="QFormLayout" name="formLayout_9">
+      <item row="0" column="0">
+       <widget class="QLabel" name="display_database_path_label">
+        <property name="text">
+         <string>Database Path</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="display_database_path">
+        <property name="text">
+         <string>No database loaded</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+        <property name="clearButtonEnabled">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
      <widget class="Line" name="line_13">
       <property name="orientation">
        <enum>Qt::Horizontal</enum>
@@ -1276,7 +1303,7 @@ color: rgb(0, 255, 0);</string>
      </widget>
     </item>
     <item>
-     <layout class="QFormLayout" name="formLayout_3">
+     <layout class="QFormLayout" name="database_image_metadata">
       <item row="0" column="0">
        <widget class="QLabel" name="label_9">
         <property name="text">
@@ -1286,6 +1313,9 @@ color: rgb(0, 255, 0);</string>
       </item>
       <item row="0" column="1">
        <widget class="QComboBox" name="upload_initial">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="styleSheet">
          <string notr="true">background-color: rgb(191, 0, 0);</string>
         </property>
@@ -1295,26 +1325,6 @@ color: rgb(0, 255, 0);</string>
         <item>
          <property name="text">
           <string>Required for upload</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>NA</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>PT</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>AZ</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>SM</string>
          </property>
         </item>
        </widget>
@@ -1328,6 +1338,9 @@ color: rgb(0, 255, 0);</string>
       </item>
       <item row="1" column="1">
        <widget class="QComboBox" name="upload_content">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="styleSheet">
          <string notr="true">background-color: rgb(191, 0, 0);</string>
         </property>
@@ -1337,41 +1350,6 @@ color: rgb(0, 255, 0);</string>
         <item>
          <property name="text">
           <string>Required for upload</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>NA</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>E.coli</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>S.aureus</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Klebsiella.spp</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>P.aeruginsoa</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Proteus.spp</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Enterobacter.spp</string>
          </property>
         </item>
        </widget>
@@ -1385,6 +1363,9 @@ color: rgb(0, 255, 0);</string>
       </item>
       <item row="2" column="1">
        <widget class="QComboBox" name="upload_microscope">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="styleSheet">
          <string notr="true">background-color: rgb(191, 0, 0);</string>
         </property>
@@ -1394,36 +1375,6 @@ color: rgb(0, 255, 0);</string>
         <item>
          <property name="text">
           <string>Required for upload</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>NA</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>BIO-NIM</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>JR-NIM</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>SCAN-R</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Troodos</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Halfdome</string>
          </property>
         </item>
        </widget>
@@ -1437,6 +1388,9 @@ color: rgb(0, 255, 0);</string>
       </item>
       <item row="3" column="1">
        <widget class="QComboBox" name="upload_modality">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="styleSheet">
          <string notr="true">background-color: rgb(191, 0, 0);</string>
         </property>
@@ -1494,6 +1448,9 @@ color: rgb(0, 255, 0);</string>
       </item>
       <item row="4" column="1">
        <widget class="QComboBox" name="upload_illumination">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="editable">
          <bool>true</bool>
         </property>
@@ -1533,6 +1490,9 @@ color: rgb(0, 255, 0);</string>
       </item>
       <item row="5" column="1">
        <widget class="QComboBox" name="upload_stain">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="editable">
          <bool>true</bool>
         </property>
@@ -1555,6 +1515,9 @@ color: rgb(0, 255, 0);</string>
       </item>
       <item row="11" column="1">
        <widget class="QComboBox" name="upload_protocol">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="editable">
          <bool>true</bool>
         </property>
@@ -1574,6 +1537,9 @@ color: rgb(0, 255, 0);</string>
       </item>
       <item row="7" column="1">
        <widget class="QComboBox" name="upload_antibiotic">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="editable">
          <bool>true</bool>
         </property>
@@ -1588,6 +1554,9 @@ color: rgb(0, 255, 0);</string>
       </item>
       <item row="10" column="1">
        <widget class="QComboBox" name="upload_mount">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="editable">
          <bool>true</bool>
         </property>
@@ -1617,6 +1586,9 @@ color: rgb(0, 255, 0);</string>
       </item>
       <item row="9" column="1">
        <widget class="QComboBox" name="upload_abxconcentration">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="editable">
          <bool>true</bool>
         </property>
@@ -1631,47 +1603,15 @@ color: rgb(0, 255, 0);</string>
       </item>
       <item row="8" column="1">
        <widget class="QComboBox" name="upload_treatmenttime">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="editable">
          <bool>true</bool>
         </property>
         <item>
          <property name="text">
           <string/>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>1</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>5</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>10</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>15</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>20</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>30</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>60</string>
          </property>
         </item>
        </widget>
@@ -1706,6 +1646,9 @@ color: rgb(0, 255, 0);</string>
       </item>
       <item row="12" column="1">
        <widget class="QComboBox" name="upload_usermeta1">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="editable">
          <bool>true</bool>
         </property>
@@ -1713,6 +1656,9 @@ color: rgb(0, 255, 0);</string>
       </item>
       <item row="13" column="1">
        <widget class="QComboBox" name="upload_usermeta2">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="editable">
          <bool>true</bool>
         </property>
@@ -1720,6 +1666,9 @@ color: rgb(0, 255, 0);</string>
       </item>
       <item row="14" column="1">
        <widget class="QComboBox" name="upload_usermeta3">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="editable">
          <bool>true</bool>
         </property>
@@ -1748,23 +1697,22 @@ color: rgb(0, 255, 0);</string>
      </widget>
     </item>
     <item>
-     <layout class="QGridLayout" name="gridLayout_8">
+     <layout class="QGridLayout" name="database_upload_options">
       <item row="0" column="0">
        <widget class="QCheckBox" name="upload_segmented">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="text">
          <string>Segmented</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="1">
-       <widget class="QCheckBox" name="upload_classcurated">
-        <property name="text">
-         <string>Labels Curated</string>
-        </property>
-       </widget>
-      </item>
       <item row="0" column="1">
        <widget class="QCheckBox" name="upload_labelled">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="text">
          <string>Labelled</string>
         </property>
@@ -1772,38 +1720,59 @@ color: rgb(0, 255, 0);</string>
       </item>
       <item row="1" column="0">
        <widget class="QCheckBox" name="upload_segcurated">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="text">
          <string>Segmentations Curated</string>
         </property>
        </widget>
       </item>
-     </layout>
-    </item>
-    <item>
-     <layout class="QGridLayout" name="gridLayout_9">
-      <item row="0" column="0">
+      <item row="1" column="1">
+       <widget class="QCheckBox" name="upload_classcurated">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="text">
+         <string>Labels Curated</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
        <widget class="QCheckBox" name="upload_overwrite_images">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="text">
          <string>Overwrite Images</string>
         </property>
        </widget>
       </item>
-      <item row="0" column="1">
+      <item row="2" column="1">
        <widget class="QCheckBox" name="upload_overwrite_masks">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="text">
          <string>Overwrite Masks/Labels</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="0">
+      <item row="3" column="0">
        <widget class="QCheckBox" name="overwrite_selected_metadata">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="text">
          <string>Overwrite Selected Metadata</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="1">
+      <item row="3" column="1">
        <widget class="QCheckBox" name="overwrite_all_metadata">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="text">
          <string>Overwrite All Metadata</string>
         </property>
@@ -1812,9 +1781,12 @@ color: rgb(0, 255, 0);</string>
      </layout>
     </item>
     <item>
-     <layout class="QGridLayout" name="gridLayout_7">
+     <layout class="QGridLayout" name="database_upload_buttons">
       <item row="0" column="1">
        <widget class="QPushButton" name="upload_all">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="text">
          <string>Upload All Images</string>
         </property>
@@ -1822,6 +1794,9 @@ color: rgb(0, 255, 0);</string>
       </item>
       <item row="0" column="0">
        <widget class="QPushButton" name="upload_active">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="text">
          <string>Upload Active Image</string>
         </property>
@@ -1850,9 +1825,15 @@ color: rgb(0, 255, 0);</string>
      </widget>
     </item>
     <item>
-     <layout class="QGridLayout" name="gridLayout_10">
+     <layout class="QGridLayout" name="database_download_buttons">
       <item row="0" column="1">
        <widget class="QComboBox" name="database_download_limit">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="frame">
+         <bool>true</bool>
+        </property>
         <item>
          <property name="text">
           <string>1</string>
@@ -1892,6 +1873,9 @@ color: rgb(0, 255, 0);</string>
       </item>
       <item row="0" column="0">
        <widget class="QPushButton" name="database_download">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="text">
          <string>Download</string>
         </property>

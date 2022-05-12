@@ -276,6 +276,7 @@ class AKSEG(QWidget):
         # upload tab controls from Qt Desinger References
 
         self.database_path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG"
+        self.database_path = ""
 
         self.upload_segmented = self.findChild(QCheckBox, "upload_segmented")
         self.upload_labelled = self.findChild(QCheckBox, "upload_labelled")
@@ -305,7 +306,11 @@ class AKSEG(QWidget):
         self.database_download_limit = self.findChild(QComboBox, "database_download_limit")
         self.create_database = self.findChild(QPushButton, "create_database")
         self.load_database = self.findChild(QPushButton, "load_database")
+        self.display_database_path = self.findChild(QLineEdit, "display_database_path")
         self.upload_progressbar = self.findChild(QProgressBar, "upload_progressbar")
+        self.upload_tab = self.findChild(QWidget,"upload_tab")
+        self._show_database_controls(False)
+
 
         # export tab controls from Qt Desinger References
         self.export_channel = self.findChild(QComboBox, "export_channel")
@@ -498,6 +503,18 @@ class AKSEG(QWidget):
                 populate_upload_combos(self)
                 self._populateUSERMETA
 
+                self.display_database_path.setText(path)
+                self._show_database_controls(True)
+
+    def _show_database_controls(self, visible=True):
+
+        all_database_controls = self.upload_tab.findChildren((QCheckBox, QComboBox, QLabel, QPushButton, QProgressBar))
+        load_database_controls = ["create_database",
+                                  "load_database",
+                                  "display_database_path",
+                                  "display_database_label",
+                                  "database_io_title"]
+        [item.setVisible(visible) for item in all_database_controls if item.objectName() not in load_database_controls]
 
 
 
