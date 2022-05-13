@@ -32,23 +32,23 @@ import time
 
 
 
-from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
-                                 import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
-                                 import_dataset, import_AKSEG, import_JSON, import_masks,
-                                 import_imagej, align_image_channels, export_files, _manualImport)
-
-
-from napari_akseg._utils_database import (read_AKSEG_directory, update_akmetadata, _get_database_paths,
-                                          read_AKSEG_images, _upload_AKSEG_database, populate_upload_combos, _populateUSERMETA,
-                                          check_database_access, _upload_akseg_metadata)
-
-from napari_akseg._utils_cellpose import _run_cellpose, _process_cellpose, _open_cellpose_model
-from napari_akseg.akseg_ui import Ui_tab_widget
-from napari_akseg._utils_iterface_events import (_segmentationEvents, _modifyMode, _newSegColour, _viewerControls,
-                                                 _clear_images, _imageControls, _copymasktoall, _deleteallmasks)
-
-from napari_akseg._utils_colicoords import run_colicoords, process_colicoords
-from napari_akseg._utils_statistics import get_cell_statistics, process_cell_statistics, get_cell_images
+# from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
+#                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
+#                                  import_dataset, import_AKSEG, import_JSON, import_masks,
+#                                  import_imagej, align_image_channels, export_files, _manualImport)
+#
+#
+# from napari_akseg._utils_database import (read_AKSEG_directory, update_akmetadata, _get_database_paths,
+#                                           read_AKSEG_images, _upload_AKSEG_database, populate_upload_combos, _populateUSERMETA,
+#                                           check_database_access, _upload_akseg_metadata)
+#
+# from napari_akseg._utils_cellpose import _run_cellpose, _process_cellpose, _open_cellpose_model
+# from napari_akseg.akseg_ui import Ui_tab_widget
+# from napari_akseg._utils_iterface_events import (_segmentationEvents, _modifyMode, _newSegColour, _viewerControls,
+#                                                  _clear_images, _imageControls, _copymasktoall, _deleteallmasks)
+#
+# from napari_akseg._utils_colicoords import run_colicoords, process_colicoords
+# from napari_akseg._utils_statistics import get_cell_statistics, process_cell_statistics, get_cell_images
 import torch
 
 

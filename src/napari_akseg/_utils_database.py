@@ -12,7 +12,7 @@ import datetime
 import json
 import matplotlib.pyplot as plt
 import hashlib
-from napari_akseg._utils_json import import_coco_json, export_coco_json
+# from napari_akseg._utils_json import import_coco_json, export_coco_json
 import time
 
 def update_akmetadata(self, akmeta):

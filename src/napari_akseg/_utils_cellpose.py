@@ -6,7 +6,7 @@ import cv2
 import warnings
 import torch
 import cellpose
-from napari_akseg._utils_database import check_database_access
+# from napari_akseg._utils_database import check_database_access
 from PyQt5.QtWidgets import QFileDialog
 
 def export_cellpose(file_path,image,mask):
