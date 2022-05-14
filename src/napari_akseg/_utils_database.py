@@ -88,45 +88,41 @@ def update_akmetadata(self, akmeta):
     self.upload_segcurated.setChecked(segmentations_curated)
 
 
+
+
 def get_usermeta(self):
 
-    if self.database_path != None:
+    meta_path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Metadata\AKSEG Metadata.xlsx"
 
-        meta_path = os.path.join(self.database_path, "Metadata", "AKSEG Metadata.xlsx")
-
-        if os.path.lexists(meta_path):
-            time.sleep(0.5)
-        else:
-            print("cant find database file/folder")
-            meta_path = None
-
-        if meta_path != None:
-
-            try:
-
-                usermeta = pd.read_excel(meta_path, sheet_name=1, usecols="B:E", header=2)
-
-                users = usermeta["User Initial"].unique()
-
-                usermeta_dict = {}
-
-                for user in users:
-
-                    meta1 = usermeta[usermeta["User Initial"] == user]["User Meta #1"].dropna().tolist()
-                    meta2 = usermeta[usermeta["User Initial"] == user]["User Meta #2"].dropna().tolist()
-                    meta3 = usermeta[usermeta["User Initial"] == user]["User Meta #3"].dropna().tolist()
-
-                    usermeta_dict[user] = dict(meta1=meta1,
-                                               meta2=meta2,
-                                               meta3=meta3)
-            except:
-                pass
+    if os.path.lexists(meta_path):
+        time.sleep(0.5)
     else:
-        usermeta_dict = None
+        print("cant find database file/folder")
+        meta_path = None
 
-    return usermeta_dict
+    if meta_path != None:
 
+        try:
 
+            usermeta = pd.read_excel(meta_path, sheet_name=1, usecols="B:E", header=2)
+
+            users = usermeta["User Initial"].unique()
+
+            usermeta_dict = {}
+
+            for user in users:
+                meta1 = usermeta[usermeta["User Initial"] == user]["User Meta #1"].dropna().tolist()
+                meta2 = usermeta[usermeta["User Initial"] == user]["User Meta #2"].dropna().tolist()
+                meta3 = usermeta[usermeta["User Initial"] == user]["User Meta #3"].dropna().tolist()
+
+                usermeta_dict[user] = dict(meta1=meta1,
+                                           meta2=meta2,
+                                           meta3=meta3)
+
+            return usermeta_dict
+
+        except:
+            pass
 
 def check_database_access(file_path):
 
@@ -145,7 +141,7 @@ def check_database_access(file_path):
 
 def populate_upload_combos(self):
 
-    meta_path = os.path.join(self.database_path, "Metadata", "AKSEG Metadata.xlsx")
+    meta_path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Metadata\AKSEG Metadata.xlsx"
 
     if os.path.lexists(meta_path):
         time.sleep(0.5)
@@ -531,15 +527,14 @@ def generate_multichannel_stack(self):
     return multi_image_stack, multi_meta_stack, layer_names
 
 
-def _upload_AKSEG_database(self, progress_callback, mode):
+def _uploadAKGROUP(self, progress_callback, mode):
 
     try:
+        akgroup_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images"
 
-        database_dir = os.path.join(self.database_path,"Images")
+        if os.path.exists(akgroup_dir) == False:
 
-        if os.path.exists(database_dir) == False:
-
-            print("Could not find AKSEG Database")
+            print("Could not find AKGROUP")
 
         else:
 
@@ -558,7 +553,7 @@ def _upload_AKSEG_database(self, progress_callback, mode):
             else:
                 overwrite_metadata = False
 
-            user_metadata_path = database_dir + "\\" + user_initial + "\\" + user_initial + "_file_metadata.txt"
+            user_metadata_path = akgroup_dir + "\\" + user_initial + "\\" + user_initial + "_file_metadata.txt"
 
             if os.path.exists(user_metadata_path):
 
@@ -659,30 +654,30 @@ def _upload_AKSEG_database(self, progress_callback, mode):
                                 akseg_hash = meta["akseg_hash"]
                                 import_mode = meta["import_mode"]
 
-                                #stops user from overwriting AKSEG files, unless they have opened them from AKSEG for curation
+                                #stops user from overwriting AKGROUP files, unless they have opened them from AKGROUP for curation
                                 if akseg_hash in metadata_akseg_hash and import_mode != "AKSEG" and overwrite_images == False and overwrite_masks == False and overwrite_metadata is False:
 
-                                    print("file already exists  in AKSEG Database:   " + file_name)
+                                    print("file already exists  in AKGROUP Server:   " + file_name)
 
                                 else:
 
 
                                     if import_mode == "AKSEG":
                                         if overwrite_selected_metadata is True:
-                                            print("Overwriting selected metadata on AKSEG Database:   " + file_name)
+                                            print("Overwriting selected metadata on AKGROUP Server:   " + file_name)
                                         elif overwrite_all_metadata is True:
-                                            print("Overwriting all metadata on AKSEG Database:   " + file_name)
+                                            print("Overwriting all metadata on AKGROUP Server:   " + file_name)
                                         else:
-                                            print("Editing file on AKSEG Database:   " + file_name)
+                                            print("Editing file on AKGROUP Server:   " + file_name)
 
                                     elif overwrite_images is True and overwrite_masks is True:
-                                        print("Overwriting image + mask/label on AKSEG Database:   " + file_name)
+                                        print("Overwriting image + mask/label on AKGROUP Server:   " + file_name)
                                     elif overwrite_images is True:
-                                        print("Overwriting image on AKSEG Database:   " + file_name)
+                                        print("Overwriting image on AKGROUP Server:   " + file_name)
                                     elif overwrite_masks is True:
-                                        print("Overwriting mask/label on AKSEG Database:   " + file_name)
+                                        print("Overwriting mask/label on AKGROUP Server:   " + file_name)
                                     else:
-                                        print("Uploading file to AKSEG Database:   " + file_name)
+                                        print("Uploading file to AKGROUP Server:   " + file_name)
 
                                     y1, y2, x1, x2 = meta["crop"]
 
@@ -694,7 +689,7 @@ def _upload_AKSEG_database(self, progress_callback, mode):
                                     mask = mask[y1:y2, x1:x2]
                                     class_mask = class_mask[y1:y2, x1:x2]
 
-                                    save_dir = database_dir + "\\" + user_initial
+                                    save_dir = akgroup_dir + "\\" + user_initial
 
                                     image_dir = save_dir + "\\" + "images" + "\\" + folder + "\\"
                                     mask_dir = save_dir + "\\" + "masks" + "\\" + folder + "\\"
@@ -809,18 +804,13 @@ def _get_database_paths(self):
 
     database_metadata = {key: val for key, val in database_metadata.items() if val not in ["", "Required for upload"]}
 
-    database_dir = os.path.join(self.database_path, "Images")
-
+    akgroup_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images"
     user_initial = database_metadata["user_initial"]
-
-    user_metadata_path = database_dir + "\\" + user_initial + "\\" + user_initial + "_file_metadata.txt"
-
-    paths = []
-    import_limit = 0
+    user_metadata_path = akgroup_dir + "\\" + user_initial + "\\" + user_initial + "_file_metadata.txt"
 
     if os.path.isfile(user_metadata_path) == False:
 
-        print("Could not find metadata for user: " + user_initial)
+        print("could not find: " + user_metadata_path)
 
     else:
 
@@ -837,7 +827,7 @@ def _get_database_paths(self):
         if import_limit != "All":
             paths = paths[:int(import_limit)]
 
-    return paths, import_limit
+        return paths, import_limit
 
 
 def _populateUSERMETA(self):
@@ -860,20 +850,7 @@ def _populateUSERMETA(self):
         self.upload_usermeta2.addItems([""] + meta2)
         self.upload_usermeta3.addItems([""] + meta3)
 
-        self.upload_usermeta1.setCurrentText("")
-        self.upload_usermeta2.setCurrentText("")
-        self.upload_usermeta3.setCurrentText("")
-
-    else:
-
-        self.upload_usermeta1.setCurrentText("")
-        self.upload_usermeta2.setCurrentText("")
-        self.upload_usermeta3.setCurrentText("")
-
-
-
-
-def _update_akseg_metadata(self):
+def _updateakmetadata(self):
 
     try:
 
@@ -887,130 +864,3 @@ def _update_akseg_metadata(self):
 
     except:
         pass
-
-def _upload_akseg_metadata(self):
-
-    try:
-
-        user_initial = self.upload_initial.currentText()
-        content = self.upload_content.currentText()
-        microscope = self.upload_microscope.currentText()
-        modality = self.upload_modality.currentText()
-        source = self.upload_illumination.currentText()
-        stains = self.upload_stain.currentText()
-        antibiotic = self.upload_antibiotic.currentText()
-        abxconcentration = self.upload_abxconcentration.currentText()
-        treatment_time = self.upload_treatmenttime.currentText()
-        mount = self.upload_mount.currentText()
-        protocol = self.upload_protocol.currentText()
-        usermeta1 = self.upload_usermeta1.currentText()
-        usermeta2 = self.upload_usermeta2.currentText()
-        usermeta3 = self.upload_usermeta3.currentText()
-
-        meta_path = os.path.join(self.database_path, "Metadata", "AKSEG Metadata.xlsx")
-
-        metadict = pd.read_excel(meta_path, sheet_name="AKSEG Metadata", usecols="B:L", header=2)
-        userdict = pd.read_excel(meta_path, sheet_name="User Metadata", usecols="B:E", header=2)
-        userdict = userdict.fillna("")
-
-        metadict_data = dict(user_initial=metadict["User Initial"].dropna().astype(str).tolist(),
-                        content=metadict["Image Content"].dropna().astype(str).tolist(),
-                        microscope=metadict["Microscope"].dropna().astype(str).tolist(),
-                        modality=metadict["Modality"].dropna().astype(str).tolist(),
-                        source=metadict["Light Source"].dropna().astype(str).tolist(),
-                        antibiotic=metadict["Antibiotic"].dropna().astype(str).tolist(),
-                        abxconcentration=metadict["Antibiotic Concentration"].dropna().astype(str).tolist(),
-                        treatment_time=metadict["Treatment Time (mins)"].dropna().astype(str).tolist(),
-                        stains=metadict["Stains"].dropna().astype(str).tolist(),
-                        mount=metadict["Mounting Method"].dropna().astype(str).tolist(),
-                        protocol=metadict["Protocol"].dropna().astype(str).tolist())
-
-        userdict_data = dict(user_initial=userdict["User Initial"].dropna().astype(str).tolist(),
-                             usermeta1=userdict["User Meta #1"].dropna().astype(str).tolist(),
-                             usermeta2=userdict["User Meta #2"].dropna().astype(str).tolist(),
-                             usermeta3=userdict["User Meta #3"].dropna().astype(str).tolist())
-
-        max_length = 0
-
-        for key,value in metadict_data.items():
-
-            current_value = locals()[key]
-
-            if current_value not in value and current_value != 'Required for upload' and current_value != '':
-
-                metadict_data[key] = value.append(current_value)
-
-            if len(metadict_data[key]) > max_length:
-
-                max_length = len(metadict_data[key])
-
-        for key, value in metadict_data.items():
-
-            if key != None:
-
-                if len(value) != max_length:
-
-                    value = value + [""]*(max_length-len(value))
-
-                    metadict_data[key] = value
-
-        for i in range(3):
-
-            usermeta_list = userdict_data[f"usermeta{i+1}"]
-            selected_usermata = locals()[f"usermeta{i+1}"]
-
-            if selected_usermata not in usermeta_list and selected_usermata != "" and user_initial != "Required for upload":
-
-                if user_initial in userdict_data["user_initial"]:
-
-                    last_index = np.where(np.array(userdict_data["user_initial"]) == user_initial)[0][-1]
-
-                    userdict_data["user_initial"].insert(last_index, user_initial)
-                    userdict_data["usermeta1"].insert(last_index, "")
-                    userdict_data["usermeta2"].insert(last_index, "")
-                    userdict_data["usermeta3"].insert(last_index, "")
-                    userdict_data[f"usermeta{i+1}"][last_index] = locals()[f"usermeta{i+1}"]
-
-                else:
-
-                    last_index = len(userdict_data["user_initial"])
-
-                    userdict_data["user_initial"].insert(last_index, user_initial)
-                    userdict_data["usermeta1"].insert(last_index, "")
-                    userdict_data["usermeta2"].insert(last_index, "")
-                    userdict_data["usermeta3"].insert(last_index, "")
-                    userdict_data[f"usermeta{i+1}"][last_index] = locals()[f"usermeta{i+1}"]
-
-
-        metadict_data = pd.DataFrame.from_dict(metadict_data)
-        metadict_data = metadict_data.rename(columns={"user_initial": "User Initial",
-                                                      "content": "Image Content",
-                                                      "microscope": "Microscope",
-                                                      "modality": "Modality",
-                                                      "source": "Light Source",
-                                                      "antibiotic": "Antibiotic",
-                                                      "abxconcentration": "Antibiotic Concentration",
-                                                      "treatment_time": "Treatment Time (mins)",
-                                                      "stains": "Stains",
-                                                      "mount": "Mounting Method",
-                                                      "protocol": "Protocol"})
-
-        userdict_data = pd.DataFrame.from_dict(userdict_data)
-        userdict_data = userdict_data.rename(columns={"user_initial": "User Initial",
-                                                      "usermeta1": "User Meta #1",
-                                                      "usermeta2": "User Meta #2",
-                                                      "usermeta3": "User Meta #3"})
-
-        for user in np.unique(userdict_data["User Initial"]):
-
-            df = userdict_data[userdict_data["User Initial"] == user].iloc[:,1:].copy()
-            df = pd.DataFrame(np.sort(df.values, axis=0), index=df.index, columns=df.columns)
-
-            userdict_data.loc[userdict_data["User Initial"] == user, userdict_data.columns[1:]] = df
-
-        with pd.ExcelWriter(meta_path) as writer:
-            metadict_data.to_excel(writer, sheet_name="AKSEG Metadata", index=False, startrow=2, startcol=1)
-            userdict_data.to_excel(writer, sheet_name="User Metadata", index=False, startrow=2, startcol=1)
-
-    except:
-        print(traceback.format_exc())
