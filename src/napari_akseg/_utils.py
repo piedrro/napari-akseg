@@ -23,7 +23,111 @@ import scipy
 # from napari_akseg._utils_imagej import export_imagej
 # from napari_akseg._utils_json import import_coco_json, export_coco_json
 import pickle
+import xmltodict
 
+
+def read_xml(paths):
+    files = {}
+
+    for path in paths:
+
+        with open(path) as fd:
+            dat = xmltodict.parse(fd.read())["OME"]
+
+        for i in range(len(dat["Image"])):
+
+            img = dat["Image"][i]
+
+            objective_id = int(img["ObjectiveSettings"]["@ID"].split(":")[-1])
+            objective_dat = dat["Instrument"]["Objective"][objective_id]
+            objective_mag = float(objective_dat["@NominalMagnification"])
+            objective_na = float(objective_dat["@LensNA"])
+
+            pixel_size = float(img["Pixels"]["@PhysicalSizeX"])
+
+            position = i
+            microscope = "ScanR"
+            light_source = "LED"
+
+            for j in range(len(img["Pixels"]["Channel"])):
+                channel_data = img["Pixels"]["Channel"][j]
+                tiff_data = img["Pixels"]["TiffData"][j]
+                modality = channel_data["@IlluminationType"]
+                channel = channel_data["@Name"]
+                file_name = tiff_data["UUID"]["@FileName"]
+
+                files[file_name] = dict(file_name=file_name,
+                                        position=position,
+                                        microscope=microscope,
+                                        light_source=light_source,
+                                        channel=channel,
+                                        modality=modality)
+
+    return files
+
+
+def read_scanr_directory(self, path):
+
+    if isinstance(path, list) == False:
+        path = [path]
+
+    if len(path) == 1:
+
+        path = os.path.abspath(path[0])
+
+        if os.path.isfile(path) == True:
+            file_paths = [path]
+
+        else:
+
+            file_paths = glob(path + "*\**\*.tif", recursive=True)
+    else:
+        file_paths = path
+
+    scanR_meta_files = [path.replace(os.path.basename(path), "") for path in file_paths]
+    scanR_meta_files = np.unique(scanR_meta_files).tolist()
+    scanR_meta_files = [glob(path + "*.ome.xml")[0] for path in scanR_meta_files]
+
+    file_info = read_xml(scanR_meta_files)
+
+    files = []
+
+    for path in file_paths:
+        file = file_info[os.path.basename(path)]
+        file["file_path"] = path
+
+        folder = path.split("\\")[-3]
+        parent_folder = path.split("\\")[-4]
+
+        file["folder"] = folder
+        file["parent_folder"] = parent_folder
+
+        files.append(file)
+
+    files = pd.DataFrame(files)
+
+    num_measurements = len(files.position.unique())
+
+    import_limit = self.import_limit.currentText()
+
+    if import_limit == "None":
+        import_limit = num_measurements
+    else:
+        if int(import_limit) > num_measurements:
+            import_limit = num_measurements
+
+    acquisitions = files.position.unique()[:int(import_limit)]
+
+    files = files[files['position'] <= acquisitions[-1]]
+
+    measurements = files.groupby(by=['position'])
+    channels = files["channel"].drop_duplicates().to_list()
+
+    channel_num = str(len(files["channel"].unique()))
+
+    print("Found " + str(len(measurements)) + " measurments in ScanR Folder(s) with " + channel_num + " channels.")
+
+    return measurements, file_paths, channels
 
 def import_imagej(self, progress_callback, paths):
 
