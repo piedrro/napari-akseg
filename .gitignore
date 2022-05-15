@@ -8,7 +8,6 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-venv/
 env/
 build/
 develop-eggs/
@@ -83,5 +82,6 @@ venv/
 
 # written by setuptools_scm
 **/_version.py
-
+/src/napari_akseg/_tests/
 /src/napari_akseg/_statistics_dev/
+/src/napari_akseg/_dev/

@@ -512,7 +512,7 @@ def get_cell_statistics(self, mode, pixel_size, progress_callback=None):
 
             box = contour_statistics["numpy_BBOX"]
 
-            cell_images = self.get_cell_images(image, mask, cell_mask, mask_id, layer_names)
+            cell_images = get_cell_images(self, image, mask, cell_mask, mask_id, layer_names)
 
             layer_stats = get_layer_statistics(image, cell_mask, box, layer_names)
 

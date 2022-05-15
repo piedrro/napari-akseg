@@ -5,5 +5,7 @@ except ImportError:
     __version__ = "unknown"
 
 
-from ._dock_widget import AKSEG
 
+
+
+from ._widget import AKSEG

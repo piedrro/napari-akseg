@@ -25,7 +25,7 @@ def _segmentationEvents(self, viewer, event):
             meta = self.segLayer.metadata.copy()
 
             if self.segmentation_mode == "add":
-                new_colour = self._newSegColour()
+                new_colour = _newSegColour(self)
             else:
                 data_coordinates = self.segLayer.world_to_data(event.position)
                 coord = np.round(data_coordinates).astype(int)
@@ -251,7 +251,7 @@ def _segmentationEvents(self, viewer, event):
             self.segLayer.mode = "paint"
             self.segLayer.brush_size = 1
 
-            new_colour = self._newSegColour()
+            new_colour = _newSegColour(self)
             stored_mask = self.segLayer.data.copy()
             stored_class = self.classLayer.data
             meta = self.segLayer.metadata.copy()
@@ -435,11 +435,14 @@ def _segmentationEvents(self, viewer, event):
                 cell_mask = np.zeros(mask.shape, dtype=np.uint8)
                 cell_mask[mask == mask_id] = 1
 
-                cell_data = self.get_cell_images(image, mask, cell_mask, mask_id, layer_names)
+                from napari_akseg._utils_statistics import get_cell_images
+                from napari_akseg._utils_colicoords import run_colicoords, process_colicoords
 
-                colicoords_data = self.run_colicoords(cell_data=[cell_data], colicoords_channel=channel)
+                cell_data = get_cell_images(self,image, mask, cell_mask, mask_id, layer_names)
 
-                self.process_colicoords(colicoords_data)
+                colicoords_data = run_colicoords(self,cell_data=[cell_data], colicoords_channel=channel)
+
+                process_colicoords(self, colicoords_data)
 
     # classify segmentations
     if self.interface_mode == "classify":

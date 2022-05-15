@@ -4,9 +4,6 @@ import numpy as np
 import os
 import cv2
 import warnings
-import torch
-import cellpose
-# from napari_akseg._utils_database import check_database_access
 from PyQt5.QtWidgets import QFileDialog
 
 def export_cellpose(file_path,image,mask):
@@ -48,6 +45,10 @@ def export_cellpose(file_path,image,mask):
 
 def _run_cellpose(self, progress_callback, images):
 
+    import cellpose
+    from cellpose import models
+    import torch
+
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -68,7 +69,7 @@ def _run_cellpose(self, progress_callback, images):
 
         if cellpose_model == "custom":
 
-            model = cellpose.models.CellposeModel(pretrained_model=custom_model,
+            model = models.CellposeModel(pretrained_model=custom_model,
                                          diam_mean=diameter,
                                          model_type=None,
                                          gpu=gpu,
@@ -77,7 +78,7 @@ def _run_cellpose(self, progress_callback, images):
                                          )
         else:
 
-            model = cellpose.models.CellposeModel(diam_mean=diameter,
+            model = models.CellposeModel(diam_mean=diameter,
                                          model_type=cellpose_model,
                                          gpu=gpu,
                                          torch=True,

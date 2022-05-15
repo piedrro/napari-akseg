@@ -1,56 +1,29 @@
 """
 This module is an example of a barebones QWidget plugin for napari
 
-It implements the ``napari_experimental_provide_dock_widget`` hook specification.
-see: https://napari.org/docs/dev/plugins/hook_specifications.html
+It implements the Widget specification.
+see: https://napari.org/plugins/guides.html?#widgets
 
 Replace code below according to your needs.
 """
+
+
+from qtpy.QtWidgets import (QWidget,QVBoxLayout,QTabWidget,QCheckBox,QLabel,QLineEdit,QFileDialog,
+                            QComboBox,QPushButton,QProgressBar,QTextEdit,QSlider)
+from qtpy.QtCore import (QObject,QRunnable,QThreadPool)
+from PyQt5.QtCore import pyqtSignal,pyqtSlot
 import sys
-from PyQt5.QtGui import *
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-# from napari_plugin_engine import napari_hook_implementation
-import time
-from glob2 import glob
-import napari
-from napari.qt.threading import thread_worker
 from functools import partial
-from cellpose import models
-import numpy as np
-import datetime
-import cv2
-import tifffile
 import os
-import pandas as pd
-import warnings
 import traceback
-import json
-import pathlib
-import matplotlib.pyplot as plt
+import napari
+import numpy as np
 import time
-
-
-
-# from napari_akseg._utils import (read_nim_directory, read_nim_images,import_cellpose,
-#                                  import_images,stack_images,unstack_images,append_image_stacks,import_oufti,
-#                                  import_dataset, import_AKSEG, import_JSON, import_masks,
-#                                  import_imagej, align_image_channels, export_files, _manualImport)
-#
-#
-# from napari_akseg._utils_database import (read_AKSEG_directory, update_akmetadata, _get_database_paths,
-#                                           read_AKSEG_images, _upload_AKSEG_database, populate_upload_combos, _populateUSERMETA,
-#                                           check_database_access, _upload_akseg_metadata)
-#
-# from napari_akseg._utils_cellpose import _run_cellpose, _process_cellpose, _open_cellpose_model
-# from napari_akseg.akseg_ui import Ui_tab_widget
-# from napari_akseg._utils_iterface_events import (_segmentationEvents, _modifyMode, _newSegColour, _viewerControls,
-#                                                  _clear_images, _imageControls, _copymasktoall, _deleteallmasks)
-#
-# from napari_akseg._utils_colicoords import run_colicoords, process_colicoords
-# from napari_akseg._utils_statistics import get_cell_statistics, process_cell_statistics, get_cell_images
-import torch
-
+import cv2
+import pandas as pd
+from glob2 import glob
+import napari_akseg._utils
+from napari_akseg._utils import unstack_images, align_image_channels
 
 os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
 
@@ -128,11 +101,9 @@ class Worker(QRunnable):
         return self.fn(*self.args, **self.kwargs)
 
 
-
 class AKSEG(QWidget):
-
     """Widget allows selection of two labels layers and returns a new layer
-    highlighing pixels whose values differ between the two layers."""
+      highlighing pixels whose values differ between the two layers."""
 
     def __init__(self, viewer: napari.Viewer):
         """Initialize widget with two layer combo boxes and a run button
@@ -141,39 +112,29 @@ class AKSEG(QWidget):
 
         super().__init__()
 
-        #import functions
-        self.import_images = partial(import_images, self)
-        self.import_masks = partial(import_masks, self)
-        self.read_nim_images = partial(read_nim_images, self)
-        self.import_cellpose = partial(import_cellpose, self)
-        self.import_oufti = partial(import_oufti, self)
-        self.import_JSON = partial(import_JSON, self)
-        self.import_dataset = partial(import_dataset, self)
-        self.import_AKSEG = partial(import_AKSEG, self)
-        self.import_imagej = partial(import_imagej, self)
-        self.read_AKSEG_images = partial(read_AKSEG_images, self)
-        self._upload_AKSEG_database = partial(_upload_AKSEG_database, self)
-        self._get_database_paths = partial(_get_database_paths,self)
-        self.export_files = partial(export_files, self)
-        self._run_cellpose = partial(_run_cellpose, self)
-        self._process_cellpose = partial(_process_cellpose, self)
+        # import functions
+        from napari_akseg._utils_database import (populate_upload_combos, check_database_access,
+                                                  update_akmetadata, _populateUSERMETA)
+        from napari_akseg._utils import stack_images, _manualImport
+        from napari_akseg.akseg_ui import Ui_tab_widget
+        from napari_akseg._utils_cellpose import _open_cellpose_model
+        from napari_akseg._utils_iterface_events import (_modifyMode, _viewerControls,_copymasktoall,
+                                                         _deleteallmasks, _imageControls, _segmentationEvents)
+
+        self.populate_upload_combos = partial(populate_upload_combos, self)
+        self.check_database_access = partial(check_database_access,self)
+        self.update_akmetadata = partial(update_akmetadata, self)
+        self.stack_image = partial(stack_images, self)
         self._open_cellpose_model = partial(_open_cellpose_model, self)
-        self._segmentationEvents = partial(_segmentationEvents, self)
-        self._newSegColour = partial(_newSegColour, self)
         self._modifyMode = partial(_modifyMode, self)
-        self._manualImport = partial(_manualImport, self)
         self._viewerControls = partial(_viewerControls, self)
-        self._clear_images = partial(_clear_images,self)
-        self._imageControls = partial(_imageControls, self)
-        self._populateUSERMETA = partial(_populateUSERMETA, self)
-        self.run_colicoords = partial(run_colicoords, self)
-        self.process_colicoords = partial(process_colicoords, self)
-        self.get_cell_images = partial(get_cell_images, self)
-        self.get_cell_statistics = partial(get_cell_statistics, self)
-        self.process_cell_statistics = partial(process_cell_statistics, self)
         self._copymasktoall = partial(_copymasktoall, self)
         self._deleteallmasks = partial(_deleteallmasks, self)
-        self._upload_akseg_metadata = partial(_upload_akseg_metadata, self)
+        self._populateUSERMETA = partial(_populateUSERMETA, self)
+        self._imageControls = partial(_imageControls, self)
+        self._segmentationEvents = partial(_segmentationEvents, self)
+        self._manualImport = partial(_manualImport, self)
+
 
         application_path = os.path.dirname(sys.executable)
         self.viewer = viewer
@@ -186,7 +147,7 @@ class AKSEG(QWidget):
         self.akseg_ui = QTabWidget()
         self.form.setupUi(self.akseg_ui)
 
-        #add widget_gui layout to main layout
+        # add widget_gui layout to main layout
         self.layout().addWidget(self.akseg_ui)
         #
         # general references from Qt Desinger References
@@ -207,7 +168,7 @@ class AKSEG(QWidget):
         self.laser_mode = self.findChild(QComboBox, "nim_laser_mode")
         self.channel_mode = self.findChild(QComboBox, "nim_channel_mode")
         self.import_progressbar = self.findChild(QProgressBar, "import_progressbar")
-        self.import_align = self.findChild(QCheckBox,"import_align")
+        self.import_align = self.findChild(QCheckBox, "import_align")
 
         # cellpose controls + variabes from Qt Desinger References
         self.cellpose_segmentation = False
@@ -311,7 +272,6 @@ class AKSEG(QWidget):
         self.upload_tab = self.findChild(QWidget,"upload_tab")
         self._show_database_controls(False)
 
-
         # export tab controls from Qt Desinger References
         self.export_channel = self.findChild(QComboBox, "export_channel")
         self.export_mode = self.findChild(QComboBox, "export_mode")
@@ -331,7 +291,8 @@ class AKSEG(QWidget):
         self.export_statistics_all = self.findChild(QPushButton, "export_statistics_all")
         self.export_colicoords_mode = self.findChild(QComboBox, "export_colicoords_mode")
         self.export_progressbar = self.findChild(QProgressBar, "export_progressbar")
-        self.export_directory.setText("Data will be exported in same folder(s) that the images/masks were originally imported from. Not Recomeneded for Nanoimager Data")
+        self.export_directory.setText(
+            "Data will be exported in same folder(s) that the images/masks were originally imported from. Not Recomeneded for Nanoimager Data")
 
         # import events
         self.autocontrast.stateChanged.connect(self._autoContrast)
@@ -350,7 +311,6 @@ class AKSEG(QWidget):
         self.cellpose_segment_all.clicked.connect(self._segmentAll)
         self.cellpose_segment_active.clicked.connect(self._segmentActive)
         self.cellpose_segchannel.currentTextChanged.connect(self._updateSegChannels)
-
 
         # modify tab events
         self.modify_panzoom.clicked.connect(partial(self._modifyMode, "panzoom"))
@@ -374,7 +334,7 @@ class AKSEG(QWidget):
         self.modify_copymasktoall.clicked.connect(self._copymasktoall)
         self.modify_deleteallmasks.clicked.connect(self._deleteallmasks)
 
-        #export events
+        # export events
         self.export_active.clicked.connect(partial(self._export, "active"))
         self.export_all.clicked.connect(partial(self._export, "all"))
         self.export_statistics_active.clicked.connect(partial(self._export_statistics, "active"))
@@ -402,9 +362,9 @@ class AKSEG(QWidget):
                               6: (255 / 255, 0 / 255, 0 / 255, 1), }
 
         self.classLayer = self.viewer.add_labels(np.zeros((1, 100, 100), dtype=np.uint16), opacity=0.25, name="Classes",
-                                                 color=self.class_colours,metadata = {0:{"image_name":""}})
+                                                 color=self.class_colours, metadata={0: {"image_name": ""}})
         self.segLayer = self.viewer.add_labels(np.zeros((1, 100, 100), dtype=np.uint16), opacity=1,
-                                               name="Segmentations",metadata = {0:{"image_name":""}})
+                                               name="Segmentations", metadata={0: {"image_name": ""}})
         self.segLayer.contour = 1
 
         # keyboard events, only triggered when viewer is not empty (an image is loaded/active)
@@ -438,11 +398,10 @@ class AKSEG(QWidget):
         # mouse events
         self.segLayer.mouse_drag_callbacks.append(self._segmentationEvents)
 
-        #viewer events
+        # viewer events
         self.viewer.layers.events.inserted.connect(self._manualImport)
 
         self.threadpool = QThreadPool()
-
 
     def _create_AKSEG_database(self):
 
@@ -500,6 +459,7 @@ class AKSEG(QWidget):
             if set(AKSEG_folders).issubset(dir_folders):
 
                 self.database_path = os.path.abspath(path)
+                from napari_akseg._utils_database import populate_upload_combos
                 populate_upload_combos(self)
                 self._populateUSERMETA
 
@@ -517,40 +477,46 @@ class AKSEG(QWidget):
         [item.setVisible(visible) for item in all_database_controls if item.objectName() not in load_database_controls]
 
 
-
-
-    def _export_statistics(self, mode = 'active'):
+    def _export_statistics(self, mode='active'):
 
         pixel_size = float(self.export_statistics_pixelsize.text())
 
         colicoords_channel = self.export_colicoords_mode.currentText()
-        colicoords_channel = colicoords_channel.replace("Mask + ","")
+        colicoords_channel = colicoords_channel.replace("Mask + ", "")
 
         if pixel_size <= 0:
             pixel_size = 1
 
         desktop = os.path.expanduser("~/Desktop")
-        path = QFileDialog.getExistingDirectory(self, "Select Directory",desktop)
+
+        path = QFileDialog.getExistingDirectory(self, "Select Directory", desktop)
 
         if path:
 
             path = os.path.abspath(path)
 
-            worker = Worker(self.get_cell_statistics, mode = mode, pixel_size = pixel_size)
+            from napari_akseg._utils_statistics import get_cell_statistics, process_cell_statistics
+            self.get_cell_statistics = partial(get_cell_statistics,self)
+            self.process_cell_statistics = partial(process_cell_statistics, self)
+
+            worker = Worker(self.get_cell_statistics, mode=mode, pixel_size=pixel_size)
             worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="export"))
-            worker.signals.result.connect(partial(self.process_cell_statistics, path = path))
+            worker.signals.result.connect(partial(self.process_cell_statistics, path=path))
             self.threadpool.start(worker)
             cell_data = worker.result()
 
             if self.export_colicoords_mode.currentIndex() != 0:
 
+                from napari_akseg._utils_colicoords import run_colicoords
+                self.run_colicoords = partial(run_colicoords, self)
+
                 worker = Worker(self.run_colicoords, cell_data=cell_data,
                                 colicoords_channel=colicoords_channel,
-                                pixel_size = pixel_size,
-                                statistics = True)
+                                pixel_size=pixel_size,
+                                statistics=True)
 
                 worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="export"))
-                worker.signals.result.connect(partial(self.process_cell_statistics, path = path))
+                worker.signals.result.connect(partial(self.process_cell_statistics, path=path))
                 self.threadpool.start(worker)
 
     def _refine_akseg(self):
@@ -563,39 +529,47 @@ class AKSEG(QWidget):
         current_fov = self.viewer.dims.current_step[0]
 
         channel = self.refine_channel.currentText()
-        colicoords_channel = channel.replace("Mask + ","")
+        colicoords_channel = channel.replace("Mask + ", "")
 
         mask_stack = self.segLayer.data
         mask = mask_stack[current_fov, :, :].copy()
 
+        from napari_akseg._utils_statistics import get_cell_statistics
+        from napari_akseg._utils_colicoords import run_colicoords
+        self.get_cell_statistics = partial(get_cell_statistics,self)
+        self.run_colicoords = partial(run_colicoords,self)
+
         worker = Worker(self.get_cell_statistics, mode='active', pixel_size=pixel_size)
         self.threadpool.start(worker)
         cell_data = worker.result()
-        worker = Worker(self.run_colicoords, cell_data=cell_data, colicoords_channel=colicoords_channel, pixel_size=pixel_size)
+        worker = Worker(self.run_colicoords, cell_data=cell_data, colicoords_channel=colicoords_channel,
+                        pixel_size=pixel_size)
         worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="modify"))
         worker.signals.result.connect(self.process_colicoords)
         self.threadpool.start(worker)
 
-
     def _uploadDatabase(self, mode):
+
+        from napari_akseg._utils_database import _upload_AKSEG_database
+        self._upload_AKSEG_database = partial(_upload_AKSEG_database,self)
 
         worker = Worker(self._upload_AKSEG_database, mode=mode)
         worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="database"))
         self.threadpool.start(worker)
 
-        self._upload_akseg_metadata()
-        populate_upload_combos(self)
-        self._populateUSERMETA
-
     def _downloadDatabase(self):
+
+        from napari_akseg._utils_database import _get_database_paths, read_AKSEG_directory, read_AKSEG_images
+        self._get_database_paths = partial(_get_database_paths,self)
+        self.read_AKSEG_images = partial(read_AKSEG_images, self)
 
         self.active_import_mode = "AKSEG"
 
         paths, import_limit = self._get_database_paths()
 
-        if len(paths) == 0 or paths is None:
+        if len(paths) == 0:
 
-            print("No matching database files found")
+            print("no matching database files found")
 
         else:
 
@@ -606,7 +580,6 @@ class AKSEG(QWidget):
             worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="database"))
             self.threadpool.start(worker)
 
-
     def _updateSegChannels(self):
 
         layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
@@ -614,7 +587,6 @@ class AKSEG(QWidget):
         segChannel = self.cellpose_segchannel.currentText()
 
         self.export_channel.setCurrentText(segChannel)
-
 
     def _aksegProgresbar(self, progress, progressbar):
 
@@ -637,115 +609,137 @@ class AKSEG(QWidget):
             self.upload_progressbar.setValue(0)
             self.modify_progressbar.setValue(0)
 
-
     def _importDialog(self):
 
         import_mode = self.import_mode.currentText()
         import_filemode = self.import_filemode.currentText()
 
-        dialog_dir = check_database_access(file_path=self.database_path)
+        from napari_akseg._utils_database import check_database_access
+        dialog_dir = check_database_access(file_path=r"\\CMDAQ4.physics.ox.ac.uk\AKGroup")
 
         if import_filemode == "Import File(s)":
-            
-            paths, filter = QFileDialog.getOpenFileNames(self, "Open Files",dialog_dir,"Files (*)")
+            paths, filter = QFileDialog.getOpenFileNames(self, "Open Files", dialog_dir, "Files (*)")
 
         if import_filemode == "Import Directory":
-
-            path = QFileDialog.getExistingDirectory(self, "Select Directory",dialog_dir)
+            path = QFileDialog.getExistingDirectory(self, "Select Directory", dialog_dir)
 
             paths = [path]
 
         if import_mode == "Import Images":
 
-            worker = Worker(self.import_images, file_paths = paths)
+            self.import_images = partial(napari_akseg._utils.import_images, self)
+
+            worker = Worker(self.import_images, file_paths=paths)
             worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "import"))
+            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
             self.threadpool.start(worker)
 
         if import_mode == "Import NanoImager Data":
 
-            measurements, file_paths, channels = read_nim_directory(self, paths)
+            self.read_nim_directory = partial(napari_akseg._utils.read_nim_directory, self)
+            self.read_nim_images = partial(napari_akseg._utils.read_nim_images, self)
 
-            worker = Worker(self.read_nim_images, measurements = measurements, channels = channels)
+            measurements, file_paths, channels = self.read_nim_directory(paths)
+
+            worker = Worker(self.read_nim_images, measurements=measurements, channels=channels)
             worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "import"))
+            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
             self.threadpool.start(worker)
 
         if import_mode == "Import Masks":
+
+            self.import_masks = partial(napari_akseg._utils.import_masks, self)
 
             self.import_masks(paths)
 
         if import_mode == "Import Cellpose .npy file(s)":
 
-            worker = Worker(self.import_cellpose, file_paths = paths)
+            self.import_cellpose = partial(napari_akseg._utils.import_cellpose, self)
+
+            worker = Worker(self.import_cellpose, file_paths=paths)
             worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "import"))
+            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
             self.threadpool.start(worker)
 
         if import_mode == "Import Oufti .mat file(s)":
 
-            worker = Worker(self.import_oufti, file_paths = paths)
+            self.import_oufti = partial(napari_akseg._utils.import_oufti, self)
+
+            worker = Worker(self.import_oufti, file_paths=paths)
             worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "import"))
+            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
             self.threadpool.start(worker)
 
         if import_mode == "Import JSON .txt file(s)":
 
-            worker = Worker(self.import_JSON, file_paths = paths)
+            self.import_JSON = partial(napari_akseg._utils.import_JSON, self)
+
+            worker = Worker(self.import_JSON, file_paths=paths)
             worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "import"))
+            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
             self.threadpool.start(worker)
 
         if import_mode == "Import ImageJ files(s)":
 
-            worker = Worker(self.import_imagej, paths = paths)
+            self.import_imagej = partial(napari_akseg._utils.import_imagej, self)
+
+            worker = Worker(self.import_imagej, paths=paths)
             worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "import"))
+            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
             self.threadpool.start(worker)
 
         if import_mode == "Import Images + Masks Dataset":
 
-            worker = Worker(self.import_dataset, file_paths = paths)
-            worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "import"))
-            self.threadpool.start(worker)
+            self.import_dataset = partial(napari_akseg._utils.import_dataset, self)
 
+            worker = Worker(self.import_dataset, file_paths=paths)
+            worker.signals.result.connect(self._process_import)
+            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
+            self.threadpool.start(worker)
 
         if import_mode == "Import AKSEG Dataset":
 
+            from napari_akseg._utils_database import read_AKSEG_directory
+            self.read_AKSEG_images = partial(napari_akseg._utils_database.read_AKSEG_images, self)
+
             import_limit = self.import_limit.currentText()
-            measurements, file_paths, channels = read_AKSEG_directory(self, paths,import_limit)
+
+            measurements, file_paths, channels = read_AKSEG_directory(self, paths, import_limit)
 
             worker = Worker(self.read_AKSEG_images, measurements=measurements, channels=channels)
             worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "import"))
+            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
             self.threadpool.start(worker)
 
     def _getExportDirectory(self):
 
         if self.export_location.currentText() == "Import Directory":
-
-            self.export_directory.setText("Data will be exported in same folder(s) that the images/masks were originally imported from. Not Recomeneded for Nanoimager Data")
+            self.export_directory.setText(
+                "Data will be exported in same folder(s) that the images/masks were originally imported from. Not Recomeneded for Nanoimager Data")
 
         if self.export_location.currentText() == "Select Directory":
 
-            desktop = os.path.expanduser("~/Desktop")
-            dialog_dir = check_database_access(file_path=desktop)
+            from napari_akseg._utils_database import check_database_access
+            dialog_dir = check_database_access(file_path=r"\\CMDAQ4.physics.ox.ac.uk\AKGroup")
 
-            path = QFileDialog.getExistingDirectory(self, "Select Export Directory",dialog_dir)
+            path = QFileDialog.getExistingDirectory(self, "Select Export Directory", dialog_dir)
 
             if path:
-
                 self.export_directory.setText(path)
-
 
     def _export(self, mode):
 
+        self.export_files = partial(napari_akseg._utils.export_files, self)
+
         worker = Worker(self.export_files, mode=mode)
-        worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar = "export"))
+        worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="export"))
         self.threadpool.start(worker)
 
     def _segmentActive(self):
+
+        from napari_akseg._utils_cellpose import _run_cellpose, _process_cellpose
+        self._run_cellpose = partial(_run_cellpose, self)
+        self._process_cellpose = partial(_process_cellpose, self)
 
         current_fov = self.viewer.dims.current_step[0]
         chanel = self.cellpose_segchannel.currentText()
@@ -754,13 +748,16 @@ class AKSEG(QWidget):
 
         image = [images[current_fov, :, :]]
 
-        worker = Worker(self._run_cellpose, images = image)
+        worker = Worker(self._run_cellpose, images=image)
         worker.signals.result.connect(self._process_cellpose)
         worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="cellpose"))
         self.threadpool.start(worker)
 
-
     def _segmentAll(self):
+
+        from napari_akseg._utils_cellpose import _run_cellpose, _process_cellpose
+        self._run_cellpose = partial(_run_cellpose, self)
+        self._process_cellpose = partial(_process_cellpose, self)
 
         channel = self.cellpose_segchannel.currentText()
 
@@ -768,7 +765,7 @@ class AKSEG(QWidget):
 
         images = unstack_images(images)
 
-        worker = Worker(self._run_cellpose, images = images)
+        worker = Worker(self._run_cellpose, images=images)
         worker.signals.result.connect(self._process_cellpose)
         worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="cellpose"))
         self.threadpool.start(worker)
@@ -801,7 +798,7 @@ class AKSEG(QWidget):
 
         self.export_colicoords_mode.clear()
         refine_layers = ["Mask + " + layer for layer in layer_names]
-        self.export_colicoords_mode.addItems(['None (OpenCV Stats)','Mask'] + refine_layers)
+        self.export_colicoords_mode.addItems(['None (OpenCV Stats)', 'Mask'] + refine_layers)
 
         if "532" in layer_names:
             index532 = layer_names.index("532")
@@ -811,7 +808,6 @@ class AKSEG(QWidget):
 
         self._updateFileName()
         self._autoContrast()
-
 
     def _autoContrast(self):
 
@@ -834,7 +830,6 @@ class AKSEG(QWidget):
         except:
             pass
 
-
     def _updateFileName(self):
 
         try:
@@ -853,8 +848,7 @@ class AKSEG(QWidget):
         except:
             pass
 
-
-    def _process_import(self, imported_data, rearrange = True):
+    def _process_import(self, imported_data, rearrange=True):
 
         layer_names = [layer.name for layer in self.viewer.layers if layer.name not in ["Segmentations", "Classes"]]
 
@@ -869,6 +863,7 @@ class AKSEG(QWidget):
         imported_images = imported_data["imported_images"]
 
         if "akmeta" in imported_data.keys():
+            from napari_akseg._utils_database import update_akmetadata
             update_akmetadata(self, imported_data["akmeta"])
 
         for layer_name, layer_data in imported_images.items():
@@ -878,6 +873,7 @@ class AKSEG(QWidget):
             classes = layer_data['classes']
             metadata = layer_data['metadata']
 
+            from napari_akseg._utils import stack_images
             new_image_stack, new_metadata = stack_images(images, metadata)
             new_mask_stack, new_metadata = stack_images(masks, metadata)
             new_class_stack, new_metadata = stack_images(classes, metadata)
@@ -913,6 +909,7 @@ class AKSEG(QWidget):
 
                 else:
 
+                    from napari_akseg._utils import append_image_stacks
                     appended_image_stack, appended_metadata = append_image_stacks(current_metadata, new_metadata,
                                                                                   current_image_stack, new_image_stack)
 
@@ -967,15 +964,15 @@ class AKSEG(QWidget):
 
         align_image_channels(self)
 
-    def _autoClassify(self, reset = False):
+    def _autoClassify(self, reset=False):
 
         mask_stack = self.segLayer.data.copy()
         label_stack = self.classLayer.data.copy()
 
         for i in range(len(mask_stack)):
 
-            mask = mask_stack[i,:,:]
-            label = label_stack[i,:,:]
+            mask = mask_stack[i, :, :]
+            label = label_stack[i, :, :]
 
             label_ids = np.unique(label)
             mask_ids = np.unique(mask)
@@ -988,10 +985,10 @@ class AKSEG(QWidget):
 
                     if mask_id != 0:
 
-                        cnt_mask = np.zeros(label.shape,dtype = np.uint8)
+                        cnt_mask = np.zeros(label.shape, dtype=np.uint8)
                         cnt_mask[mask == mask_id] = 255
 
-                        cnt, _ = cv2.findContours(cnt_mask.astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
+                        cnt, _ = cv2.findContours(cnt_mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
                         x, y, w, h = cv2.boundingRect(cnt[0])
                         y1, y2, x1, x2 = y, (y + h), x, (x + w)
@@ -1005,26 +1002,7 @@ class AKSEG(QWidget):
 
                             label[mask == mask_id] = 6
 
-            label_stack[i,:,:] = label
+            label_stack[i, :, :] = label
 
         self.classLayer.data = label_stack
 
-
-# @napari_hook_implementation
-# def napari_experimental_provide_dock_widget():
-#     # you can return either a single widget, or a sequence of widgets
-#     return [AKSEG]
-
-
-# from napari_akseg.akseg_ui import Ui_tab_widget
-
-# ui_path = os.path.abspath(r"C:\napari-akseg\src\napari_akseg\akseg_ui.ui")
-# akseg_ui: object = uic.loadUi(ui_path)
-#
-# print(akseg_ui)
-
-
-
-# viewer = napari.Viewer()
-# my_widget = AKSEG(viewer)
-# viewer.window.add_dock_widget(my_widget

@@ -1,10 +1,11 @@
 name: napari-akseg
-schema_version: 0.1.0
+display_name: napari-akseg
 contributions:
-  commands:
-  - id: napari-akseg.AKSEG
-    title: Create AKSEG
-    python_name: napari_akseg._dock_widget:AKSEG
+  commands: 
+    - id: napari-akseg.make_akseg_widget
+      python_name: napari_akseg._widget:AKSEG
+      title: Make AKSEG widget
+
   widgets:
-  - command: napari-akseg.AKSEG
-    display_name: AKSEG
+    - command: napari-akseg.make_akseg_widget
+      display_name: AKSEG

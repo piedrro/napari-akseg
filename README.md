@@ -7,7 +7,7 @@
 [![codecov](https://codecov.io/gh/piedrro/napari-akseg/branch/main/graph/badge.svg)](https://codecov.io/gh/piedrro/napari-akseg)
 [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-akseg)](https://napari-hub.org/plugins/napari-akseg)
 
-A simple plugin to use with napari
+Bacterial segmentation and analysis
 
 ----------------------------------
 
@@ -18,22 +18,26 @@ Don't miss the full getting started guide to set up your new package:
 https://github.com/napari/cookiecutter-napari-plugin#getting-started
 
 and review the napari docs for plugin developers:
-https://napari.org/plugins/stable/index.html
+https://napari.org/plugins/index.html
 -->
 
 ## Installation
 
-You can install `napari-akseg` from AKGROUP via [pip]:
+You can install `napari-akseg` via [pip]:
 
     conda create –-name napari-akseg python==3.8
     conda activate napari-akseg
     conda install -c anaconda git
     conda update --all
 
-    Install from GitHub, user personal access token as password
+    pip install napari[all]
+    pip install napari-akseg
+
+
+
+To install latest development version :
+
     pip install git+https://github.com/piedrro/napari-akseg.git
-    username = your email (you don't need a GitHub account if you don't have one)
-    password = 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
 
 
 ## Contributing
@@ -60,6 +64,8 @@ If you encounter any problems, please [file an issue] along with a detailed desc
 [Apache Software License 2.0]: http://www.apache.org/licenses/LICENSE-2.0
 [Mozilla Public License 2.0]: https://www.mozilla.org/media/MPL/2.0/index.txt
 [cookiecutter-napari-plugin]: https://github.com/napari/cookiecutter-napari-plugin
+
+[file an issue]: https://github.com/piedrro/napari-akseg/issues
 
 [napari]: https://github.com/napari/napari
 [tox]: https://tox.readthedocs.io/en/latest/

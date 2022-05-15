@@ -1684,17 +1684,29 @@ def export_files(self, progress_callback, mode):
                     tifffile.imwrite(mask_path, mask, metadata=meta)
 
                 if self.export_mode.currentText() == "Export Cellpose":
+
+                    from napari_akseg._utils_cellpose import export_cellpose
+
                     export_cellpose(file_path, image, mask)
                     tifffile.imwrite(file_path, image, metadata=meta)
 
                 if self.export_mode.currentText() == "Export Oufti":
+
+                    from napari_akseg._utils_oufti import export_oufti
+
                     export_oufti(image, mask, file_path)
                     tifffile.imwrite(file_path, image, metadata=meta)
 
                 if self.export_mode.currentText() == "Export ImageJ":
+
+                    from napari_akseg._utils_imagej import export_imagej
+
                     export_imagej(image, contours, meta, file_path)
 
                 if self.export_mode.currentText() == "Export JSON":
+
+                    from napari_akseg._utils_json import export_coco_json
+
                     export_coco_json(file_name, image, mask, label, file_path)
                     tifffile.imwrite(file_path, image, metadata=meta)
 
