@@ -65,6 +65,8 @@ def import_imagej(self, progress_callback, paths):
         crop_mode = self.import_crop_mode.currentIndex()
         image, meta = read_tif(paths, import_precision, multiframe_mode)
 
+        from napari_akseg._utils_imagej import read_imagej_file
+
         mask = read_imagej_file(paths, image)
 
         contrast_limit, alpha, beta, gamma = autocontrast_values(image)
@@ -764,6 +766,8 @@ def import_AKSEG(self, progress_callback, file_paths):
 
             if os.path.exists(json_path):
 
+                from napari_akseg._utils_json import import_coco_json
+
                 mask, label = import_coco_json(json_path)
                 mask = crop_image(mask, crop_mode)
                 label = crop_image(label, crop_mode)
@@ -1370,6 +1374,8 @@ def import_JSON(self, progress_callback, file_paths):
             crop_mode = self.import_crop_mode.currentIndex()
             image, meta = read_tif(image_path, import_precision, multiframe_mode)
 
+            from napari_akseg._utils_json import import_coco_json
+
             mask, labels = import_coco_json(json_path)
 
             crop_mode = self.import_crop_mode.currentIndex()
@@ -1555,6 +1561,8 @@ def import_masks(self, file_paths):
             self.segLayer.data = mask_stack.astype(np.uint16)
 
         if file_format == "txt":
+
+            from napari_akseg._utils_json import import_coco_json
 
             mask, label = import_coco_json(mask_path)
             mask_stack[i, :, :][y1:y2, x1:x2] = mask
