@@ -31,7 +31,10 @@ You can install `napari-akseg` via [pip]:
     conda update --all
 
     pip install napari[all]
-    pip install napari-akseg
+
+    pip install git+https://github.com/piedrro/napari-akseg.git
+    username = your GitHub user name
+    password = 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
 
 
 
