@@ -89,12 +89,17 @@
         </item>
         <item>
          <property name="text">
+          <string>Import Masks</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
           <string>Import NanoImager Data</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>Import Masks</string>
+          <string>Import ScanR Data</string>
          </property>
         </item>
         <item>

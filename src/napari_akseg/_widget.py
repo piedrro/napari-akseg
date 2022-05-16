@@ -142,6 +142,7 @@ class AKSEG(QWidget):
 
         # ui_path = os.path.abspath(r"C:\napari-akseg\src\napari_akseg\akseg_ui.ui")
         # self.akseg_ui = uic.loadUi(ui_path)
+        #command to refresh ui file: pyuic5 akseg_ui.ui -o akseg_ui.py
 
         self.form = Ui_tab_widget()
         self.akseg_ui = QTabWidget()
@@ -149,7 +150,7 @@ class AKSEG(QWidget):
 
         # add widget_gui layout to main layout
         self.layout().addWidget(self.akseg_ui)
-        #
+
         # general references from Qt Desinger References
         self.tab_widget = self.findChild(QTabWidget, "tab_widget")
 
@@ -711,6 +712,22 @@ class AKSEG(QWidget):
             worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
             self.threadpool.start(worker)
 
+        if import_mode == "Import ScanR Data":
+
+            from napari_akseg._utils import read_scanr_directory, read_scanr_images
+            self.read_scanr_images = partial(read_scanr_images, self)
+
+            measurements, file_paths, channels = read_scanr_directory(self, paths)
+
+            print(file_paths)
+
+            worker = Worker(self.read_scanr_images, measurements=measurements, channels=channels)
+            worker.signals.result.connect(self._process_import)
+            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
+            self.threadpool.start(worker)
+
+
+
     def _getExportDirectory(self):
 
         if self.export_location.currentText() == "Import Directory":
@@ -890,6 +907,11 @@ class AKSEG(QWidget):
                 colormap = "green"
             if layer_name == "532":
                 colormap = "red"
+            if layer_name == "Cy3":
+                colormap = "red"
+            if layer_name == "DAPI":
+                colormap = "green"
+
 
             if self.clear_previous.isChecked() == False and layer_name in layer_names:
 
@@ -943,6 +965,14 @@ class AKSEG(QWidget):
 
         if "532" in layer_names and rearrange == True:
             layer_name = "532"
+            num_layers = len(self.viewer.layers)
+            layer_ref = self.viewer.layers[layer_name]
+            layer_index = self.viewer.layers.index(layer_name)
+            self.viewer.layers.selection.select_only(layer_ref)
+            self.viewer.layers.move(layer_index, num_layers - 2)
+
+        if "Cy3" in layer_names and rearrange == True:
+            layer_name = "Cy3"
             num_layers = len(self.viewer.layers)
             layer_ref = self.viewer.layers[layer_name]
             layer_index = self.viewer.layers.index(layer_name)

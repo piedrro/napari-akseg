@@ -24,7 +24,7 @@ import scipy
 # from napari_akseg._utils_json import import_coco_json, export_coco_json
 import pickle
 import xmltodict
-
+import warnings
 
 def read_xml(paths):
     files = {}
@@ -93,8 +93,12 @@ def read_scanr_directory(self, path):
     files = []
 
     for path in file_paths:
+
+        path = os.path.abspath(path)
+
         file = file_info[os.path.basename(path)]
-        file["file_path"] = path
+
+        file["path"] = path
 
         folder = path.split("\\")[-3]
         parent_folder = path.split("\\")[-4]
@@ -128,6 +132,122 @@ def read_scanr_directory(self, path):
     print("Found " + str(len(measurements)) + " measurments in ScanR Folder(s) with " + channel_num + " channels.")
 
     return measurements, file_paths, channels
+
+
+
+def read_scanr_images(self, progress_callback, measurements, channels):
+
+    scanr_images = {}
+    img_shape = (100,100)
+    img_type = np.uint16
+    iter = 0
+
+    for i in range(len(measurements)):
+
+        measurement = measurements.get_group(list(measurements.groups)[i])
+
+        measurement_channels = measurement["channel"].tolist()
+
+        print(measurement_channels)
+
+        for j in range(len(channels)):
+
+            channel = channels[j]
+
+            iter += 1
+            progress = int( (iter / (len(measurements) * len(channels)) ) * 100)
+            progress_callback.emit(progress)
+
+            print("loading image[" + channel + "] " + str(i + 1) + " of " + str(len(measurements)))
+
+            if channel in measurement_channels:
+
+                dat = measurement[measurement["channel"]==channel]
+
+                path = dat["path"].item()
+                laser = 'LED'
+                folder = dat["folder"].item()
+                parent_folder = dat["parent_folder"].item()
+                modality = dat["modality"].item()
+
+                import_precision = self.import_precision.currentText()
+                multiframe_mode = self.import_multiframe_mode.currentIndex()
+                crop_mode = self.import_crop_mode.currentIndex()
+                img, meta = read_tif(path,import_precision,multiframe_mode,crop_mode)
+
+                contrast_limit, alpha, beta, gamma = autocontrast_values(img)
+
+                self.active_import_mode = "ScanR"
+
+                meta["image_name"] = os.path.basename(path)
+                meta["image_path"] = path
+                meta["folder"] = folder
+                meta["parent_folder"] = parent_folder
+                meta["akseg_hash"] = get_hash(path)
+                meta["import_mode"] = "ScanR"
+                meta["contrast_limit"] = contrast_limit
+                meta["contrast_alpha"] = alpha
+                meta["contrast_beta"] = beta
+                meta["contrast_gamma"] = gamma
+                meta["dims"] = [img.shape[-1], img.shape[-2]]
+                meta["crop"] = [0, img.shape[-2], 0, img.shape[-1]]
+
+                meta["InstrumentSerial"] = 'NA'
+                meta["microscope"] = 'ScanR'
+                meta["modality"] = modality
+                meta["light_source"] = 'LED'
+
+                img_shape = img.shape
+                img_type = np.array(img).dtype
+
+                image_path = meta["image_path"]
+
+                if "pos_" in image_path:
+                    meta["folder"] = image_path.split("\\")[-4]
+                    meta["parent_folder"] = image_path.split("\\")[-5]
+
+            else:
+
+                img = np.zeros(img_shape, dtype=img_type)
+                meta = {}
+
+                self.active_import_mode = "ScanR"
+
+                meta["image_name"] = "missing image channel"
+                meta["image_path"] = "missing image channel"
+                meta["folder"] = None,
+                meta["parent_folder"] = None,
+                meta["akseg_hash"] = None
+                meta["fov_mode"] = None
+                meta["import_mode"] = "NIM"
+                meta["contrast_limit"] = None
+                meta["contrast_alpha"] = None
+                meta["contrast_beta"] = None
+                meta["contrast_gamma"] = None
+                meta["dims"] = [img.shape[-1], img.shape[-2]]
+                meta["crop"] = [0, img.shape[-2], 0, img.shape[-1]]
+                meta["light_source"] = channel
+
+            if channel not in scanr_images:
+                scanr_images[channel] = dict(images=[img], masks=[], classes=[], metadata={i: meta})
+            else:
+                scanr_images[channel]["images"].append(img)
+                scanr_images[channel]["metadata"][i] = meta
+
+    imported_data = dict(imported_images=scanr_images)
+
+    return imported_data
+
+
+
+
+
+
+
+
+
+
+
 
 def import_imagej(self, progress_callback, paths):
 
@@ -383,6 +503,8 @@ def get_folder(files):
 
 def read_tif(path, precision="native", multiframe_mode = 0, crop_mode = 0):
 
+    image_name = os.path.basename(path)
+
     with tifffile.TiffFile(path) as tif:
         try:
             metadata = tif.pages[0].tags["ImageDescription"].value
@@ -403,7 +525,7 @@ def read_tif(path, precision="native", multiframe_mode = 0, crop_mode = 0):
 
     if "image_name" not in metadata.keys():
 
-        metadata["image_name"] = os.path.basename(path)
+        metadata["image_name"] = image_name
         metadata["channel"] = None
         metadata["segmentation_file"] = None
         metadata["segmentation_channel"] = None
