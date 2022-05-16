@@ -726,7 +726,7 @@ def _upload_AKSEG_database(self, progress_callback, mode):
 
                                     from napari_akseg._utils_json import export_coco_json
 
-                                    if os.path.isfile(image_path) is False or import_mode == "AKSEG" or overwrite_masks is True or overwrite_metadata is True:
+                                    if os.path.isfile(mask_path) is False or import_mode == "AKSEG" or overwrite_masks is True or overwrite_metadata is True:
                                         tifffile.imwrite(mask_path, mask, metadata=meta)
                                         tifffile.imwrite(class_path, class_mask, metadata=meta)
                                         export_coco_json(file_name, img, mask, class_mask, json_path)
