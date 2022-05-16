@@ -241,8 +241,6 @@ def read_AKSEG_directory(self, path, import_limit=1):
 
         path = os.path.join(database_dir, path.split("\\" + path.split("\\")[-5] + "\\")[-1])
 
-        print(path)
-
         file_name = path.split("\\")[-1]
         folder = path.split("\\")[-5]
 
