@@ -200,6 +200,8 @@ def populate_upload_combos(self):
 
 def read_AKSEG_directory(self, path, import_limit=1):
 
+    database_dir = os.path.join(self.database_path, "Images")
+
     if isinstance(path, list) == False:
         path = [path]
 
@@ -237,8 +239,12 @@ def read_AKSEG_directory(self, path, import_limit=1):
         path = file_paths[i]
         path = os.path.abspath(path)
 
+        path = os.path.join(database_dir, path.split("\\" + path.split("\\")[-5] + "\\")[-1])
+
+        print(path)
+
         file_name = path.split("\\")[-1]
-        folder = path.split("\\")[-2]
+        folder = path.split("\\")[-5]
 
         with tifffile.TiffFile(path) as tif:
 
@@ -459,7 +465,7 @@ def generate_multichannel_stack(self):
 
                 if meta["import_mode"] != "AKSEG" or overwrite_all_metadata is True:
 
-                    if meta["import_mode"] != "NIM":
+                    if meta["import_mode"] != "NIM" or "ScanR":
 
                         meta["microscope"] = microscope
                         meta["modality"] = modality
