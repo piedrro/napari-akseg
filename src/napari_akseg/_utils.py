@@ -26,43 +26,57 @@ import pickle
 import xmltodict
 import warnings
 
-def read_xml(paths):
-    files = {}
 
+def read_xml(paths):
+    
+    files = {}
+    
     for path in paths:
 
         with open(path) as fd:
             dat = xmltodict.parse(fd.read())["OME"]
-
+            
         for i in range(len(dat["Image"])):
-
+            
             img = dat["Image"][i]
-
+            
             objective_id = int(img["ObjectiveSettings"]["@ID"].split(":")[-1])
             objective_dat = dat["Instrument"]["Objective"][objective_id]
             objective_mag = float(objective_dat["@NominalMagnification"])
             objective_na = float(objective_dat["@LensNA"])
-
+            
             pixel_size = float(img["Pixels"]["@PhysicalSizeX"])
-
+            
             position = i
             microscope = "ScanR"
             light_source = "LED"
-
+            
+        
             for j in range(len(img["Pixels"]["Channel"])):
+                
                 channel_data = img["Pixels"]["Channel"][j]
                 tiff_data = img["Pixels"]["TiffData"][j]
+                plane_data = img["Pixels"]["Plane"][j]
                 modality = channel_data["@IlluminationType"]
                 channel = channel_data["@Name"]
                 file_name = tiff_data["UUID"]["@FileName"]
-
-                files[file_name] = dict(file_name=file_name,
-                                        position=position,
-                                        microscope=microscope,
-                                        light_source=light_source,
-                                        channel=channel,
-                                        modality=modality)
-
+                exposure_time = plane_data["@ExposureTime"]
+                posX = plane_data["@PositionX"]
+                posY = plane_data["@PositionY"]
+                posZ = plane_data["@PositionZ"]
+                                
+                files[file_name] = dict(file_name = file_name,
+                                        position = position,
+                                        microscope = microscope,
+                                        light_source = light_source,
+                                        channel = channel,
+                                        modality = modality,
+                                        pixel_size = pixel_size,
+                                        objective_magnification = objective_mag,
+                                        objective_na = objective_na,
+                                        posX = float(posX),
+                                        posY = float(posY),
+                                        posZ = float(posZ))
     return files
 
 
