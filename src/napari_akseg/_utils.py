@@ -114,8 +114,8 @@ def read_scanr_directory(self, path):
 
         file["path"] = path
 
-        folder = path.split("\\")[-3]
-        parent_folder = path.split("\\")[-4]
+        folder = path.split("\\")[-4]
+        parent_folder = path.split("\\")[-5]
 
         file["folder"] = folder
         file["parent_folder"] = parent_folder
@@ -1461,6 +1461,7 @@ def align_image_channels(self):
                 try:
                     shift, error, diffphase = phase_cross_correlation(img, shifted_img, upsample_factor=100)
                     shifted_img = scipy.ndimage.shift(shifted_img, shift)
+
                 except:
                     pass
 

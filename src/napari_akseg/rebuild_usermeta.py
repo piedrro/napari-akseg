@@ -12,7 +12,6 @@ import tifffile
 import shutil
 import matplotlib.pyplot as plt
 import pickle
-import psycopg2
 import tifffile
 import shutil
 from skimage import exposure, img_as_ubyte
@@ -165,9 +164,11 @@ def get_filemeta(path):
     return file_metadata
                                  
     
-paths = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images\AZ"
+paths = r"\\cmwt188\d\Piers\AKSEG CMWT188\Images\PT\images"
 paths = glob(paths + "*\**\*.tif")
 paths = [path for path in paths if "_flows.tif" not in path]
+
+
 
 
 if __name__ == '__main__':
@@ -186,7 +187,7 @@ if __name__ == '__main__':
         
         for user_initial in user_initials:
             
-            akgroup_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images"
+            akgroup_dir = r"\\cmwt188\d\Piers\AKSEG CMWT188\Images"
             user_metadata_path = akgroup_dir + "\\" + user_initial + "\\" + user_initial + "_file_metadata.txt"   
             
             data = user_metadata[user_metadata["user_initial"] == user_initial]

@@ -385,7 +385,7 @@ class AKSEG(QWidget):
         self.viewer.bind_key(key="F1", func=partial(self._modifyMode, "panzoom"), overwrite=True)
         self.viewer.bind_key(key="F2", func=partial(self._modifyMode, "segment"), overwrite=True)
         self.viewer.bind_key(key="F3", func=partial(self._modifyMode, "classify"), overwrite=True)
-        self.viewer.bind_key(key="Control", func=partial(self._modifyMode, "segment"), overwrite=True)
+        # self.viewer.bind_key(key="Control", func=partial(self._modifyMode, "segment"), overwrite=True)
         self.viewer.bind_key(key="h", func=partial(self._viewerControls, "h"), overwrite=True)
         self.viewer.bind_key(key="i", func=partial(self._viewerControls, "i"), overwrite=True)
         self.viewer.bind_key(key="o", func=partial(self._viewerControls, "o"), overwrite=True)
@@ -395,6 +395,10 @@ class AKSEG(QWidget):
         self.viewer.bind_key(key="Right", func=partial(self._imageControls, "Right"), overwrite=True)
         self.viewer.bind_key(key="Left", func=partial(self._imageControls, "Left"), overwrite=True)
         self.viewer.bind_key(key="u", func=partial(self._imageControls, "Upload"), overwrite=True)
+        self.viewer.bind_key(key="Control-Left", func=partial(self._manual_align_channels, "left"), overwrite=True)
+        self.viewer.bind_key(key="Control-Right", func=partial(self._manual_align_channels, "right"), overwrite=True)
+        self.viewer.bind_key(key="Control-Up", func=partial(self._manual_align_channels, "up"), overwrite=True)
+        self.viewer.bind_key(key="Control-Down", func=partial(self._manual_align_channels, "down"), overwrite=True)
 
         # mouse events
         self.segLayer.mouse_drag_callbacks.append(self._segmentationEvents)
@@ -403,6 +407,54 @@ class AKSEG(QWidget):
         self.viewer.layers.events.inserted.connect(self._manualImport)
 
         self.threadpool = QThreadPool()
+
+    def _manual_align_channels(self, key, viewer=None):
+
+        from scipy.ndimage import shift
+        current_fov = self.viewer.dims.current_step[0]
+        active_layer = self.viewer.layers.selection.active
+
+        if key == 'up':
+            shift_vector = [-1.0, 0.0]
+        elif key == 'down':
+            shift_vector = [1.0, 0.0]
+        elif key == 'left':
+            shift_vector = [0.0, -1.0]
+        elif key == 'right':
+            shift_vector = [0.0, 1.0]
+        else:
+            shift_vector = [0.0, 0.0]
+
+        shift_image = False
+        if active_layer != None:
+            if active_layer.name not in ["Segmentations","Classes"]:
+                shift_image = True
+
+        if shift_image is True:
+
+            image_stack = active_layer.data.copy()
+            image = image_stack[current_fov, :, :]
+            image = shift(image, shift=shift_vector)
+            image_stack[current_fov, :, :] = np.expand_dims(image,0)
+
+            active_layer.data = image_stack
+
+        else:
+
+            mask_stack = self.segLayer.data.copy()
+            label_stack = self.classLayer.data.copy()
+
+            mask = mask_stack[current_fov, :, :]
+            label = label_stack[current_fov, :, :]
+
+            mask = shift(mask, shift=shift_vector)
+            label = shift(label, shift=shift_vector)
+
+            mask_stack[current_fov, :, :] = np.expand_dims(mask, 0)
+            label_stack[current_fov, :, :] = np.expand_dims(label, 0)
+
+            self.segLayer.data = mask_stack
+            self.classLayer.data = label_stack
 
     def _create_AKSEG_database(self):
 
@@ -719,8 +771,6 @@ class AKSEG(QWidget):
 
             measurements, file_paths, channels = read_scanr_directory(self, paths)
 
-            print(file_paths)
-
             worker = Worker(self.read_scanr_images, measurements=measurements, channels=channels)
             worker.signals.result.connect(self._process_import)
             worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
@@ -960,6 +1010,7 @@ class AKSEG(QWidget):
 
         # ensures segmentation and classes is in correct order in the viewer
         for layer in layer_names:
+            self.viewer.layers[layer].selected = False
             layer_index = self.viewer.layers.index(layer)
             self.viewer.layers.move(layer_index, 0)
 
