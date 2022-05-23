@@ -41,7 +41,7 @@
    <enum>QTabWidget::Rounded</enum>
   </property>
   <property name="currentIndex">
-   <number>0</number>
+   <number>2</number>
   </property>
   <property name="elideMode">
    <enum>Qt::ElideNone</enum>
@@ -1132,6 +1132,70 @@ color: rgb(0, 255, 0);</string>
        <string>Copy Mask From Active Image to All Images</string>
       </property>
      </widget>
+    </item>
+    <item>
+     <widget class="QLabel" name="label_56">
+      <property name="font">
+       <font>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="text">
+       <string>Find/Sort Cells</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <layout class="QGridLayout" name="gridLayout_7">
+      <item row="0" column="0">
+       <widget class="QComboBox" name="find_criterion">
+        <item>
+         <property name="text">
+          <string>Cell Area</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Cell Solidity</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Cell Aspect Ratio</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="find_mode">
+        <item>
+         <property name="text">
+          <string>Ascending</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Descending</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QPushButton" name="find_next">
+        <property name="text">
+         <string>Find Next</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QPushButton" name="find_previous">
+        <property name="text">
+         <string>Find Previous</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </item>
     <item>
      <widget class="Line" name="line_17">

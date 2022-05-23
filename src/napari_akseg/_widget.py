@@ -223,6 +223,10 @@ class AKSEG(QWidget):
         self.classify_edge = self.findChild(QPushButton, "classify_edge")
         self.modify_viewmasks = self.findChild(QCheckBox, "modify_viewmasks")
         self.modify_viewlabels = self.findChild(QCheckBox, "modify_viewlabels")
+        self.find_next = self.findChild(QPushButton, 'find_next')
+        self.find_previous = self.findChild(QPushButton, 'find_previous')
+        self.find_criterion = self.findChild(QComboBox, "find_criterion")
+        self.find_mode = self.findChild(QComboBox, "find_mode")
 
         self.modify_panzoom.setEnabled(False)
         self.modify_add.setEnabled(False)
@@ -334,6 +338,8 @@ class AKSEG(QWidget):
         self.refine_all.clicked.connect(self._refine_akseg)
         self.modify_copymasktoall.clicked.connect(self._copymasktoall)
         self.modify_deleteallmasks.clicked.connect(self._deleteallmasks)
+        self.find_next.clicked.connect(partial(self._sort_cells, "next"))
+        self.find_previous.clicked.connect(partial(self._sort_cells, "previous"))
 
         # export events
         self.export_active.clicked.connect(partial(self._export, "active"))
@@ -407,6 +413,140 @@ class AKSEG(QWidget):
         self.viewer.layers.events.inserted.connect(self._manualImport)
 
         self.threadpool = QThreadPool()
+
+
+    def _sort_cells(self, order):
+
+        current_fov = self.viewer.dims.current_step[0]
+
+        meta = self.segLayer.metadata[current_fov]
+
+        self._compute_simple_cell_stats()
+
+        find_criterion = self.find_criterion.currentText()
+        find_mode = self.find_mode.currentText()
+
+        cell_centre = meta["simple_cell_stats"]['cell_centre']
+        cell_zoom = meta["simple_cell_stats"]['cell_zoom']
+
+        if find_criterion == "Cell Area":
+            criterion = meta["simple_cell_stats"]["cell_area"]
+        if find_criterion == "Cell Solidity":
+            criterion = meta["simple_cell_stats"]["cell_solidity"]
+        if find_criterion == "Cell Aspect Ratio":
+            criterion = meta["simple_cell_stats"]["cell_aspect_ratio"]
+
+        if find_mode == "Ascending":
+            criterion, cell_centre, cell_zoom= zip(*sorted(zip(criterion, cell_centre, cell_zoom), key=lambda x: x[0]))
+        else:
+            criterion, cell_centre, cell_zoom = zip(*sorted(zip(criterion, cell_centre, cell_zoom), key=lambda x: x[0], reverse=True))
+
+        print(criterion)
+
+        current_position = tuple(np.array(self.viewer.camera.center).round())
+
+        if current_position not in cell_centre:
+
+            self.viewer.camera.center = cell_centre[0]
+            self.viewer.camera.zoom = cell_zoom[0]
+
+        else:
+
+            current_index = cell_centre.index(current_position)
+
+            if order == 'next':
+
+                new_index = current_index + 1
+
+            if order == 'previous':
+
+                new_index = current_index - 1
+
+            new_index = max(0, min(new_index, len(cell_centre) - 1))
+
+            self.viewer.camera.center = cell_centre[new_index]
+            self.viewer.camera.zoom = cell_zoom[new_index]
+
+
+
+    def _compute_simple_cell_stats(self):
+
+        current_fov = self.viewer.dims.current_step[0]
+
+        mask = self.segLayer.data[current_fov]
+
+        mask_ids = np.unique(mask)
+
+        cell_area = []
+        cell_solidity = []
+        cell_aspect_ratio = []
+        cell_centre = []
+        cell_zoom = []
+        cell_id = []
+
+        for mask_id in mask_ids:
+
+            if mask_id != 0:
+
+                cnt_mask = np.zeros(mask.shape, dtype=np.uint8)
+                cnt_mask[mask==mask_id] = 255
+
+                cnt, _ = cv2.findContours(cnt_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+                x, y, w, h = cv2.boundingRect(cnt[0])
+                y1, y2, x1, x2 = y, (y + h), x, (x + w)
+
+                try:
+                    area = cv2.contourArea(cnt[0])
+                    hull = cv2.convexHull(cnt[0])
+                    hull_area = cv2.contourArea(hull)
+                    solidity = float(area) / hull_area
+                    (_, _), (width, height), _ = cv2.minAreaRect(cnt[0])
+                    aspect_ratio = max(width, height) / min(width, height)
+
+                except:
+                    area = 0
+                    solidity = 0
+                    aspect_ratio = 0
+
+
+
+                centre = (0, y1 + (y2 - y1) // 2, x1 + (x2 - x1) // 2)
+
+                zoom = min((mask.shape[0]/(y2-y1)), (mask.shape[1]/(x2-x1)))
+
+                cell_area.append(area)
+                cell_solidity.append(solidity)
+                cell_aspect_ratio.append(aspect_ratio)
+                cell_centre.append(centre)
+                cell_zoom.append(zoom)
+                cell_id.append(mask_id)
+
+        cell_stats = {'cell_area': cell_area,
+                      'cell_solidity':cell_solidity,
+                      'cell_aspect_ratio':cell_aspect_ratio,
+                      'cell_centre': cell_centre,
+                      'cell_zoom': cell_zoom,
+                      'mask_id': cell_id}
+
+        layer_names = [layer.name for layer in self.viewer.layers if layer.name]
+
+        for layer in layer_names:
+
+            meta = self.viewer.layers[layer].metadata[current_fov]
+            meta['simple_cell_stats'] = cell_stats
+            self.viewer.layers[layer].metadata[current_fov] = meta
+
+
+
+
+
+
+
+
+
+
+
 
     def _manual_align_channels(self, key, viewer=None):
 
