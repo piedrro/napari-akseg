@@ -423,6 +423,8 @@ class AKSEG(QWidget):
 
         self._compute_simple_cell_stats()
 
+        print(self.viewer.camera.dict)
+
         find_criterion = self.find_criterion.currentText()
         find_mode = self.find_mode.currentText()
 
@@ -460,7 +462,7 @@ class AKSEG(QWidget):
 
                 new_index = current_index - 1
 
-            new_index = max(0, min(new_index, len(cell_centre) - 1))
+            new_index = max(current_fov, min(new_index, len(cell_centre) - 1))
 
             self.viewer.camera.center = cell_centre[new_index]
             self.viewer.camera.zoom = cell_zoom[new_index]
@@ -508,7 +510,7 @@ class AKSEG(QWidget):
 
                 centre = (0, y1 + (y2 - y1) // 2, x1 + (x2 - x1) // 2)
 
-                zoom = min((mask.shape[0]/(y2-y1)), (mask.shape[1]/(x2-x1)))
+                zoom = min((mask.shape[0]/(y2-y1)), (mask.shape[1]/(x2-x1)))/2
 
                 cell_area.append(area)
                 cell_solidity.append(solidity)
