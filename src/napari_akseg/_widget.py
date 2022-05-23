@@ -441,8 +441,6 @@ class AKSEG(QWidget):
         else:
             criterion, cell_centre, cell_zoom = zip(*sorted(zip(criterion, cell_centre, cell_zoom), key=lambda x: x[0], reverse=True))
 
-        print(criterion)
-
         current_position = tuple(np.array(self.viewer.camera.center).round())
 
         if current_position not in cell_centre:
@@ -466,7 +464,6 @@ class AKSEG(QWidget):
 
             self.viewer.camera.center = cell_centre[new_index]
             self.viewer.camera.zoom = cell_zoom[new_index]
-
 
 
     def _compute_simple_cell_stats(self):
@@ -509,8 +506,6 @@ class AKSEG(QWidget):
                     solidity = 0
                     aspect_ratio = 0
 
-
-
                 centre = (0, y1 + (y2 - y1) // 2, x1 + (x2 - x1) // 2)
 
                 zoom = min((mask.shape[0]/(y2-y1)), (mask.shape[1]/(x2-x1)))
@@ -536,15 +531,6 @@ class AKSEG(QWidget):
             meta = self.viewer.layers[layer].metadata[current_fov]
             meta['simple_cell_stats'] = cell_stats
             self.viewer.layers[layer].metadata[current_fov] = meta
-
-
-
-
-
-
-
-
-
 
 
 
