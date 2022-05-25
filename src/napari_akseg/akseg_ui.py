@@ -1044,7 +1044,7 @@ class Ui_tab_widget(object):
         tab_widget.addTab(self.export_tab, "")
 
         self.retranslateUi(tab_widget)
-        tab_widget.setCurrentIndex(2)
+        tab_widget.setCurrentIndex(0)
         self.import_precision.setCurrentIndex(1)
         self.nim_laser_mode.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(tab_widget)

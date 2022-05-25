@@ -53,17 +53,24 @@ def read_xml(paths):
             
         
             for j in range(len(img["Pixels"]["Channel"])):
-                
+
                 channel_data = img["Pixels"]["Channel"][j]
                 tiff_data = img["Pixels"]["TiffData"][j]
-                plane_data = img["Pixels"]["Plane"][j]
                 modality = channel_data["@IlluminationType"]
                 channel = channel_data["@Name"]
                 file_name = tiff_data["UUID"]["@FileName"]
-                exposure_time = plane_data["@ExposureTime"]
-                posX = plane_data["@PositionX"]
-                posY = plane_data["@PositionY"]
-                posZ = plane_data["@PositionZ"]
+
+                try:
+                    plane_data = img["Pixels"]["Plane"][j]
+                    exposure_time = plane_data["@ExposureTime"]
+                    posX = float(plane_data["@PositionX"])
+                    posY = float(plane_data["@PositionY"])
+                    posZ = float(plane_data["@PositionZ"])
+                except:
+                    exposure_time = None
+                    posX = None
+                    posY = None
+                    posZ = None
                                 
                 files[file_name] = dict(file_name = file_name,
                                         position = position,
@@ -74,9 +81,9 @@ def read_xml(paths):
                                         pixel_size = pixel_size,
                                         objective_magnification = objective_mag,
                                         objective_na = objective_na,
-                                        posX = float(posX),
-                                        posY = float(posY),
-                                        posZ = float(posZ))
+                                        posX = posX,
+                                        posY = posY,
+                                        posZ = posZ)
     return files
 
 
