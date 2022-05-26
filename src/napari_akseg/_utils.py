@@ -247,8 +247,6 @@ def read_scanr_images(self, progress_callback, measurements, channels):
                     meta["parent_folder"] = image_path.split("\\")[-5]
     
             else:
-                
-                print(channel, measurement_channels)
 
                 img = np.zeros(img_shape, dtype=img_type)
                 meta = {}
@@ -531,8 +529,6 @@ def get_folder(files):
             if len(set(paths[i])) != 1:
                 folder = str(paths[i - 1][0])
                 parent_folder = str(paths[i - 2][0])
-
-                print(folder,parent_folder)
 
                 break
 
@@ -1117,8 +1113,6 @@ def import_images(self, progress_callback, file_paths):
 
         file_path = os.path.abspath(file_paths[i])
         file_name = os.path.basename(file_path)
-
-        print(file_name)
 
         import_precision = self.import_precision.currentText()
         multiframe_mode = self.import_multiframe_mode.currentIndex()
