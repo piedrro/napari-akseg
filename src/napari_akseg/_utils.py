@@ -25,7 +25,7 @@ import scipy
 import pickle
 import xmltodict
 import warnings
-
+from astropy.io import fits
 
 def read_xml(paths):
     
@@ -51,28 +51,48 @@ def read_xml(paths):
             microscope = "ScanR"
             light_source = "LED"
             
-        
+            
+            channel_dict = {}
+            
             for j in range(len(img["Pixels"]["Channel"])):
-
+                
                 channel_data = img["Pixels"]["Channel"][j]
+                
+                channel_dict[j] = dict(modality = channel_data["@IlluminationType"],
+                                       channel = channel_data["@Name"],
+                                       mode = channel_data["@AcquisitionMode"])
+            
+            primary_channel = ""
+            
+            for j in range(len(img["Pixels"]["TiffData"])):
+                
+                
+                num_channels = img["Pixels"]["@SizeC"]
+                num_zstack = img["Pixels"]["@SizeZ"]
+                
                 tiff_data = img["Pixels"]["TiffData"][j]
-                modality = channel_data["@IlluminationType"]
-                channel = channel_data["@Name"]
+                
                 file_name = tiff_data["UUID"]["@FileName"]
-
+                file_path = os.path.abspath(path.replace(os.path.basename(path),file_name))
+                
                 try:
                     plane_data = img["Pixels"]["Plane"][j]
+                    channel_dat = channel_dict[int(plane_data["@TheC"])]
+                    modality = channel_dat["modality"]
+                    channel = channel_dat["channel"]
                     exposure_time = plane_data["@ExposureTime"]
                     posX = float(plane_data["@PositionX"])
                     posY = float(plane_data["@PositionY"])
                     posZ = float(plane_data["@PositionZ"])
                 except:
+                    modality = None
+                    channel = None
                     exposure_time = None
                     posX = None
                     posY = None
                     posZ = None
                                 
-                files[file_name] = dict(file_name = file_name,
+                files[file_path] = dict(file_name = file_name,
                                         position = position,
                                         microscope = microscope,
                                         light_source = light_source,
@@ -91,65 +111,68 @@ def read_scanr_directory(self, path):
 
     if isinstance(path, list) == False:
         path = [path]
-
+    
     if len(path) == 1:
-
+    
         path = os.path.abspath(path[0])
-
+    
         if os.path.isfile(path) == True:
             file_paths = [path]
-
+    
         else:
-
+    
             file_paths = glob(path + "*\**\*.tif", recursive=True)
     else:
         file_paths = path
-
-    scanR_meta_files = [path.replace(os.path.basename(path), "") for path in file_paths]
+        
+    
+    scanR_meta_files = [path.replace(os.path.basename(path),"") for path in file_paths]
     scanR_meta_files = np.unique(scanR_meta_files).tolist()
-    scanR_meta_files = [glob(path + "*.ome.xml")[0] for path in scanR_meta_files]
-
+    scanR_meta_files = [glob(path + "*.ome.xml")[0] for path in scanR_meta_files if len(glob(path + "*.ome.xml")) > 0]
+    
     file_info = read_xml(scanR_meta_files)
-
+    
     files = []
-
+    
     for path in file_paths:
+        
+        try:
 
-        path = os.path.abspath(path)
-
-        file = file_info[os.path.basename(path)]
-
-        file["path"] = path
-
-        folder = path.split("\\")[-4]
-        parent_folder = path.split("\\")[-5]
-
-        file["folder"] = folder
-        file["parent_folder"] = parent_folder
-
-        files.append(file)
-
+            file = file_info[path]
+            file["path"] = path
+            
+            folder = path.split("\\")[-3]
+            parent_folder = path.split("\\")[-4]
+            
+            file["folder"] = folder
+            file["parent_folder"] = parent_folder
+    
+            files.append(file)
+            
+        except:
+            pass
+        
     files = pd.DataFrame(files)
-
+    
     num_measurements = len(files.position.unique())
 
     import_limit = self.import_limit.currentText()
-
+    
     if import_limit == "None":
         import_limit = num_measurements
     else:
         if int(import_limit) > num_measurements:
             import_limit = num_measurements
-
+    
     acquisitions = files.position.unique()[:int(import_limit)]
-
+    
     files = files[files['position'] <= acquisitions[-1]]
-
-    measurements = files.groupby(by=['position'])
+    
+    measurements = files.groupby(by=['parent_folder','position','posZ'])
     channels = files["channel"].drop_duplicates().to_list()
-
+    
     channel_num = str(len(files["channel"].unique()))
-
+    
     print("Found " + str(len(measurements)) + " measurments in ScanR Folder(s) with " + channel_num + " channels.")
 
     return measurements, file_paths, channels
@@ -169,11 +192,7 @@ def read_scanr_images(self, progress_callback, measurements, channels):
 
         measurement_channels = measurement["channel"].tolist()
 
-        print(measurement_channels)
-
-        for j in range(len(channels)):
-
-            channel = channels[j]
+        for channel in channels:
 
             iter += 1
             progress = int( (iter / (len(measurements) * len(channels)) ) * 100)
@@ -194,7 +213,7 @@ def read_scanr_images(self, progress_callback, measurements, channels):
                 import_precision = self.import_precision.currentText()
                 multiframe_mode = self.import_multiframe_mode.currentIndex()
                 crop_mode = self.import_crop_mode.currentIndex()
-                img, meta = read_tif(path,import_precision,multiframe_mode,crop_mode)
+                img, meta = read_image_file(path, import_precision, multiframe_mode, crop_mode)
 
                 contrast_limit, alpha, beta, gamma = autocontrast_values(img)
 
@@ -226,8 +245,10 @@ def read_scanr_images(self, progress_callback, measurements, channels):
                 if "pos_" in image_path:
                     meta["folder"] = image_path.split("\\")[-4]
                     meta["parent_folder"] = image_path.split("\\")[-5]
-
+    
             else:
+                
+                print(channel, measurement_channels)
 
                 img = np.zeros(img_shape, dtype=img_type)
                 meta = {}
@@ -308,7 +329,7 @@ def import_imagej(self, progress_callback, paths):
         import_precision = self.import_precision.currentText()
         multiframe_mode = self.import_multiframe_mode.currentIndex()
         crop_mode = self.import_crop_mode.currentIndex()
-        image, meta = read_tif(paths, import_precision, multiframe_mode)
+        image, meta = read_image_file(paths, import_precision, multiframe_mode)
 
         from napari_akseg._utils_imagej import read_imagej_file
 
@@ -522,18 +543,28 @@ def get_folder(files):
 
     return folder, parent_folder
 
-def read_tif(path, precision="native", multiframe_mode = 0, crop_mode = 0):
+def read_image_file(path, precision="native", multiframe_mode = 0, crop_mode = 0):
 
     image_name = os.path.basename(path)
 
-    with tifffile.TiffFile(path) as tif:
-        try:
-            metadata = tif.pages[0].tags["ImageDescription"].value
-            metadata = json.loads(metadata)
-        except:
-            metadata = {}
+    if os.path.splitext(image_name)[1] == '.fits':
 
-    image = tifffile.imread(path)
+        with fits.open(path) as hdul:
+            image = hdul[0].data
+            try:
+                metadata = dict(hdul[0].header)
+            except:
+                metadata = {}
+    else:
+
+        with tifffile.TiffFile(path) as tif:
+            try:
+                metadata = tif.pages[0].tags["ImageDescription"].value
+                metadata = json.loads(metadata)
+            except:
+                metadata = {}
+
+        image = tifffile.imread(path)
 
     image = crop_image(image, crop_mode)
 
@@ -669,7 +700,7 @@ def read_nim_images(self, progress_callback, measurements, channels):
                 import_precision = self.import_precision.currentText()
                 multiframe_mode = self.import_multiframe_mode.currentIndex()
                 crop_mode = self.import_crop_mode.currentIndex()
-                img, meta = read_tif(path,import_precision,multiframe_mode,crop_mode)
+                img, meta = read_image_file(path, import_precision, multiframe_mode, crop_mode)
 
                 contrast_limit, alpha, beta, gamma = autocontrast_values(img)
 
@@ -920,7 +951,7 @@ def import_dataset(self, progress_callback, paths):
             import_precision = self.import_precision.currentText()
             multiframe_mode = self.import_multiframe_mode.currentIndex()
             crop_mode = self.import_crop_mode.currentIndex()
-            image, meta = read_tif(path, import_precision, multiframe_mode)
+            image, meta = read_image_file(path, import_precision, multiframe_mode)
 
             crop_mode = self.import_crop_mode.currentIndex()
             image = crop_image(image,crop_mode)
@@ -1006,7 +1037,7 @@ def import_AKSEG(self, progress_callback, file_paths):
             json_path = image_path.replace("\\images\\", "\\json\\").replace(".tif",".txt")
 
             import_precision = self.import_precision.currentText()
-            image, meta_stack = read_tif(path, import_precision, multiframe_mode = 0)
+            image, meta_stack = read_image_file(path, import_precision, multiframe_mode = 0)
 
             crop_mode = self.import_crop_mode.currentIndex()
             image = crop_image(image,crop_mode)
@@ -1064,7 +1095,7 @@ def import_images(self, progress_callback, file_paths):
     if os.path.isdir(file_paths[0]):
         file_paths = glob(file_paths[0] + "**\*", recursive=True)
 
-    image_formats = ["tif", "png", "jpeg"]
+    image_formats = ["tif", "png", "jpeg", "fits"]
 
     file_paths = [path for path in file_paths if path.split(".")[-1] in image_formats]
 
@@ -1087,10 +1118,13 @@ def import_images(self, progress_callback, file_paths):
         file_path = os.path.abspath(file_paths[i])
         file_name = os.path.basename(file_path)
 
+        print(file_name)
+
         import_precision = self.import_precision.currentText()
         multiframe_mode = self.import_multiframe_mode.currentIndex()
         crop_mode = self.import_crop_mode.currentIndex()
-        image, meta = read_tif(file_path, import_precision, multiframe_mode, crop_mode)
+
+        image, meta = read_image_file(file_path, import_precision, multiframe_mode, crop_mode)
 
         contrast_limit, alpha, beta, gamma = autocontrast_values(image)
 
@@ -1165,7 +1199,7 @@ def import_cellpose(self, progress_callback, file_paths):
 
             import_precision = self.import_precision.currentText()
             multiframe_mode = self.import_multiframe_mode.currentIndex()
-            img, meta = read_tif(image_path, import_precision, multiframe_mode)
+            img, meta = read_image_file(image_path, import_precision, multiframe_mode)
 
             crop_mode = self.import_crop_mode.currentIndex()
             img = crop_image(img,crop_mode)
@@ -1358,7 +1392,7 @@ def import_mat_data(self, image_path, mat_path):
     import_precision = self.import_precision.currentText()
     multiframe_mode = self.import_multiframe_mode.currentIndex()
     crop_mode = self.import_crop_mode.currentIndex()
-    image, meta = read_tif(image_path, import_precision, multiframe_mode)
+    image, meta = read_image_file(image_path, import_precision, multiframe_mode)
 
     mat_data = mat4py.loadmat(mat_path)
 
@@ -1620,7 +1654,7 @@ def import_JSON(self, progress_callback, file_paths):
             import_precision = self.import_precision.currentText()
             multiframe_mode = self.import_multiframe_mode.currentIndex()
             crop_mode = self.import_crop_mode.currentIndex()
-            image, meta = read_tif(image_path, import_precision, multiframe_mode)
+            image, meta = read_image_file(image_path, import_precision, multiframe_mode)
 
             from napari_akseg._utils_json import import_coco_json
 
