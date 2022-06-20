@@ -113,8 +113,7 @@ class AKSEG(QWidget):
         super().__init__()
 
         # import functions
-        from napari_akseg._utils_database import (populate_upload_combos, check_database_access,
-                                                  update_akmetadata, _populateUSERMETA)
+        from napari_akseg._utils_database import (populate_upload_combos, update_akmetadata, _populateUSERMETA)
         from napari_akseg._utils import stack_images, _manualImport
         from napari_akseg.akseg_ui import Ui_tab_widget
         from napari_akseg._utils_cellpose import _open_cellpose_model
@@ -122,7 +121,6 @@ class AKSEG(QWidget):
                                                          _deleteallmasks, _imageControls, _segmentationEvents)
 
         self.populate_upload_combos = partial(populate_upload_combos, self)
-        self.check_database_access = partial(check_database_access,self)
         self.update_akmetadata = partial(update_akmetadata, self)
         self.stack_image = partial(stack_images, self)
         self._open_cellpose_model = partial(_open_cellpose_model, self)
@@ -589,7 +587,8 @@ class AKSEG(QWidget):
         desktop = os.path.expanduser("~/Desktop")
         path = QFileDialog.getExistingDirectory(self, "Select Directory",desktop)
 
-        if path:
+        if os.path.isdir(path):
+
             folders = ["Images","Metadata","Models"]
 
             path = os.path.abspath(path)
@@ -672,7 +671,7 @@ class AKSEG(QWidget):
 
         path = QFileDialog.getExistingDirectory(self, "Select Directory", desktop)
 
-        if path:
+        if os.path.isdir(path):
 
             path = os.path.abspath(path)
 
@@ -795,116 +794,120 @@ class AKSEG(QWidget):
         import_mode = self.import_mode.currentText()
         import_filemode = self.import_filemode.currentText()
 
-        from napari_akseg._utils_database import check_database_access
-        dialog_dir = check_database_access(file_path=r"\\CMDAQ4.physics.ox.ac.uk\AKGroup")
+        desktop = os.path.expanduser("~/Desktop")
 
         if import_filemode == "Import File(s)":
-            paths, filter = QFileDialog.getOpenFileNames(self, "Open Files", dialog_dir, "Files (*)")
+            paths, _ = QFileDialog.getOpenFileNames(self, "Open Files", desktop, "Files (*)")
 
         if import_filemode == "Import Directory":
-            path = QFileDialog.getExistingDirectory(self, "Select Directory", dialog_dir)
+            path = QFileDialog.getExistingDirectory(self, "Select Directory", desktop)
 
             paths = [path]
 
-        if import_mode == "Import Images":
 
-            self.import_images = partial(napari_akseg._utils.import_images, self)
+        if "" in paths or paths == []:
 
-            worker = Worker(self.import_images, file_paths=paths)
-            worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
-            self.threadpool.start(worker)
+            print("No file/folder selected")
 
-        if import_mode == "Import NanoImager Data":
+        else:
 
-            self.read_nim_directory = partial(napari_akseg._utils.read_nim_directory, self)
-            self.read_nim_images = partial(napari_akseg._utils.read_nim_images, self)
+            if import_mode == "Import Images":
 
-            measurements, file_paths, channels = self.read_nim_directory(paths)
+                self.import_images = partial(napari_akseg._utils.import_images, self)
 
-            worker = Worker(self.read_nim_images, measurements=measurements, channels=channels)
-            worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
-            self.threadpool.start(worker)
+                worker = Worker(self.import_images, file_paths=paths)
+                worker.signals.result.connect(self._process_import)
+                worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
+                self.threadpool.start(worker)
 
-        if import_mode == "Import Masks":
+            if import_mode == "Import NanoImager Data":
 
-            self.import_masks = partial(napari_akseg._utils.import_masks, self)
+                self.read_nim_directory = partial(napari_akseg._utils.read_nim_directory, self)
+                self.read_nim_images = partial(napari_akseg._utils.read_nim_images, self)
 
-            self.import_masks(paths)
+                measurements, file_paths, channels = self.read_nim_directory(paths)
 
-        if import_mode == "Import Cellpose .npy file(s)":
+                worker = Worker(self.read_nim_images, measurements=measurements, channels=channels)
+                worker.signals.result.connect(self._process_import)
+                worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
+                self.threadpool.start(worker)
 
-            self.import_cellpose = partial(napari_akseg._utils.import_cellpose, self)
+            if import_mode == "Import Masks":
 
-            worker = Worker(self.import_cellpose, file_paths=paths)
-            worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
-            self.threadpool.start(worker)
+                self.import_masks = partial(napari_akseg._utils.import_masks, self)
 
-        if import_mode == "Import Oufti .mat file(s)":
+                self.import_masks(paths)
 
-            self.import_oufti = partial(napari_akseg._utils.import_oufti, self)
+            if import_mode == "Import Cellpose .npy file(s)":
 
-            worker = Worker(self.import_oufti, file_paths=paths)
-            worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
-            self.threadpool.start(worker)
+                self.import_cellpose = partial(napari_akseg._utils.import_cellpose, self)
 
-        if import_mode == "Import JSON .txt file(s)":
+                worker = Worker(self.import_cellpose, file_paths=paths)
+                worker.signals.result.connect(self._process_import)
+                worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
+                self.threadpool.start(worker)
 
-            self.import_JSON = partial(napari_akseg._utils.import_JSON, self)
+            if import_mode == "Import Oufti .mat file(s)":
 
-            worker = Worker(self.import_JSON, file_paths=paths)
-            worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
-            self.threadpool.start(worker)
+                self.import_oufti = partial(napari_akseg._utils.import_oufti, self)
 
-        if import_mode == "Import ImageJ files(s)":
+                worker = Worker(self.import_oufti, file_paths=paths)
+                worker.signals.result.connect(self._process_import)
+                worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
+                self.threadpool.start(worker)
 
-            self.import_imagej = partial(napari_akseg._utils.import_imagej, self)
+            if import_mode == "Import JSON .txt file(s)":
 
-            worker = Worker(self.import_imagej, paths=paths)
-            worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
-            self.threadpool.start(worker)
+                self.import_JSON = partial(napari_akseg._utils.import_JSON, self)
 
-        if import_mode == "Import Images + Masks Dataset":
+                worker = Worker(self.import_JSON, file_paths=paths)
+                worker.signals.result.connect(self._process_import)
+                worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
+                self.threadpool.start(worker)
 
-            self.import_dataset = partial(napari_akseg._utils.import_dataset, self)
+            if import_mode == "Import ImageJ files(s)":
 
-            worker = Worker(self.import_dataset, file_paths=paths)
-            worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
-            self.threadpool.start(worker)
+                self.import_imagej = partial(napari_akseg._utils.import_imagej, self)
 
-        if import_mode == "Import AKSEG Dataset":
+                worker = Worker(self.import_imagej, paths=paths)
+                worker.signals.result.connect(self._process_import)
+                worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
+                self.threadpool.start(worker)
 
-            from napari_akseg._utils_database import read_AKSEG_directory
-            self.read_AKSEG_images = partial(napari_akseg._utils_database.read_AKSEG_images, self)
+            if import_mode == "Import Images + Masks Dataset":
 
-            import_limit = self.import_limit.currentText()
+                self.import_dataset = partial(napari_akseg._utils.import_dataset, self)
 
-            measurements, file_paths, channels = read_AKSEG_directory(self, paths, import_limit)
+                worker = Worker(self.import_dataset, file_paths=paths)
+                worker.signals.result.connect(self._process_import)
+                worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
+                self.threadpool.start(worker)
 
-            worker = Worker(self.read_AKSEG_images, measurements=measurements, channels=channels)
-            worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
-            self.threadpool.start(worker)
+            if import_mode == "Import AKSEG Dataset":
 
-        if import_mode == "Import ScanR Data":
+                from napari_akseg._utils_database import read_AKSEG_directory
+                self.read_AKSEG_images = partial(napari_akseg._utils_database.read_AKSEG_images, self)
 
-            from napari_akseg._utils import read_scanr_directory, read_scanr_images
-            self.read_scanr_images = partial(read_scanr_images, self)
+                import_limit = self.import_limit.currentText()
 
-            measurements, file_paths, channels = read_scanr_directory(self, paths)
+                measurements, file_paths, channels = read_AKSEG_directory(self, paths, import_limit)
 
-            worker = Worker(self.read_scanr_images, measurements=measurements, channels=channels)
-            worker.signals.result.connect(self._process_import)
-            worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
-            self.threadpool.start(worker)
+                worker = Worker(self.read_AKSEG_images, measurements=measurements, channels=channels)
+                worker.signals.result.connect(self._process_import)
+                worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
+                self.threadpool.start(worker)
 
+            if import_mode == "Import ScanR Data":
 
+                from napari_akseg._utils import read_scanr_directory, read_scanr_images
+                self.read_scanr_images = partial(read_scanr_images, self)
+
+                measurements, file_paths, channels = read_scanr_directory(self, paths)
+
+                worker = Worker(self.read_scanr_images, measurements=measurements, channels=channels)
+                worker.signals.result.connect(self._process_import)
+                worker.signals.progress.connect(partial(self._aksegProgresbar, progressbar="import"))
+                self.threadpool.start(worker)
 
     def _getExportDirectory(self):
 
@@ -914,12 +917,11 @@ class AKSEG(QWidget):
 
         if self.export_location.currentText() == "Select Directory":
 
-            from napari_akseg._utils_database import check_database_access
-            dialog_dir = check_database_access(file_path=r"\\CMDAQ4.physics.ox.ac.uk\AKGroup")
+            desktop = os.path.expanduser("~/Desktop")
 
-            path = QFileDialog.getExistingDirectory(self, "Select Export Directory", dialog_dir)
+            path = QFileDialog.getExistingDirectory(self, "Select Export Directory", desktop)
 
-            if path:
+            if os.path.isdir(path):
                 self.export_directory.setText(path)
 
     def _export(self, mode):

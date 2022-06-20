@@ -146,14 +146,17 @@ def _open_cellpose_model(self):
     else:
         file_path = os.path.expanduser("~/Desktop")
 
-    path = QFileDialog.getOpenFileName(self, "Open File",file_path,"Cellpose Models (*)")
+    path, _ = QFileDialog.getOpenFileName(self, "Open File",file_path,"Cellpose Models (*)")
 
-    if path:
-        path = os.path.abspath(path[0])
-        model_name = path.split("\\")[-1]
+    if path != "":
 
-        print("Loaded Model: " + model_name)
+        if os.path.isfile(path):
 
-        self.cellpose_custom_model_path = path
-        self.cellpose_custom_model.setText(model_name)
-        self.cellpose_model.setCurrentIndex(3)
+            path = os.path.abspath(path)
+            model_name = path.split("\\")[-1]
+
+            print("Loaded Model: " + model_name)
+
+            self.cellpose_custom_model_path = path
+            self.cellpose_custom_model.setText(model_name)
+            self.cellpose_model.setCurrentIndex(3)
