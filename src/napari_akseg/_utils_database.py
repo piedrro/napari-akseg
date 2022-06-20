@@ -232,7 +232,11 @@ def read_AKSEG_directory(self, path, import_limit=1):
                                   "segmented",
                                   "labelled",
                                   "segmentation_curated",
-                                  "label_curated"])
+                                  "label_curated",
+                                  "posX",
+                                  "posY",
+                                  "posZ",
+                                  "timestamp"])
 
     for i in range(len(file_paths)):
 
@@ -262,6 +266,20 @@ def read_AKSEG_directory(self, path, import_limit=1):
             segmentations_curated = meta["segmentations_curated"]
             labels_curated = meta["labels_curated"]
 
+            if "posX" in meta.keys():
+                posX = meta['posX']
+                posY = meta['posX']
+                posZ = meta['posX']
+            else:
+                posX = 0
+                posY = 0
+                posZ = 0
+
+            if "timestamp" in meta.keys():
+                timestamp = meta["timestamp"]
+            else:
+                timestamp = 0
+
             data = [path,
                     folder,
                     user_initial,
@@ -274,7 +292,11 @@ def read_AKSEG_directory(self, path, import_limit=1):
                     segmented,
                     labelled,
                     segmentations_curated,
-                    labels_curated]
+                    labels_curated,
+                    posX,
+                    posY,
+                    posZ,
+                    timestamp]
 
             files.loc[len(files)] = data
 
@@ -299,6 +321,8 @@ def read_AKSEG_directory(self, path, import_limit=1):
     files = files[files["segmentation_file"].isin(segmentation_files[:int(import_limit)])]
 
     channels = files.explode("channel_list")["channel_list"].unique().tolist()
+
+    files.sort_values(by=['posX', 'posY', 'posZ'], ascending=True)
 
     measurements = files.groupby("segmentation_file")
 
@@ -838,10 +862,10 @@ def _get_database_paths(self):
 
         paths = user_metadata["image_save_path"].tolist()
 
-        import_limit = self.database_download_limit.currentText()
-
-        if import_limit != "All":
-            paths = paths[:int(import_limit)]
+    import_limit = self.database_download_limit.currentText()
+    #
+    # if import_limit != "All":
+    #     paths = paths[:int(import_limit)]
 
     return paths, import_limit
 

@@ -27,6 +27,8 @@ import datetime
 import json
 from multiprocessing import Pool
 import tqdm
+import pickle
+
 
 def read_tif(path):
     
@@ -49,6 +51,7 @@ def get_filemeta(path):
     try:
     
         meta = read_tif(path)
+        
         file_name = path.split("\\")[-1]
         file_metadata = pd.DataFrame([[
             datetime.datetime.now(),
@@ -171,6 +174,8 @@ paths = [path for path in paths if "_flows.tif" not in path]
 
 
 
+
+
 if __name__ == '__main__':
 
     with Pool() as p:
@@ -187,12 +192,30 @@ if __name__ == '__main__':
         
         for user_initial in user_initials:
             
-            akgroup_dir = r"\\cmwt188\d\Piers\AKSEG CMWT188\Images"
+            akgroup_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images"
             user_metadata_path = akgroup_dir + "\\" + user_initial + "\\" + user_initial + "_file_metadata.txt"   
             
             data = user_metadata[user_metadata["user_initial"] == user_initial]
             
             data.to_csv(user_metadata_path, sep=",", index = False)            
+
+
+
+
+#     with open('usermeta.pickle', 'wb') as handle:
+#         pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    
+# with open('usermeta.pickle', 'rb') as handle:
+#     data = pickle.load(handle)
+    
+
+
+
+# data = data[data["microscope"] == "ScanR"]
+# data = data.sort_values(by=['folder','file_name'], ascending=True)
+
+
+
 
 
 
