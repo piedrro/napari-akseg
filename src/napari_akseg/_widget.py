@@ -739,21 +739,22 @@ class AKSEG(QWidget):
 
     def _downloadDatabase(self):
 
-        from napari_akseg._utils_database import _get_database_paths, read_AKSEG_directory, read_AKSEG_images
-        self._get_database_paths = partial(_get_database_paths,self)
+        from napari_akseg._utils_database import read_AKSEG_images, get_filtered_database_metadata
+
+        self.get_filtered_database_metadata = partial(get_filtered_database_metadata,self)
         self.read_AKSEG_images = partial(read_AKSEG_images, self)
 
         self.active_import_mode = "AKSEG"
 
-        paths, import_limit = self._get_database_paths()
+        measurements, file_paths, channels = self.get_filtered_database_metadata()
 
-        if len(paths) == 0:
+        print(channels)
+
+        if len(file_paths) == 0:
 
             print("no matching database files found")
 
         else:
-
-            measurements, file_paths, channels = read_AKSEG_directory(self, paths, import_limit)
 
             worker = Worker(self.read_AKSEG_images, measurements=measurements, channels=channels)
             worker.signals.result.connect(self._process_import)

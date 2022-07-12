@@ -352,9 +352,13 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
                 progress_callback.emit(progress)
                 iter += 1
 
-                print("loading image[" + channel + "] " + str(i + 1) + " of " + str(len(measurements)))
+                print("loading image[" + str(channel) + "] " + str(i + 1) + " of " + str(len(measurements)))
 
-                path = dat["path"].item()
+                file_name = dat["file_name"].item()
+                user_initial = dat["user_initial"].item()
+                folder = dat["folder"].item()
+
+                path = os.path.join(self.database_path,"Images",user_initial,"images",folder,file_name)
 
                 image_path = os.path.abspath(path)
                 mask_path = os.path.abspath(path.replace("\\images\\","\\masks\\"))
@@ -559,6 +563,11 @@ def generate_multichannel_stack(self):
     return multi_image_stack, multi_meta_stack, layer_names
 
 
+def update_user_metadata(meta):
+
+    pass
+
+
 def _upload_AKSEG_database(self, progress_callback, mode):
 
     try:
@@ -575,7 +584,7 @@ def _upload_AKSEG_database(self, progress_callback, mode):
             content = self.upload_content.currentText()
             microscope = self.upload_microscope.currentText()
             modality = self.upload_modality.currentText()
-            date_uploaded = datetime.datetime.now()
+            date_modified = datetime.datetime.now()
             overwrite_images = self.upload_overwrite_images.isChecked()
             overwrite_masks = self.upload_overwrite_masks.isChecked()
             overwrite_all_metadata = self.overwrite_all_metadata.isChecked()
@@ -591,6 +600,14 @@ def _upload_AKSEG_database(self, progress_callback, mode):
             if os.path.exists(user_metadata_path):
 
                 user_metadata = pd.read_csv(user_metadata_path, sep=",")
+
+                if "date_modified" not in user_metadata.columns.tolist():
+                    user_metadata.insert(1, "date_modified", user_metadata["date_uploaded"])
+                    user_metadata.insert(1, "date_created", user_metadata["date_uploaded"])
+                    user_metadata.insert(30, "posX", 0)
+                    user_metadata.insert(31, "posY", 0)
+                    user_metadata.insert(32, "posZ", 0)
+
                 metadata_file_names = user_metadata["file_name"].tolist()
                 metadata_akseg_hash = user_metadata["akseg_hash"].tolist()
 
@@ -687,13 +704,31 @@ def _upload_AKSEG_database(self, progress_callback, mode):
                                 akseg_hash = meta["akseg_hash"]
                                 import_mode = meta["import_mode"]
 
+                                if "posX" in meta.keys():
+                                    posX = meta['posX']
+                                    posY = meta['posX']
+                                    posZ = meta['posX']
+                                elif "StagePos_um" in meta.keys():
+                                    posX, posY, posZ = meta["StagePos_um"]
+                                else:
+                                    posX,posY,posZ = 0,0,0
+
+                                if file_name in metadata_file_names:
+                                    date_uploaded = user_metadata[user_metadata["file_name"] == file_name]["date_uploaded"].item()
+                                else:
+                                    date_uploaded = datetime.datetime.now()
+
+                                if "date_created" in meta.keys():
+                                    date_created = meta["date_created"]
+                                else:
+                                    date_created = datetime.datetime.now()
+
                                 #stops user from overwriting AKSEG files, unless they have opened them from AKSEG for curation
                                 if akseg_hash in metadata_akseg_hash and import_mode != "AKSEG" and overwrite_images == False and overwrite_masks == False and overwrite_metadata is False:
 
                                     print("file already exists  in AKSEG Database:   " + file_name)
 
                                 else:
-
 
                                     if import_mode == "AKSEG":
                                         if overwrite_selected_metadata is True:
@@ -765,6 +800,8 @@ def _upload_AKSEG_database(self, progress_callback, mode):
                                         meta["label_path"] = None
 
                                     file_metadata = [date_uploaded,
+                                                     date_created,
+                                                     date_modified,
                                                      file_name,
                                                      meta["channel"],
                                                      meta["file_list"],
@@ -792,6 +829,9 @@ def _upload_AKSEG_database(self, progress_callback, mode):
                                                      meta["labelled"],
                                                      meta["segmentations_curated"],
                                                      meta["labels_curated"],
+                                                     posX,
+                                                     posY,
+                                                     posZ,
                                                      meta["image_path"],
                                                      image_path,
                                                      meta["mask_path"],
@@ -816,7 +856,7 @@ def _upload_AKSEG_database(self, progress_callback, mode):
     except:
         print(traceback.format_exc())
 
-def _get_database_paths(self):
+def get_filtered_database_metadata(self):
 
     database_metadata = {"user_initial": self.upload_initial.currentText(),
                          "content": self.upload_content.currentText(),
@@ -845,29 +885,52 @@ def _get_database_paths(self):
 
     user_metadata_path = database_dir + "\\" + user_initial + "\\" + user_initial + "_file_metadata.txt"
 
-    paths = []
-    import_limit = 0
-
     if os.path.isfile(user_metadata_path) == False:
 
         print("Could not find metadata for user: " + user_initial)
 
+        measurements = []
+        file_paths = []
+        channels = []
+
     else:
 
-        user_metadata = pd.read_csv(user_metadata_path, sep=",")
+        user_metadata = pd.read_csv(user_metadata_path, sep=",", low_memory=False)
+
+        if "date_modified" not in user_metadata.columns.tolist():
+            user_metadata.insert(1, "date_modified", user_metadata["date_uploaded"])
+            user_metadata.insert(1, "date_created", user_metadata["date_uploaded"])
+            user_metadata.insert(30, "posX", 0)
+            user_metadata.insert(31, "posY", 0)
+            user_metadata.insert(32, "posZ", 0)
+
         user_metadata["segmentation_channel"] = user_metadata["segmentation_channel"].astype(str)
 
         for key, value in database_metadata.items():
             user_metadata = user_metadata[user_metadata[key] == value]
 
-        paths = user_metadata["image_save_path"].tolist()
+        user_metadata.sort_values(by=['posX', 'posY', 'posZ'], ascending=True)
 
-    import_limit = self.database_download_limit.currentText()
-    #
-    # if import_limit != "All":
-    #     paths = paths[:int(import_limit)]
+        import_limit = self.database_download_limit.currentText()
 
-    return paths, import_limit
+        segmentation_files = user_metadata["segmentation_file"].unique()
+        num_measurements = len(segmentation_files)
+
+        if import_limit == "All":
+            import_limit = num_measurements
+        else:
+            if int(import_limit) > num_measurements:
+                import_limit = num_measurements
+
+        user_metadata = user_metadata[user_metadata["segmentation_file"].isin(segmentation_files[:int(import_limit)])]
+
+        user_metadata["path"] = user_metadata["image_save_path"]
+
+        channels = user_metadata["channel"].unique().tolist()
+        file_paths = user_metadata["image_save_path"].tolist()
+        measurements = user_metadata.groupby("segmentation_file")
+
+    return measurements, file_paths, channels
 
 
 def _populateUSERMETA(self):

@@ -52,9 +52,6 @@ def cumsum(a):
     return np.array(b)
 
 
-
-
-
 def autocontrast_values(image, clip_hist_percent=1):
 
     # calculate histogram

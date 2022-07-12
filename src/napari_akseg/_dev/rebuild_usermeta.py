@@ -12,7 +12,7 @@ import tifffile
 import shutil
 import matplotlib.pyplot as plt
 import pickle
-import psycopg2
+# import psycopg2
 import tifffile
 import shutil
 from skimage import exposure, img_as_ubyte
@@ -28,6 +28,8 @@ import datetime
 import json
 from multiprocessing import Pool
 import tqdm
+import traceback
+
 
 def read_tif(path):
     
@@ -50,9 +52,36 @@ def get_filemeta(path):
     try:
     
         meta = read_tif(path)
+        
+        if "posX" in meta.keys():
+            
+            posX = meta['posX']
+            posY = meta['posX']
+            posZ = meta['posX']
+            
+        elif "StagePos_um" in meta.keys():
+            posX,posY,posZ = meta["StagePos_um"]
+        else:
+            posX = 0
+            posY = 0
+            posZ = 0
+
+        
+        if "date_modified" in meta.keys():
+            date_modified = meta["date_modfied"]
+        else:
+            date_modified = datetime.datetime.now()
+            
+        if "date_created" in meta.keys():
+            date_created = meta["date_created"]
+        else:
+            date_created = datetime.datetime.now() 
+
         file_name = path.split("\\")[-1]
         file_metadata = pd.DataFrame([[
             datetime.datetime.now(),
+            date_created,
+            date_modified,
             file_name,
             meta["channel"],
             meta["file_list"],
@@ -80,6 +109,9 @@ def get_filemeta(path):
             meta["labelled"],
             meta["segmentations_curated"],
             meta["labels_curated"],
+            posX,
+            posY,
+            posZ,
             meta["image_path"],
             path,
             None,
@@ -88,6 +120,8 @@ def get_filemeta(path):
             path.replace("\\images\\","\\masks\\")]]
             ,
             columns=["date_uploaded",
+            "date_created",
+            "date_modified",
             "file_name",
             "channel",
             "file_list",
@@ -115,6 +149,9 @@ def get_filemeta(path):
             "labelled",
             "segmentation_curated",
             "label_curated",
+            "posX",
+            "posY",
+            "posZ",
             "image_load_path",
             "image_save_path",
             "mask_load_path",
@@ -125,7 +162,11 @@ def get_filemeta(path):
         
     except:
         
+        print(traceback.format_exc())
+        
         file_metadata = pd.DataFrame(columns=["date_uploaded",
+                                              "date_created",
+                                              "date_modified",
             "file_name",
             "channel",
             "file_list",
@@ -153,6 +194,9 @@ def get_filemeta(path):
             "labelled",
             "segmentation_curated",
             "label_curated",
+            "posX",
+            "posY",
+            "posZ",
             "image_load_path",
             "image_save_path",
             "mask_load_path",
@@ -165,9 +209,13 @@ def get_filemeta(path):
     return file_metadata
                                  
     
-paths = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images\AZ"
+paths = r"\\cmwt188\d\Piers\AKSEG CMWT188\Images\PT\images"
 paths = glob(paths + "*\**\*.tif")
 paths = [path for path in paths if "_flows.tif" not in path]
+
+
+
+# file_metadata = get_filemeta(paths[0])
 
 
 if __name__ == '__main__':
@@ -186,7 +234,7 @@ if __name__ == '__main__':
         
         for user_initial in user_initials:
             
-            akgroup_dir = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Piers\AKSEG\Images"
+            akgroup_dir = r"\\cmwt188\d\Piers\AKSEG CMWT188\Images"
             user_metadata_path = akgroup_dir + "\\" + user_initial + "\\" + user_initial + "_file_metadata.txt"   
             
             data = user_metadata[user_metadata["user_initial"] == user_initial]
