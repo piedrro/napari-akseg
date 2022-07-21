@@ -82,54 +82,60 @@ def read_nim_directory(path):
                                   "posZ",
                                   "laser",
                                   "timestamp"])
-
+    
     for i in range(len(file_paths)):
+        
+        try:
 
-        path = file_paths[i]
-        path = os.path.abspath(path)
-
-        file_name = path.split("\\")[-1]
-        folder = os.path.abspath(path).split("\\")[-2]
-        parent_folder = os.path.abspath(path).split("\\")[-3]
-
-        with tifffile.TiffFile(path) as tif:
-
-            tif_tags = {}
-            for tag in tif.pages[0].tags.values():
-                name, value = tag.name, tag.value
-                tif_tags[name] = value
-                
-        if "ImageDescription" in tif_tags:
-            
-            metadata = tif_tags["ImageDescription"]
-            metadata = json.loads(metadata)
-    
-            laseractive = metadata["LaserActive"]
-            laserpowers = metadata["LaserPowerPercent"]
-            laserwavelength_nm = metadata["LaserWavelength_nm"]
-            timestamp = metadata["timestamp_us"]
-    
-            posX, posY, posZ = metadata["StagePos_um"]
-    
-            if True in laseractive:
-                laseractive = np.array(laseractive, dtype=bool)
-                laserpowers = np.array(laserpowers, dtype=float)
-                laserwavelength_nm = np.array(laserwavelength_nm, dtype=str)
-    
-                # finds maximum active power
-                power = laserpowers[laseractive == True].max()
-    
-                laser_index = np.where(laserpowers == power)
-    
-                laser = laserwavelength_nm[laser_index][0]
-            else:
-                laser = "White Light"
+            path = file_paths[i]
+            path = os.path.abspath(path)
     
             file_name = path.split("\\")[-1]
+            folder = os.path.abspath(path).split("\\")[-2]
+            parent_folder = os.path.abspath(path).split("\\")[-3]
     
-            data = [path, file_name, posX, posY, posZ, laser, timestamp]
+            with tifffile.TiffFile(path) as tif:
     
-            files.loc[len(files)] = [path, file_name, folder, parent_folder, posX, posY, posZ, laser, timestamp]
+                tif_tags = {}
+                for tag in tif.pages[0].tags.values():
+                    name, value = tag.name, tag.value
+                    tif_tags[name] = value
+                    
+            if "ImageDescription" in tif_tags:
+                
+                metadata = tif_tags["ImageDescription"]
+                metadata = json.loads(metadata)
+        
+                laseractive = metadata["LaserActive"]
+                laserpowers = metadata["LaserPowerPercent"]
+                laserwavelength_nm = metadata["LaserWavelength_nm"]
+                timestamp = metadata["timestamp_us"]
+        
+                posX, posY, posZ = metadata["StagePos_um"]
+        
+                if True in laseractive:
+                    laseractive = np.array(laseractive, dtype=bool)
+                    laserpowers = np.array(laserpowers, dtype=float)
+                    laserwavelength_nm = np.array(laserwavelength_nm, dtype=str)
+        
+                    # finds maximum active power
+                    power = laserpowers[laseractive == True].max()
+        
+                    laser_index = np.where(laserpowers == power)
+        
+                    laser = laserwavelength_nm[laser_index][0]
+                else:
+                    laser = "White Light"
+        
+                file_name = path.split("\\")[-1]
+        
+                data = [path, file_name, posX, posY, posZ, laser, timestamp]
+        
+                files.loc[len(files)] = [path, file_name, folder, parent_folder, posX, posY, posZ, laser, timestamp]
+                
+        except:
+            print(file_paths[i])
+        
 
     files[["posX", "posY", "posZ"]] = files[["posX", "posY", "posZ"]].round(decimals=0)
 
@@ -202,15 +208,21 @@ def read_nim_directory(path):
 
 
 
-path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Alison\20220227_multipleabx\cam2"
-path = r"\\physics\dfs\DAQ\CondensedMatterGroups\AKGroup\Alison\20220706 JR Data MG1655 CtrlCamCipKas\chloramphenicol"
+# path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Alison\20220227_multipleabx\cam2"
+# path = r"\\physics\dfs\DAQ\CondensedMatterGroups\AKGroup\Alison\20220706 JR Data MG1655 CtrlCamCipKas\chloramphenicol"
+# path = r"\\physics\dfs\DAQ\CondensedMatterGroups\AKGroup\Alison\20220706 JR Data MG1655 CtrlCamCipKas\kasugamycin"
 
-files = glob(path + "\**\*.tif")
+# files = glob(path + "\**\*.tif")
 
-files = read_nim_directory(path)
+# files = read_nim_directory(path)
 
 
 
+
+path = r"\\physics\dfs\DAQ\CondensedMatterGroups\AKGroup\Alison\20220706 JR Data MG1655 CtrlCamCipKas\kasugamycin\pos_42\AF_multistrain_MG1655_kasugamycin_redo-1_posXY42_channels_t0_posZ0_colour1.tif"
+
+
+image = tifffile.imread(path, plugin='pil')
 
 # # path = files[0]
 

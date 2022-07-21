@@ -238,6 +238,9 @@ def read_AKSEG_directory(self, path, import_limit=1):
                                   "posZ",
                                   "timestamp"])
 
+
+
+
     for i in range(len(file_paths)):
 
         path = file_paths[i]
@@ -310,15 +313,15 @@ def read_AKSEG_directory(self, path, import_limit=1):
     files = files[files["segmentation_file"] != "missing image channel"]
 
     segmentation_files = files["segmentation_file"].unique()
-    num_measurements = len(segmentation_files)
-
-    if import_limit == "All":
-        import_limit = num_measurements
-    else:
-        if int(import_limit) > num_measurements:
-            import_limit = num_measurements
-
-    files = files[files["segmentation_file"].isin(segmentation_files[:int(import_limit)])]
+    # num_measurements = len(segmentation_files)
+    #
+    # if import_limit == "All":
+    #     import_limit = num_measurements
+    # else:
+    #     if int(import_limit) > num_measurements:
+    #         import_limit = num_measurements
+    #
+    # files = files[files["segmentation_file"].isin(segmentation_files[:int(import_limit)])]
 
     channels = files.explode("channel_list")["channel_list"].unique().tolist()
 
@@ -334,7 +337,16 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
     imported_images = {}
     iter = 1
 
-    for i in range(len(measurements)):
+    import_limit = self.database_download_limit.currentText()
+
+    if import_limit == "All":
+        import_limit = len(measurements)
+    else:
+        if int(import_limit) > len(measurements):
+            import_limit = len(measurements)
+
+
+    for i in range(int(import_limit)):
 
         measurement = measurements.get_group(list(measurements.groups)[i])
 
@@ -348,11 +360,11 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
 
                 dat = measurement[measurement["channel"] == channel]
 
-                progress = int( ((iter+1) / ((len(measurements) * len(channels))) ) * 100)
+                progress = int( ((iter+1) / ((int(import_limit) * len(channels))) ) * 100)
                 progress_callback.emit(progress)
                 iter += 1
 
-                print("loading image[" + str(channel) + "] " + str(i + 1) + " of " + str(len(measurements)))
+                print("loading image[" + str(channel) + "] " + str(i + 1) + " of " + str(int(import_limit)))
 
                 file_name = dat["file_name"].item()
                 user_initial = dat["user_initial"].item()
@@ -714,7 +726,7 @@ def _upload_AKSEG_database(self, progress_callback, mode):
                                     posX,posY,posZ = 0,0,0
 
                                 if file_name in metadata_file_names:
-                                    date_uploaded = user_metadata[user_metadata["file_name"] == file_name]["date_uploaded"].item()
+                                    date_uploaded = user_metadata[(user_metadata["file_name"] == file_name) & (user_metadata["folder"] == folder)]["date_uploaded"].item()
                                 else:
                                     date_uploaded = datetime.datetime.now()
 
@@ -916,19 +928,19 @@ def get_filtered_database_metadata(self):
         segmentation_files = user_metadata["segmentation_file"].unique()
         num_measurements = len(segmentation_files)
 
-        if import_limit == "All":
-            import_limit = num_measurements
-        else:
-            if int(import_limit) > num_measurements:
-                import_limit = num_measurements
-
-        user_metadata = user_metadata[user_metadata["segmentation_file"].isin(segmentation_files[:int(import_limit)])]
+        # if import_limit == "All":
+        #     import_limit = num_measurements
+        # else:
+        #     if int(import_limit) > num_measurements:
+        #         import_limit = num_measurements
+        #
+        # user_metadata = user_metadata[user_metadata["segmentation_file"].isin(segmentation_files[:int(import_limit)])]
 
         user_metadata["path"] = user_metadata["image_save_path"]
 
         channels = user_metadata["channel"].unique().tolist()
         file_paths = user_metadata["image_save_path"].tolist()
-        measurements = user_metadata.groupby("segmentation_file")
+        measurements = user_metadata.groupby(["folder","segmentation_file"])
 
     return measurements, file_paths, channels
 

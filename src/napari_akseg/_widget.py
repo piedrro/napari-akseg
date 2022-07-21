@@ -748,8 +748,6 @@ class AKSEG(QWidget):
 
         measurements, file_paths, channels = self.get_filtered_database_metadata()
 
-        print(channels)
-
         if len(file_paths) == 0:
 
             print("no matching database files found")
