@@ -349,6 +349,7 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
     for i in range(int(import_limit)):
 
         measurement = measurements.get_group(list(measurements.groups)[i])
+        iter += 1
 
         for j in range(len(channels)):
 
@@ -360,9 +361,9 @@ def read_AKSEG_images(self, progress_callback, measurements, channels):
 
                 dat = measurement[measurement["channel"] == channel]
 
-                progress = int( ((iter+1) / ((int(import_limit) * len(channels))) ) * 100)
+                progress = int( ((iter+1) / int(import_limit) ) * 100)
                 progress_callback.emit(progress)
-                iter += 1
+
 
                 print("loading image[" + str(channel) + "] " + str(i + 1) + " of " + str(int(import_limit)))
 
@@ -611,7 +612,7 @@ def _upload_AKSEG_database(self, progress_callback, mode):
 
             if os.path.exists(user_metadata_path):
 
-                user_metadata = pd.read_csv(user_metadata_path, sep=",")
+                user_metadata = pd.read_csv(user_metadata_path, sep=",", low_memory=False)
 
                 if "date_modified" not in user_metadata.columns.tolist():
                     user_metadata.insert(1, "date_modified", user_metadata["date_uploaded"])
