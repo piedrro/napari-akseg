@@ -131,9 +131,9 @@ def read_nim_directory(path):
     
             files.loc[len(files)] = [path, file_name, folder, parent_folder, posX, posY, posZ, laser, timestamp]
 
-    files[["posX", "posY", "posZ"]] = files[["posX", "posY", "posZ"]].round(decimals=1)
+    files[["posX", "posY", "posZ"]] = files[["posX", "posY", "posZ"]].round(decimals=0)
 
-    files = files.sort_values(by=['posX', 'posY', 'timestamp', 'laser'], ascending=True)
+    files = files.sort_values(by=['timestamp','posX', 'posY','laser'], ascending=True)
     files = files.reset_index(drop=True)
     files["aquisition"] = 0
 
@@ -149,6 +149,10 @@ def read_nim_directory(path):
         posY = positions["posY"].iloc[i]
 
         data = files[(files["posX"] == posX) & (files["posY"] == posY)]
+        
+        if len(data) == 1:
+            
+            print(posX,posY,file_name)
 
         indicies = data.index.values
 
@@ -168,7 +172,7 @@ def read_nim_directory(path):
 
     num_measurements = len(files.aquisition.unique())
 
-    import_limit = 10
+    import_limit = "None"
 
     if import_limit == "None":
         import_limit = num_measurements
@@ -185,7 +189,7 @@ def read_nim_directory(path):
     files["folder"] = folder
     files["parent_folder"] = parent_folder
 
-    measurements = files.groupby(by=['aquisition'])
+    measurements = files.groupby(by=['folder','aquisition'])
     channels = files["laser"].drop_duplicates().to_list()
 
     channel_num = str(len(files["laser"].unique()))
@@ -199,6 +203,7 @@ def read_nim_directory(path):
 
 
 path = r"\\CMDAQ4.physics.ox.ac.uk\AKGroup\Alison\20220227_multipleabx\cam2"
+path = r"\\physics\dfs\DAQ\CondensedMatterGroups\AKGroup\Alison\20220706 JR Data MG1655 CtrlCamCipKas\chloramphenicol"
 
 files = glob(path + "\**\*.tif")
 

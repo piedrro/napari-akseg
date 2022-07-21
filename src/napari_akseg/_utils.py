@@ -476,9 +476,9 @@ def read_nim_directory(self, path):
     
             files.loc[len(files)] = [path, file_name, folder, parent_folder, posX, posY, posZ, laser, timestamp]
 
-    files[["posX", "posY", "posZ"]] = files[["posX", "posY", "posZ"]].round(decimals=1)
+    files[["posX", "posY", "posZ"]] = files[["posX", "posY", "posZ"]].round(decimals=0)
 
-    files = files.sort_values(by=['posX', 'posY', 'timestamp', 'laser'], ascending=True)
+    files = files.sort_values(by=['timestamp', 'posX', 'posY', 'laser'], ascending=True)
     files = files.reset_index(drop=True)
     files["aquisition"] = 0
 
